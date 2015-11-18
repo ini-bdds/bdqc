@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Analysis Report</title>
+<link rel="stylesheet" type="text/css" href="report.css">
+<style>
+		path {
+			stroke: black;
+			stroke-width: 2;
+			fill: none;
+		}
+		line {
+			stroke: black;
+			stroke-width:2;
+			fill:black;
+		}
+</style>
+<script type="application/x-javascript" src="d3.min.js"></script>
+<script type="application/x-javascript" src="density-data.js"></script>
+</head>
+
+<body onload="initDocument()">
+
+<table id="incidence_matrix">
+<caption></caption>
+<thead class="im">
+</thead>
+<tbody class="im">
+<tr>
+<td id="c0_0">0,0</td>
+<td id="c0_1">0,1</td>
+<td id="c0_2">0,2</td>
+</tr>
+<tr>
+<td id="c1_0">2,0</td>
+<td id="c1_1">2,1</td>
+<td id="c1_2">2,2</td>
+</tr>
+<tr>
+<td id="c2_0">2,0</td>
+<td id="c2_1">2,1</td>
+<td id="c2_2">2,2</td>
+</tr>
+<tr>
+<td id="c3_0">3,0</td>
+<td id="c3_1">3,1</td>
+<td id="c3_2">3,2</td>
+</tr>
+</tbody>
+<tfoot class="im">
+</tfoot>
+</table>
+<hr>
+<div id="plots" style="position:relative;height:400px">
+<!--It appears that absolutely-positioned content inside a div results in 0
+	computed size; explicitly giving the height fixed it. -->
+	<svg id="s0" width="320" height="240" style="position:absolute;top:0;left:0">
+		<g id="g0" transform="translate(0,240)"></g>
+	</svg>
+	<svg id="s1" width="320" height="240" style="position:absolute;top:0;left:0">
+		<g id="g1" transform="translate(0,240)"></g>
+	</svg>
+	<svg id="s2" width="320" height="240" style="position:absolute;top:0;left:0">
+		<g id="g2" transform="translate(0,240)"></g>
+	</svg>
+</div>
+<hr>
+<ul>
+<li><a href="http://www.w3.org/TR/html5/">HTML5</a>
+<li><a href="http://www.w3.org/TR/SVG11/">SVG</a>
+<li><a href="http://www.w3.org/DOM/DOMTR">DOM</a>
+<li><a href="http://www.w3.org/TR/2011/REC-CSS2-20110607/">CSS2</a>
+<li><a href="http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/core.html">DOM Level 3 Core</a>
+<li><a href="http://www.w3.org/TR/2000/REC-DOM-Level-2-Events-20001113/events.html">DOM Level 2 Events</a>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference">Mozilla JavaScript</a>
+<li><a href="http://www.ecma-international.org/ecma-262/6.0/index.html">ECMA Script</a>
+</ul>
+</body>
+	<script src="report-d3.js"></script>
+</html>
+

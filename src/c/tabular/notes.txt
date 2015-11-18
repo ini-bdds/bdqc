@@ -1,0 +1,32 @@
+H1	All lines are
+	1) empty or contain
+	2) data or
+	3) non-data (header(s) or metadata).
+H2	Headers are always initial non-empty line(s).
+H3	Data lines *may* contain fields separated in some consistent way.
+	Notably, they may not! FASTA and some other genomics files only contain
+	one field per line.
+	x	If any data line contains multiple fields, all data lines contain
+		same number of fields. This is clearly not true for all, but
+		reasonable for the majority of text data files. 
+H4	File may contain scattered metadata lines.
+	x	These often imply another level of organization, a block
+		structuring, of the file and parameters such as fields-per-line
+		might change across these "boundaries."
+H5	Initial part of file (top N lines/X%) is representative of whole file.
+	In particular line termination *should* be established at end of first
+	line.
+
+/**
+  * Notes: The LF and CR ASCII characters are "inviolable" to this program.
+  * In particular, they CANNOT appear inside fields; they ALWAYS indicate a
+  * line termination. This is in violation to the RFC 4180 for "CSV" format.
+  * The CSV format makes quoting optional.
+  * Every format can potentially allow escaping or otherwise exceptional
+  * treatment of potentially any character. For example CSV, allows LF/CR
+  * inside fields as long as the fields are quoted. CSV's "escaping" of
+  * double quotes is use of two adjacent quotes, not a backslash. It is
+  * quite impossible to (efficiently) simultaneously check every possible
+  * tabular format. Rely on heuristics.
+  */
+

@@ -1,0 +1,29 @@
+
+Three formatting attributes fully specify 99% of tabular data formats:
+1.	What, if any, delimiter is in use?
+2.	What separator is in use?
+3.	Is the separator subject to coalescing?
+
+Delimiters ALWAYS occur in pairs and delimit the extent of a field.
+Typically when delimiters are in use *anything* (including line-breaking
+characters!) is allowed inside the delimiters. Delimiters are typically
+double-quotes, but need not be. When delimiters are in use, if a delimiter
+is to appear inside a field it must be escaped, often by doubling it.
+Delimiters are usually used *with* separators.
+
+Separators separate fields (and implicitly delimit) fields. Adjacent
+separators imply an empty field. A separator is usually a character
+completly prohibited from appearing *in* a field as there is typically
+no defined escaping mechanism (though there could be).
+
+When separators are used without delimiters every line should have the
+exact same count of separator characters (and a field count one greater
+than the separator count).
+
+Whitespace *may* get special treatment at a line's start and end.
+
+Moreover, not all combinations of these are actually used in practice.
+For example, only whitespace is ever subject to coalescing.
+
+CSV format is probably the worst of all in that delimiters are optional.
+

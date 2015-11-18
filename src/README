@@ -1,0 +1,29 @@
+
+INSTALLATION
+
+python3 setup.py install
+
+...will install the BDQC framework to the "standard" system location.
+You may need to have root/sudo access to do this.  Alternatively,...
+
+python3 setup.py install --prefix=$HOME
+
+...will install it under you $HOME directory which is good practice
+(to avoid polluting the system directory with special-purpose packages.)
+If you install under $HOME, you may need to...
+
+export PYTHONPATH="$PYTHONPATH:$HOME/lib/python3.3/site-packages"
+
+...in your shell in order for python to find BDQC. Moreover, replace
+"python3.3" above with your version.
+
+python3 -c 'import sys;print(sys.path)'
+
+...will tell you where python is going to look for things. If you've
+exported PYTHONPATH, the directory you specified should be in there.
+
+Finally,
+
+python3 -m bdqc.scan -h shows you how to run it. See other documentation
+for programmatic usage.
+
