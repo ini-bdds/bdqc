@@ -15,8 +15,7 @@ setup(name="bdqc",
 		'bdqc.builtin',
 		'bdqc.builtin.extrinsic',
 		'bdqc.builtin.filetype',
-		'bdqc.builtin.tabular',
-		'bdqc.builtin.dummy' ],
+		'bdqc.builtin.tabular' ],
 #	package_dir=
 	package_data={'bdqc':['report-d3.js','report.css']},
 	ext_package='bdqc.builtin', # ...scopes all extensions
