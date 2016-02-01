@@ -78,6 +78,7 @@ into third party Python code. This allows it to be incorporated into
 pipelines.
 
 \subsection{How does it work?}
+\subsubsection{Stage 1 --- Summary production}
 
 The BDQC \emph{framework} orchestrates the execution of \emph{plugins}.
 {\bf All of the within-file analysis capabilities are provided by
@@ -90,7 +91,7 @@ The framework:
 \item assembles a list of paths identifying files to be analyzed
 \item executes a specified set (actually a directed acyclic graph (DAG))
 		of plugins on each filename
-\item manages the aggregation of plugins' results,
+\item manages the aggregation of plugins' results into a summary for each file,
 \item and performs the final aggregate analysis.
 \end{enumerate}
 
@@ -104,8 +105,10 @@ implementation) zero or more dependencies. The framework insures that:
 
 The framework minimizes work by only executing a plugin when required.
 
-Again, the BDQC framework does not touch files' content---it only handles
-filenames, but it does perform all the \emph{aggregate} analysis.
+Again, the BDQC \emph{framework} does not touch files' content---it only handles
+filenames.
+\subsubsection{Stage 2 --- Summary analysis}
+but it does perform all the \emph{aggregate} analysis.
 The aggregate analysis consists of a set statistical techniques to
 identify outliers in the \emph{univariate} statistics produced by plugins.
 By default, any file that is an outlier in any statistic is flagged as
@@ -284,6 +287,42 @@ TODO
 %Files can be specified in several ways including lists of directory trees
 %to be search recursively or manifests. Additionally filters can be specified
 %to refine the search.
+
+%Extractors
+%	all first-level scalars are taken by default +
+%	any others specified
+%
+%Quantitative model-based (Gaussian) outlier detection
+%Categorical
+%	unanimity
+%	conditional unanimity
+%Ordinal
+%	any missing value
+%Set-valued
+%	identity
+%
+%
+%Scalar
+%	Quantitative
+%		robust outlier detection.
+%	Categorical.
+%		predefined rules
+%			if >N% of values are identical, all should be
+%			alert to any non-unanimity
+%	Ordinal
+%		essentially preclude outliers
+%Multi-valued
+%	Quantitative
+%		categorical values
+%			all
+%
+%Table analysis can be decomposed into
+%	0. an upstream configuration requirement
+%		"all categorical data to accumulate up to 23 labels (to capture chromosome)"
+%	1. an extraction problem
+%		"pull */tabledata/columns/labels out of all files' .bdqc"
+%	2. an analysis
+%		All sets should be identical
 
 \end{document}
 
