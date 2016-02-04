@@ -4,7 +4,7 @@ from os import listdir
 from os.path import join,isdir
 from re import match
 
-def walk( root, depth=None, include=None, exclude=None ):
+def walk( root, depth=None, include=None, exclude=None, callback=None ):
 	"""
 	A slightly more capable directory tree walker than that provided
 	by os.walk. This provides for limiting depth of recursion and
@@ -12,6 +12,8 @@ def walk( root, depth=None, include=None, exclude=None ):
 	"""
 	files = []
 	stack = [ root, ]
+	if callback is None:
+		callback = lambda x:files.append(x)
 	while stack and ( not depth or len(stack) <= depth ):
 		d = stack.pop()
 		subs = []
@@ -21,7 +23,7 @@ def walk( root, depth=None, include=None, exclude=None ):
 				subs.append( c )
 			elif ((not include) or match( include, c)) \
 				 and ((not exclude) or not match( exclude, c)):
-				files.append( c )
+				callback( c )
 		stack.extend( subs )
 	return files
 
