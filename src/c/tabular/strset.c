@@ -1,6 +1,6 @@
 
 /**
-  * A SIMPLE string set implementation:
+  * A SIMPLE hashtable-based string set implementation.
   */
 
 #include <stdio.h>
@@ -16,20 +16,8 @@ struct entry {
 	const char *str;
 };
 
-struct table {
-	int capacity;
-	int occupancy;
-	unsigned int mask;
-	int dup;
-
-	string_hash_fx hash;
-	unsigned int   seed;
-
-	struct entry *array;
-};
-
-#define ENTRY_IS_OCCUPIED(t,p) ((t)->array[(p)].str != NULL)
-#define ENTRY_IS_EMPTY(t,p)    ((t)->array[(p)].str == NULL)
+#define ENTRY_IS_OCCUPIED(s,p) ((s)->array[(p)].str != NULL)
+#define ENTRY_IS_EMPTY(s,p)    ((s)->array[(p)].str == NULL)
 
 #ifdef _DEBUG
 static int _is_power_of_2( int v ) {
@@ -51,11 +39,11 @@ static int _power_of_2_upper_bound( int v ) {
   * in the new table.
   * Warning: Disable strdup'ing temporarily
   */
-static int _rehash( struct entry *cur, int n, struct table *t ) {
+static int _rehash( struct entry *cur, int n, struct strset *t ) {
 	int error = 0;
 	// Turn OFF string duplicating while rehashing...
-	const int DUPING = t->dup;
-	t->dup = 0;
+	const int DUPING = s->dup;
+	s->dup = 0;
 	// ...because either:
 	// 1. we weren't duplicating anyway, or
 	// 2. we're rehashing strings already duplicated once that we own!
@@ -68,8 +56,8 @@ static int _rehash( struct entry *cur, int n, struct table *t ) {
 			}
 		}
 	}
-	// WARNING: Don't return without resetting t->dup!
-	t->dup = DUPING;
+	// WARNING: Don't return without resetting s->dup!
+	s->dup = DUPING;
 	return error;
 }
 #endif
@@ -83,10 +71,10 @@ static int _rehash( struct entry *cur, int n, struct table *t ) {
   * NULL...no need for more error reporting.
   */
 
-void * set_create( unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
+struct strset * set_create( unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
 
-	struct table *table
-		= calloc( 1, sizeof(struct table) );
+	struct strset *table
+		= calloc( 1, sizeof(struct strset) );
 
 	if( table ) {
 		if( set_init( table, max, dup, fxn, seed ) ) {
@@ -98,29 +86,26 @@ void * set_create( unsigned int max, int dup, string_hash_fx fxn, unsigned int s
 }
 
 
-int set_init( void *ht, unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
+int set_init( struct strset *s, unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
 
-	if( ht ) {
+	if( s ) {
 
-		struct table *t
-			= (struct table *)ht;
-
-		t->capacity
+		s->capacity
 			= _power_of_2_upper_bound(max);
 
-		assert( _is_power_of_2(t->capacity) );
+		assert( _is_power_of_2(s->capacity) );
 
-		t->array
-			= calloc( t->capacity, sizeof(struct entry) );
+		s->array
+			= calloc( s->capacity, sizeof(struct entry) );
 
-		if( t->array ) {
-			t->mask
-				= (t->capacity-1);
-			t->dup
+		if( s->array ) {
+			s->mask
+				= (s->capacity-1);
+			s->dup
 				= dup;
-			t->hash
+			s->hash
 				= fxn;
-			t->seed
+			s->seed
 				= seed;
 			return 0;
 		}
@@ -134,38 +119,35 @@ int set_init( void *ht, unsigned int max, int dup, string_hash_fx fxn, unsigned 
   * TODO: Currently indices are not stable--that is, after resizing strings
   * are mapped to different indices.
   */
-int set_grow( void *ht ) {
-
-	struct table *t 
-		= (struct table*)ht;
+int set_grow( struct strset *s ) {
 
 	struct entry *cur
-		= t->array;
+		= s->array;
 
-	t->array
-		= calloc( t->capacity*2, sizeof(struct entry) );
+	s->array
+		= calloc( s->capacity*2, sizeof(struct entry) );
 
-	if( t->array ) {
+	if( s->array ) {
 
 		const int OCCUPANCY // Hold the current sizes in case of failure.
-			= t->occupancy;
+			= s->occupancy;
 		const int CAPACITY
-			= t->capacity;
+			= s->capacity;
 
-		t->occupancy = 0;   // Update the table's vital stats...
-		t->capacity *= 2;
-		t->mask = (t->capacity-1);
+		s->occupancy = 0;   // Update the table's vital stats...
+		s->capacity *= 2;
+		s->mask = (s->capacity-1);
 
 		if( _rehash( cur, CAPACITY, t ) ) {
 			// On failure reset everything to its original state.
-			free( t->array );
-			t->occupancy = OCCUPANCY;
-			t->capacity  = CAPACITY;
-			t->mask = (t->capacity-1);
-			t->array = cur;
+			free( s->array );
+			s->occupancy = OCCUPANCY;
+			s->capacity  = CAPACITY;
+			s->mask = (s->capacity-1);
+			s->array = cur;
 			return SZS_RESIZE_FAILED;
 		}
-		assert( OCCUPANCY == t->occupancy );
+		assert( OCCUPANCY == s->occupancy );
 		free( cur );
 		return 0;
 	}
@@ -174,21 +156,16 @@ int set_grow( void *ht ) {
 #endif
 
 
-int set_insert( void *ht, const char *str ) {
+int set_insert( struct strset *s, const char *str ) {
 
-	struct table *t 
-		= (struct table*)ht;
-
-	assert( (t != NULL) && (str != NULL) );
-
-	if( *str ) {
+	if( str != NULL && *str != '\0' ) {
 
 		const int L
 			= strlen( str );
 		const unsigned int K
-			= t->hash( str, L, t->seed );
+			= s->hash( str, L, s->seed );
 		const int IDEAL
-			= K & t->mask;
+			= K & s->mask;
 		int pos
 			= IDEAL;
 		struct entry *ent
@@ -196,19 +173,19 @@ int set_insert( void *ht, const char *str ) {
 
 		// Find either an empty slot or a slot with the same key.
 
-		while( ENTRY_IS_OCCUPIED(t,pos) && strcmp( t->array[pos].str, str ) ) {
-			pos = (pos + 1) % t->capacity;
+		while( ENTRY_IS_OCCUPIED(s,pos) && strcmp( s->array[pos].str, str ) ) {
+			pos = (pos + 1) % s->capacity;
 			if( pos == IDEAL )
 				break;
 		}
 
-		ent = t->array + pos;
+		ent = s->array + pos;
 #ifdef HAVE_BAG
 		ent->count += 1;
 #endif
-		if( ENTRY_IS_EMPTY(t,pos) ) {
-			ent->str    = t->dup ? strdup(str) : str;
-			t->occupancy += 1;
+		if( ENTRY_IS_EMPTY(s,pos) ) {
+			ent->str    = s->dup ? strdup(str) : str;
+			s->occupancy += 1;
 			return SZS_ADDED;
 		} else
 		if( strcmp( ent->str, str ) == 0 ) {
@@ -221,16 +198,12 @@ int set_insert( void *ht, const char *str ) {
 }
 
 
-int set_iter( void *ht, void **cookie ) {
-
-	assert( ht );
+int set_iter( const struct strset *s, void **cookie ) {
 
 	if( cookie ) {
-		struct table *t 
-			= (struct table*)ht;
 		*cookie = NULL;
-		if( set_count( ht ) > 0 ) {
-			*cookie = t->array;
+		if( set_count( s ) > 0 ) {
+			*cookie = s->array;
 			return 1;
 		}
 	}
@@ -241,15 +214,11 @@ int set_iter( void *ht, void **cookie ) {
 /**
   * Return the next string.
   */
-int set_next( void *ht, void **cookie, const char **pstr ) {
-
-	assert( ht );
+int set_next( const struct strset *s, void **cookie, const char **pstr ) {
 
 	if( cookie ) {
-		struct table *t 
-			= (struct table*)ht;
 		struct entry *ent = (struct entry *)(*cookie);
-		while( ent < t->array + t->capacity ) {
+		while( ent < s->array + s->capacity ) {
 			if( ent->str ) {
 				*pstr = ent->str;
 				*cookie = ent++;
@@ -261,8 +230,8 @@ int set_next( void *ht, void **cookie, const char **pstr ) {
 }
 
 
-int set_count( void *ht ) {
-	return ((struct table *)ht)->occupancy;
+int set_count( const struct strset *s ) {
+	return s->occupancy;
 }
 
 
@@ -270,49 +239,40 @@ int set_count( void *ht ) {
   * Frees strings owned by the table--that is, those that were copied on
   * insertion--and NULLs all pointers.
   */
-void set_clear( void *ht ) {
-	struct table *t 
-		= (struct table*)ht;
-	if( t->dup ) {
-		for(int i = 0; i < t->capacity; i++ ) {
-			if( t->array[i].str )
-				free( (void*)(t->array[i].str) );
+void set_clear( struct strset *s ) {
+	if( s->dup ) {
+		for(int i = 0; i < s->capacity; i++ ) {
+			if( s->array[i].str )
+				free( (void*)(s->array[i].str) );
 		}
 	}
-	memset( t->array, 0, t->capacity*sizeof(struct entry) );
-	t->occupancy = 0;
+	memset( s->array, 0, s->capacity*sizeof(struct entry) );
+	s->occupancy = 0;
 }
 
 
 /**
   * Frees the array
   */
-void set_fini( void *ht ) {
+void set_fini( struct strset *s ) {
 
-	struct table *t 
-		= (struct table*)ht;
-
-	assert( t != NULL );
-
-	set_clear( ht );
-	free( t->array );
-	t->array = NULL;
+	set_clear( s );
+	free( s->array );
+	s->array = NULL;
 }
 
 
-void set_destroy( void *ht ) {
+void set_destroy( struct strset *s ) {
 
-	if( ht ) {
-		set_fini( ht );
-		free( ht );
+	if( s ) {
+		set_fini( s );
+		free( s );
 	}
 }
 
 
 #ifdef _DEBUG
-void set_dump( void *ht, FILE *fp ) {
-	struct table *t 
-		= (struct table*)ht;
+void set_dump( struct strset *s, FILE *fp ) {
 }
 #endif
 
@@ -361,14 +321,14 @@ int main( int argc, char *argv[] ) {
 	char *line = NULL;
 	size_t blen = 0;
 	ssize_t llen;
-	void *h;
+	struct strset *s;
 
 	if( NULL == fp ) {
 		fprintf( stderr, "no input\n" );
 		exit(-1);
 	}
 
-	h = set_create( CAP, DUP, murmur3_32, 17 );
+	s = set_create( CAP, DUP, murmur3_32, 17 );
 
 	while( exit_status == 0 
 			&& (llen = getline( &line, &blen, fp )) > 0 ) {
@@ -376,7 +336,7 @@ int main( int argc, char *argv[] ) {
 #ifdef HAVE_SET_GROW
 retry:
 #endif
-		switch( set_insert( h, line ) ) {
+		switch( set_insert( s, line ) ) {
 		case SZS_ADDED:
 		case SZS_PRESENT:
 			if( verbose )
@@ -389,7 +349,7 @@ retry:
 
 		case SZS_TABLE_FULL:
 #ifdef HAVE_SET_GROW
-			if( set_grow( h ) == 0 )
+			if( set_grow( s ) == 0 )
 				goto retry;
 #endif
 			exit_status = 3;
@@ -407,22 +367,20 @@ retry:
 	if( exit_status == 0 ) {
 
 		const int N
-			= set_count(h);
-		struct table *t
-			= (struct table*)h;
+			= set_count(s);
 		int i;
 
-		qsort( t->array, t->capacity, sizeof(struct entry), _cmp_entry );
+		qsort( s->array, s->capacity, sizeof(struct entry), _cmp_entry );
 
 		// Verify in a table with N entries,...
 		// 1. no other non-null entries exist in the table.
 
 		for(i = 0; i < N; i++ ) {
-			fprintf( stdout, "%s\n", t->array[i].str );
+			fprintf( stdout, "%s\n", s->array[i].str );
 		}
 
-		for(     ; i < t->capacity; i++ ) {
-			if( t->array[i].str != NULL ) {
+		for(     ; i < s->capacity; i++ ) {
+			if( s->array[i].str != NULL ) {
 				exit_status = 6;
 				goto EXIT;
 			}
@@ -430,7 +388,7 @@ retry:
 	}
 
 EXIT:
-	set_destroy( h );
+	set_destroy( s );
 	return exit_status;
 }
 
@@ -443,34 +401,32 @@ EXIT:
 
 extern unsigned int hash( const char *s, unsigned int );
 
-static void command_loop( void *h ) {
+static void command_loop( struct strset *s ) {
 	char *line = NULL;
 	size_t blen = 0;
 	ssize_t llen;
 
-	struct table *t
-		= (struct table *)h;
 	fprintf( stderr,
-		"table capacity %d, mask %08x\n", t->capacity, t->mask );
+		"table capacity %d, mask %08x\n", s->capacity, s->mask );
 
 	while( (llen = getline( &line, &blen, stdin )) > 0 ) {
 		if( line[0] == '?' ) {
-			printf( "%d/%d\n", set_count(h), t->capacity );
+			printf( "%d/%d\n", set_count(s), s->capacity );
 			continue;
 		} else
 #ifdef HAVE_SET_GROW
 		if( line[0] == '+' ) {
-			if( set_grow( h ) )
+			if( set_grow( s ) )
 				errx( -1, "failed growing" );
 			continue;
 		} else
 #endif
 		if( line[0] == '-' ) {
-			set_clear( h );
+			set_clear( s );
 			continue;
 		}
 		line[llen-1] = '\0'; // lop off the newline.
-		switch( set_insert( h, line ) ) {
+		switch( set_insert( s, line ) ) {
 		case SZS_ADDED:
 			printf( "+ %s\n", line );
 			break;
@@ -498,7 +454,7 @@ int main( int argc, char *argv[] ) {
 
 	int opt_interactive = 0;
 
-	void *h = NULL;
+	struct strset *s = NULL;
 
 	if( argc < 2 )
 		errx( -1, "%s <capacity>", argv[0] );
@@ -534,11 +490,11 @@ int main( int argc, char *argv[] ) {
 
 	} while( 1 );
 
-	h = set_create( CAP, 1 /* duplicate */, murmur3_32, 0 );
+	s = set_create( CAP, 1 /* duplicate */, murmur3_32, 0 );
 
-	if( h ) {
+	if( s ) {
 		if( opt_interactive )
-			command_loop( h );
+			command_loop( s );
 		else {
 			char *line = NULL;
 			size_t blen = 0;
@@ -548,7 +504,7 @@ int main( int argc, char *argv[] ) {
 #ifdef HAVE_SET_GROW
 retry:
 #endif
-				switch( set_insert( h, line ) ) {
+				switch( set_insert( s, line ) ) {
 				case SZS_ADDED:
 					break;
 				case SZS_PRESENT:
@@ -557,7 +513,7 @@ retry:
 					break;
 				case SZS_TABLE_FULL:
 #ifdef HAVE_SET_GROW
-					if( set_grow( h ) == 0 )
+					if( set_grow( s ) == 0 )
 						goto retry;
 #endif
 					break;
@@ -569,8 +525,8 @@ retry:
 				free( line );
 		}
 
-		printf( "cardinality = %d\n", set_count( h ) );
-		set_destroy( h );
+		printf( "cardinality = %d\n", set_count( s ) );
+		set_destroy( s );
 
 	} else
 		err( -1, "failed creating hash table with capacity %d", CAP );

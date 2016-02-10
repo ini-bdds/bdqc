@@ -6,6 +6,7 @@
 
 #include "tabular.h"
 #include "strset.h"
+#include "column.h"
 
 /**
   * First level items:
@@ -164,9 +165,7 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 
 			void *cookie;
 			const int NL
-				= c->label_set == NULL
-				? 0
-				: set_count( c->label_set );
+				= set_count( & c->value_set );
 
 			if( fprintf( fp, "{"
 				"\"votes\":{\"empty\":%d,\"integer\":%d,\"float\":%d,\"string\":%d},"
@@ -180,10 +179,10 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 				c->statistics[1] ) < 0 )
 				return -1;
 
-			if( set_iter( c->label_set, &cookie ) ) {
+			if( set_iter( & c->value_set, &cookie ) ) {
 				const char *s;
 				int j = 0;
-				while( set_next( c->label_set, &cookie, &s ) ) {
+				while( set_next( & c->value_set, &cookie, &s ) ) {
 					if( fputs( "\"", fp ) < 0 )
 						return -1;
 
@@ -196,7 +195,7 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 			}
 
 			if( fprintf( fp, "],\"max_labels_exceeded\":%s}%s",
-					_json_bool_value(c->label_set_exhausted),
+					_json_bool_value( c->excess_values ),
 					nrem > 0 ? "," : "" ) < 0 )
 				return -1;
 			c++;

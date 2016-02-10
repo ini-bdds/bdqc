@@ -7,6 +7,11 @@
 #define _tabular_h_
 
 /**
+  * Forward decls
+  */
+struct column;
+
+/**
   * These character class labels are used to index two histograms:
   * 1. a simple linear histogram that exactly reflects these labels, and
   * 2. a 3x3 transition matrix THAT ONLY MAKES USE OF THE FIRST THREE
@@ -77,46 +82,6 @@ enum TabularStatus {
   * TODO: As part of the analysis of the file's initial lines we ought to
   * infer whether the above *or its inverse* applies. 
   */
-
-enum FIELD_TYPE {
-	FTY_EMPTY,
-	FTY_INTEGER,
-	FTY_FLOAT,
-	FTY_STRING,
-	FTY_COUNT
-};
-
-enum ROW_TYPE {
-	RTY_EMPTY,
-	RTY_META, // or header or comment, we don't distinguish
-	RTY_DATA
-};
-
-
-struct column {
-
-	/**
-	  * Number of types each type has been encountered in the column.
-	  */
-	int type_vote[ FTY_COUNT ];
-
-	/**
-	  * These are computed on all numeric values (integer or float).
-	  * Integers are coerced to doubles. The sample count is
-	  *
-	  *			type_vote[ FTY_INTEGER ] + type_vote[ FTY_FLOAT ]
-	  *
-	  * Computations are recursive, so should be numerically stable.
-	  */
-	double statistics[2]; // mean, variance
-
-	/**
-	  * The label set is create just-in-time when a field is
-	  * encountered that can't be interpreted as numeric.
-	  */
-	void *label_set;
-	bool  label_set_exhausted;
-};
 
 struct format; // ...forward decl for following type decls.
 typedef void (*FIELD_PARSER)( const char *field, int offset, void *context );

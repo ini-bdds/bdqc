@@ -40,7 +40,8 @@ OBJECTS=main.o\
 	strset.o\
 	ascii.o\
 	murmur3.o \
-	json.o
+	json.o \
+	util.o
 
 ############################################################################
 # Rules
@@ -58,7 +59,7 @@ pptable.o :
 sspp.o : sspp.h
 
 $(EXECUTABLE) : $(OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 ############################################################################
 # Unit tests
