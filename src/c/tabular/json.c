@@ -1,14 +1,11 @@
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 
-#include "strbag.h"
-#include "format.h"
-#include "scan.h"
+#include "tabular.h"
+#include "strset.h"
 
 /**
   * First level items:
@@ -61,12 +58,17 @@ static void _json_encode_ascii( const char *pc, FILE *fp ) {
 
 /**
   */
-int write_json( long status, const struct file_analysis *a, FILE *fp ) {
+int tabular_as_json( const struct table_description *a, FILE *fp ) {
 
 	const int NC = a->table.column_count;
 	const struct column *c = a->column;
 
-	assert( status != E_FILE_IO );
+	/**
+	  * If analysis failed because of an I/O error there is possibly
+	  * nothing valid. TODO: Perhaps write a status string anyway?
+	  */
+	if( a->status != E_FILE_IO )
+		return -1;
 
 	if( fputc( '{', fp ) < 0 )
 		return -1;
@@ -75,7 +77,7 @@ int write_json( long status, const struct file_analysis *a, FILE *fp ) {
 	  * Any error entirely precludes histograms.
 	  */
 
-	if( status == E_UTF8_PREFIX || status == E_UTF8_SUFFIX ) {
+	if( a->status == E_UTF8_PREFIX || a->status == E_UTF8_SUFFIX ) {
 
 		if( fprintf( fp,
 			"\"offending_byte\":%ld,"
@@ -148,10 +150,10 @@ int write_json( long status, const struct file_analysis *a, FILE *fp ) {
 			"\"columns\":[",
 			_json_bool_value( a->table.column_separator_is_regex ),
 			NC,
-			a->empty_rows,
-			a->meta_rows,
-			a->data_rows,
-			a->aberrant_rows ) < 0 )
+			a->rows.empty,
+			a->rows.meta,
+			a->rows.data,
+			a->rows.aberrant ) < 0 )
 			return -1;
 
 		/**
@@ -160,10 +162,11 @@ int write_json( long status, const struct file_analysis *a, FILE *fp ) {
 
 		nrem = NC; while( nrem-- > 0 ) {
 
+			void *cookie;
 			const int NL
 				= c->label_set == NULL
 				? 0
-				: sbag_count( c->label_set );
+				: set_count( c->label_set );
 
 			if( fprintf( fp, "{"
 				"\"votes\":{\"empty\":%d,\"integer\":%d,\"float\":%d,\"string\":%d},"
@@ -177,15 +180,19 @@ int write_json( long status, const struct file_analysis *a, FILE *fp ) {
 				c->statistics[1] ) < 0 )
 				return -1;
 
-			for(int j = 0; j < NL; j++ ) {
-				const char *s = sbag_string( c->label_set, j );
-				if( fputs( "\"", fp ) < 0 )
-					return -1;
+			if( set_iter( c->label_set, &cookie ) ) {
+				const char *s;
+				int j = 0;
+				while( set_next( c->label_set, &cookie, &s ) ) {
+					if( fputs( "\"", fp ) < 0 )
+						return -1;
 
-					_json_encode_ascii( s, fp );
+						_json_encode_ascii( s, fp );
 
-				if( fprintf( fp, "\"%s", j+1 < NL ? "," : "" ) < 0 )
-					return -1;
+					if( fprintf( fp, "\"%s", j+1 < NL ? "," : "" ) < 0 )
+						return -1;
+					j++;
+				}
 			}
 
 			if( fprintf( fp, "],\"max_labels_exceeded\":%s}%s",

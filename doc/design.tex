@@ -1,0 +1,252 @@
+\documentclass {article}
+\usepackage{graphicx}
+\usepackage{fullpage}
+%\usepackage{amsmath}
+\usepackage{color}
+\usepackage{fancyvrb}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{paralist}
+\begin {document}
+
+\title{Domain-blind validation of Big Data}
+
+\maketitle
+
+What it is: relations to other stuff
+What id does: how these relations are manifest.
+
+Input:
+	a \emph{set} of files
+	nothing more is known about the relationship between files in the list
+	there is no preferred order
+	the set may be specified in a variety of ways
+		manifest
+		recursive filesystem search
+	it is assumed they are local 
+	this may be extended to URLs capable of producing bytestreams
+
+System
+	A Core Executable
+	executes modules on files such that dependencies are respected.
+	Dependencies may admit multiple orderings; no further specification
+		is given except that dependencies are respected.
+	a set of analysis modules
+	After all modules are run state accumulated for all files is analyzed.
+		subset(s) of "similar" files are identified.
+		(statistical) summaries are generated for each set
+
+	
+Every Module is:
+	executable within runtime context of core
+	associated with
+		declares its dependencies
+			in terms of 
+				other modules
+				and/or other modules' output
+		declares the structure/content of its output
+	can read
+		a file
+		accumulated state attached to that file
+	can write to the accumulated state for that file
+	modules deal with files (and associated accumlulated state) serially
+		that is no module considers more than one file at a time
+
+Implied requirements:
+	namespace for modules
+	means of (for the duration of a run) associating a file with (accumulated) state.
+	modules are run within context of executable
+
+Don't want each module to implement a parser. Rather module should
+be capable of calling back into Core to read/write state of file being
+analyzed.
+
+Target set of files.
+Host-resident set of modules
+	file analysis modules
+	cross-file analysis modules
+
+Modules declare dependencies (other modules)
+	implying need for a namespace (Python module names?)
+
+Should be no need to specify *what* is run. That is
+	implicit in the modules and their dependencies...at least
+	the file analysis modules.
+	Cross file analysis modules might be different.
+
+"system" is "run" on a set of files
+	1. all files matching pattern below root(s)
+	2. all files listed in a manifest.
+
+There is no constraint
+Top-level
+	module/<path>
+
+Better if executor pulled data from modules rather than allowing
+modules to push; push requires synchronization.
+
+Favor robustness in modules' implementation but provide the possibility
+for ``shortcuts''. Robustness often comes at the price of efficiency.
+For example, it is \emph{possible} to do quite a few analyses in one
+pass over a file. The code necessarily becomes complex in the sense of
+being highly stateful. Better to have individual analysis modules that
+respect the Unix convention: do one thing impeccably.
+
+One shortcut is allow analysis results should be able to be preset/pre-populated.
+And certainly they should be reusable/reloadable without repetition of the
+analyses.
+
+Open questions:
+\begin{enumerate}
+\item Module execution scheme is very procedurally-oriented now. Dependency
+	declarations are tantamount to, ``I follow modules X and Y.'' Might
+	be preferable to have dependencies declared not with respect to code
+	blobs but with results: ``I require the dimensions of the table,'' or...
+	Several different analysis modules might be capable of inferring
+	dimension; it shouldn't matter which is executed upstream. This
+	approach, however, requires a more formal definition of a file meta
+	format.
+\item Should modules pull required upstream data or should it be
+	included (pushed) by the executor in a module's invocation?
+	If the latter, perhaps only the data from declared dependencies
+	should be included?
+\end{enumerate}
+
+Modules can produce multiple outputs
+Modules' outputs can be single- or multi-valued as well as
+	complex/structured.
+	boolean, e.g. existence
+	integral, e.g. file size
+	multiple-integral, (rows,columns) = (10,5)
+	complex: histogram of byte values
+
+Modules should be permitted multi- and variable-output since some can 
+inherently provide multiple types. An existence module can provide
+both (exists?, boolean) and (size, integer).
+
+A tabular format inference module can provide
+comment lines, integer
+data rows, integer
+data columns, integer
+
+\section{2015 April 29}
+Core is ``stupid'' by design: defining as little logic as possible
+there provides maximum flexibility.
+
+Might make sense to have some meta analysis ``aware'' of data types
+of plugin modules (e.g. file modification time, since this might 
+motivate insightful plots).
+
+Analysis of all univariate stats is automatic
+Might want to define (as part of configuration) standard plots we
+always want to see.
+
+Default mode of operation is ``identify trouble'' which means identify
+\emph{outliers}. This occurs in several steps
+\begin{enumerate}
+\item verify same analyses ran for all files in a run (it's incumbent
+	on user to insure all files analyzed are in some sense similar
+	since all anomaly detection is based on univariate stats)
+\item generate univariate vectors for every analysis datum
+\end{enumerate}
+
+Should cache results with file hashes so that analyses need not
+be repeated when analyzer is rerun on a given directory tree.
+
+Requirement: modules always populate ALL datum in their results;
+a module's analysis always contains the same set of keys and the
+value for each key is always the same type (or None).
+
+Currently there is no "configuration" for modules and in the interest
+of simplicity this seems like a very desirable state of affairs, but
+one can imagine scenarios wherein modules could be "configured," e.g.
+the extrinsic built-in module could be configured to skip SHA256
+hash computation which is really only valuable in an environment in
+which analyses will be rerun and we'd like subsequent analyses to be
+as efficient as possible. Essentially, the extrinsic built-in wil
+always be rerun as most of its ops are fast. Hashing is less fast,
+but if hashing can be used to preempt multiple subsequent (and
+redundant analyses) then it's very worthwhile.
+
+\subsection{Heuristics}
+
+Two phases of ``analysis'':
+\begin{enumerate}
+\item file analysis performed by plugin modules
+\item meta analysis performed by core (plus plugins?) on accumulated file analysis
+\end{enumerate}
+
+The overall goal of the framework is identification of anomalous
+files.
+All input files are expected to have similar characteristics.
+``Outlier'' files should not be \emph{knowingly} included in
+a run of the framework.
+Moreover, we assume that most of the input files in any given
+run will be ``good.''
+
+The framework is extensible and arbitrary dependencies
+are allowed among file analysis plugins---in particular, a plugin may
+elect to \emph{not run} because of results produce by its
+dependencies. As a result, the set of results produced by
+the file analysis phase is in general a ``ragged array.''
+That is, there is no guarantee that all files have been subjected
+to the same \emph{exhaustive} analysis.
+
+If the files are sufficiently similar and free of anomalies,
+we would expect the analysis results to be similar. Thus, the
+first indication of anomalies are inequivalent results.
+
+The first phase of analysis, file-oriented analysis by available
+plugins, need not produce the same types of results
+Given the preceding assumptions,  motivate the following heuristics.
+
+Note that "plugins" is used in all documentation since "modules" has
+a special meaning in Python. Though, most plugins are Python modules(?)
+
+Plugins should specify:
+data type and statistical class of each output (to facilitate choice of tests)
+a simple description of each metric (to be incorporated into reports)
+
+\subsection{Conversation 2015 May 18}
+Switch to convention that files' analysis results are stored \emph{adjacent}
+to files in filesystem with ``*.bdqc'' extension, i.e. dis-aggregated.
+They are aggregated just-in-time for analysis.
+General agreement that we won't build \emph{too much} workflow management
+capabilities into bdqc. In particular, no need to hash files.
+Agreement on principals:
+\begin{enumerate}
+\item never surprise user
+\item when automatic/default behavior involves implicit actions that might
+be surprising, warn the user
+\end{enumerate}
+Concrete example of \#1 is, don't clobber existing files, so if results
+exist for a file at the conventional place, don't recompute. This leaves
+open the possibility of using existing \emph{partial} results for further
+computation (e.g. because new plugins were added) which might require
+verifying freshness of data. There are some reasonable intermediate
+approaches to these issues that probably ought to be implemented (e.g.
+comparison of timestamps of results and target file).
+
+\subsection{2015 June 02}
+Need to clarify relationship between file analysis and aggregate analysis.
+File analyses are now stored with the files and updated intelligently, so
+operationally file analysis is decoupled from aggregate: aggregate can be
+run independently and ``later.''
+
+Report production currently uses the ``master'' execution ordering of all
+plugins involved in any of the files, to order incidence matrices' columns
+by the order of execution. This is probably worth maintaining, but
+plugin.Manager is the (unique by design!) authority on this. Thus, analysis
+is necessarily dependent on plugin.Manager.
+
+\subsection{2015 June 11}
+36 hour run hung.
+Need to add periodic status updates. Every N minutes it should rewrite
+a specified file with all relevant state information.
+Multiple passes over a compressed files SHOULD NOT HAPPEN.
+Should "short circuit" past the "ab initio" analyses when we *know* what
+the filetypes are.
+
+\subsection{2016 Feb 03}
+
+\end{document}
+

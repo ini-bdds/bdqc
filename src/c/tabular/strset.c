@@ -10,12 +10,10 @@
 #include <getopt.h>
 #include <assert.h>
 
-#include "strbag.h"
+#include "strset.h"
 
 struct entry {
 	const char *str;
-	unsigned tagval;
-	unsigned int count;
 };
 
 struct table {
@@ -46,6 +44,7 @@ static int _power_of_2_upper_bound( int v ) {
 }
 
 
+#ifdef HAVE_SET_GROW
 /**
   * Rehash all valid entries in the entry array. There is no reason why 
   * every entry that fit in the previous (half-sized) table should not go
@@ -60,10 +59,10 @@ static int _rehash( struct entry *cur, int n, struct table *t ) {
 	// ...because either:
 	// 1. we weren't duplicating anyway, or
 	// 2. we're rehashing strings already duplicated once that we own!
-	// sbag_insert doesn't know which of these is true; but we do here.
+	// set_insert doesn't know which of these is true; but we do here.
 	for(int i = 0; i < n; i++ ) {
 		if( cur[i].str != NULL ) {
-			if( sbag_insert( t, cur[i].str, NULL ) != SZS_ADDED ) {
+			if( set_insert( t, cur[i].str, NULL ) != SZS_ADDED ) {
 				error = -1;
 				break;
 			}
@@ -73,7 +72,7 @@ static int _rehash( struct entry *cur, int n, struct table *t ) {
 	t->dup = DUPING;
 	return error;
 }
-
+#endif
 
 /***************************************************************************
   * Public
@@ -84,35 +83,13 @@ static int _rehash( struct entry *cur, int n, struct table *t ) {
   * NULL...no need for more error reporting.
   */
 
-void * sbag_create( unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
+void * set_create( unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
 
 	struct table *table
 		= calloc( 1, sizeof(struct table) );
 
 	if( table ) {
-
-		// occupancy already zeroed above.
-
-		table->capacity
-			= _power_of_2_upper_bound(max);
-
-		assert( _is_power_of_2(table->capacity) );
-
-		table->mask
-			= (table->capacity-1);
-
-		table->array
-			= calloc( table->capacity, sizeof(struct entry) );
-
-		table->dup
-			= dup;
-
-		table->hash
-			= fxn;
-		table->seed
-			= seed;
-
-		if( NULL == table->array ) {
+		if( set_init( table, max, dup, fxn, seed ) ) {
 			free( table );
 			table = NULL;
 		}
@@ -121,12 +98,43 @@ void * sbag_create( unsigned int max, int dup, string_hash_fx fxn, unsigned int 
 }
 
 
+int set_init( void *ht, unsigned int max, int dup, string_hash_fx fxn, unsigned int seed ) {
+
+	if( ht ) {
+
+		struct table *t
+			= (struct table *)ht;
+
+		t->capacity
+			= _power_of_2_upper_bound(max);
+
+		assert( _is_power_of_2(t->capacity) );
+
+		t->array
+			= calloc( t->capacity, sizeof(struct entry) );
+
+		if( t->array ) {
+			t->mask
+				= (t->capacity-1);
+			t->dup
+				= dup;
+			t->hash
+				= fxn;
+			t->seed
+				= seed;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+#ifdef HAVE_SET_GROW
 /**
   * Doubles the capacity of the table.
   * TODO: Currently indices are not stable--that is, after resizing strings
   * are mapped to different indices.
   */
-int sbag_grow( void *ht ) {
+int set_grow( void *ht ) {
 
 	struct table *t 
 		= (struct table*)ht;
@@ -163,9 +171,10 @@ int sbag_grow( void *ht ) {
 	}
 	return SZS_OUT_OF_MEMORY;
 }
+#endif
 
 
-int sbag_insert( void *ht, const char *str, unsigned int *tagval ) {
+int set_insert( void *ht, const char *str ) {
 
 	struct table *t 
 		= (struct table*)ht;
@@ -194,16 +203,15 @@ int sbag_insert( void *ht, const char *str, unsigned int *tagval ) {
 		}
 
 		ent = t->array + pos;
+#ifdef HAVE_BAG
 		ent->count += 1;
-
+#endif
 		if( ENTRY_IS_EMPTY(t,pos) ) {
 			ent->str    = t->dup ? strdup(str) : str;
-			ent->tagval = t->occupancy++;
-			if( tagval ) *tagval = ent->tagval;
+			t->occupancy += 1;
 			return SZS_ADDED;
 		} else
 		if( strcmp( ent->str, str ) == 0 ) {
-			if( tagval ) *tagval = ent->tagval;
 			return SZS_PRESENT;
 		}
 	} else
@@ -213,52 +221,56 @@ int sbag_insert( void *ht, const char *str, unsigned int *tagval ) {
 }
 
 
-int sbag_tag( void *ht, const char *str ) {
+int set_iter( void *ht, void **cookie ) {
 
-	struct table *t 
-		= (struct table*)ht;
+	assert( ht );
 
-	assert( (t != NULL) && (str != NULL) );
-
-	if( *str ) { // Zero should never be a key
-
-		const int L
-			= strlen( str );
-		const int K
-			= t->hash( str, L, t->seed );
-		int remaining 
-			= t->capacity;
-		int pos
-			= K & t->mask;
-		while( strcmp( t->array[pos].str,str) && remaining-- > 0 ) 
-			pos = (pos + 1) % t->capacity;
-		if( strcmp( t->array[pos].str, str ) == 0 ) {
-			return t->array[pos].tagval;
+	if( cookie ) {
+		struct table *t 
+			= (struct table*)ht;
+		*cookie = NULL;
+		if( set_count( ht ) > 0 ) {
+			*cookie = t->array;
+			return 1;
 		}
-	} else
-		return SZS_ZERO_KEY;
-
-	return SZS_NOT_FOUND;
-}
-
-
-const char *sbag_string( void *ht, unsigned tag ) {
-	struct table *t 
-		= (struct table*)ht;
-	for(int i = 0; i < t->capacity; i++ ) {
-		if( t->array[i].str != NULL && t->array[i].tagval == tag )
-			return t->array[i].str;
 	}
-	return NULL;
+	return 0;
 }
 
 
-int sbag_count( void *ht ) {
+/**
+  * Return the next string.
+  */
+int set_next( void *ht, void **cookie, const char **pstr ) {
+
+	assert( ht );
+
+	if( cookie ) {
+		struct table *t 
+			= (struct table*)ht;
+		struct entry *ent = (struct entry *)(*cookie);
+		while( ent < t->array + t->capacity ) {
+			if( ent->str ) {
+				*pstr = ent->str;
+				*cookie = ent++;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+
+int set_count( void *ht ) {
 	return ((struct table *)ht)->occupancy;
 }
 
 
-void   sbag_clear( void *ht ) {
+/**
+  * Frees strings owned by the table--that is, those that were copied on
+  * insertion--and NULLs all pointers.
+  */
+void set_clear( void *ht ) {
 	struct table *t 
 		= (struct table*)ht;
 	if( t->dup ) {
@@ -272,33 +284,40 @@ void   sbag_clear( void *ht ) {
 }
 
 
-void sbag_destroy( void *ht ) {
+/**
+  * Frees the array
+  */
+void set_fini( void *ht ) {
 
 	struct table *t 
 		= (struct table*)ht;
 
 	assert( t != NULL );
-	sbag_clear( t );
+
+	set_clear( ht );
 	free( t->array );
-	free( t );
+	t->array = NULL;
 }
 
+
+void set_destroy( void *ht ) {
+
+	if( ht ) {
+		set_fini( ht );
+		free( ht );
+	}
+}
+
+
 #ifdef _DEBUG
-void sbag_dump( void *ht, FILE *fp ) {
+void set_dump( void *ht, FILE *fp ) {
 	struct table *t 
 		= (struct table*)ht;
-	unsigned int bits = 0;
-	for(int i = 0; i < t->capacity; i++ ) {
-		const struct entry *e = t->array + i;
-		fprintf( fp, "%03d: %s (X%d)\n", e->tagval, e->str, e->count );
-		bits |= ( 1 << (e->tagval % (8*sizeof(bits))) );
-	}
-	fprintf( fp, "%08X\n", bits );
 }
 #endif
 
 
-#ifdef AUTO_TEST_STRBAG
+#ifdef AUTO_TEST_STRSET
 
 #include <stdio.h>
 #include "murmur3.h"
@@ -306,7 +325,6 @@ void sbag_dump( void *ht, FILE *fp ) {
 /**
   * Sort the struct entries of the hash table such that all entries with
   * valid strings precede all entries without strings (.str==NULL), and
-  * secondarily by tag values.
   */
 static int _cmp_entry( const void *pvl, const void *pvr ) {
 
@@ -316,8 +334,7 @@ static int _cmp_entry( const void *pvl, const void *pvr ) {
 
 	if( l->str != NULL ) {
 		if( r->str != NULL ) {
-			assert( l->tagval != r->tagval );
-			result = (int)(l->tagval) - (int)(r->tagval);
+			result =  0;
 		} else
 			result = -1;
 	} else
@@ -351,18 +368,19 @@ int main( int argc, char *argv[] ) {
 		exit(-1);
 	}
 
-	h = sbag_create( CAP, DUP, murmur3_32, 17 );
+	h = set_create( CAP, DUP, murmur3_32, 17 );
 
 	while( exit_status == 0 
 			&& (llen = getline( &line, &blen, fp )) > 0 ) {
-		unsigned int tagval;
 		line[llen-1] = '\0'; // lop off the newline.
+#ifdef HAVE_SET_GROW
 retry:
-		switch( sbag_insert( h, line, &tagval ) ) {
+#endif
+		switch( set_insert( h, line ) ) {
 		case SZS_ADDED:
 		case SZS_PRESENT:
 			if( verbose )
-				fprintf( stdout, "%s: OK(%d)\n", line, tagval );
+				fprintf( stdout, "%s: OK\n", line );
 			break;
 
 		case SZS_ZERO_KEY:
@@ -370,10 +388,11 @@ retry:
 			break;
 
 		case SZS_TABLE_FULL:
-			if( sbag_grow( h ) )
-				exit_status = 3;
-			else
+#ifdef HAVE_SET_GROW
+			if( set_grow( h ) == 0 )
 				goto retry;
+#endif
+			exit_status = 3;
 			break;
 
 		default:
@@ -388,7 +407,7 @@ retry:
 	if( exit_status == 0 ) {
 
 		const int N
-			= sbag_count(h);
+			= set_count(h);
 		struct table *t
 			= (struct table*)h;
 		int i;
@@ -396,15 +415,10 @@ retry:
 		qsort( t->array, t->capacity, sizeof(struct entry), _cmp_entry );
 
 		// Verify in a table with N entries,...
-		// 1. they are tagged with values [0,n-1], and
-		// 2. no other non-null entries exist in the table.
+		// 1. no other non-null entries exist in the table.
 
 		for(i = 0; i < N; i++ ) {
 			fprintf( stdout, "%s\n", t->array[i].str );
-			if( i != t->array[i].tagval ) {
-				exit_status = 5;
-				goto EXIT;
-			}
 		}
 
 		for(     ; i < t->capacity; i++ ) {
@@ -416,11 +430,11 @@ retry:
 	}
 
 EXIT:
-	sbag_destroy( h );
+	set_destroy( h );
 	return exit_status;
 }
 
-#elif defined(UNIT_TEST_STRBAG)
+#elif defined(UNIT_TEST_STRSET)
 
 #include <stdint.h>
 #include <stdio.h>
@@ -433,7 +447,6 @@ static void command_loop( void *h ) {
 	char *line = NULL;
 	size_t blen = 0;
 	ssize_t llen;
-	unsigned int tagval;
 
 	struct table *t
 		= (struct table *)h;
@@ -442,25 +455,27 @@ static void command_loop( void *h ) {
 
 	while( (llen = getline( &line, &blen, stdin )) > 0 ) {
 		if( line[0] == '?' ) {
-			printf( "%d/%d\n", sbag_count(h), t->capacity );
+			printf( "%d/%d\n", set_count(h), t->capacity );
 			continue;
 		} else
+#ifdef HAVE_SET_GROW
 		if( line[0] == '+' ) {
-			if( sbag_grow( h ) )
+			if( set_grow( h ) )
 				errx( -1, "failed growing" );
 			continue;
 		} else
+#endif
 		if( line[0] == '-' ) {
-			sbag_clear( h );
+			set_clear( h );
 			continue;
 		}
 		line[llen-1] = '\0'; // lop off the newline.
-		switch( sbag_insert( h, line, &tagval ) ) {
+		switch( set_insert( h, line ) ) {
 		case SZS_ADDED:
-			printf( "+ %s => %d\n", line, tagval );
+			printf( "+ %s\n", line );
 			break;
 		case SZS_PRESENT:
-			printf( "P %s => %d\n", line, tagval );
+			printf( "P %s\n", line );
 			break;
 		case SZS_ZERO_KEY:
 			printf( "! empty string\n" );
@@ -484,7 +499,6 @@ int main( int argc, char *argv[] ) {
 	int opt_interactive = 0;
 
 	void *h = NULL;
-	struct table *t = NULL;
 
 	if( argc < 2 )
 		errx( -1, "%s <capacity>", argv[0] );
@@ -518,9 +532,9 @@ int main( int argc, char *argv[] ) {
 		}
 		if( -1 == c ) break;
 
-	} while( true );
+	} while( 1 );
 
-	h = sbag_create( CAP, 1 /* duplicate */, murmur3_32, 0 );
+	h = set_create( CAP, 1 /* duplicate */, murmur3_32, 0 );
 
 	if( h ) {
 		if( opt_interactive )
@@ -529,11 +543,12 @@ int main( int argc, char *argv[] ) {
 			char *line = NULL;
 			size_t blen = 0;
 			ssize_t llen;
-			unsigned int tagval;
 			while( (llen = getline( &line, &blen, stdin )) > 0 ) {
 				line[llen-1] = '\0'; // lop off the newline.
+#ifdef HAVE_SET_GROW
 retry:
-				switch( sbag_insert( h, line, &tagval ) ) {
+#endif
+				switch( set_insert( h, line ) ) {
 				case SZS_ADDED:
 					break;
 				case SZS_PRESENT:
@@ -541,10 +556,10 @@ retry:
 				case SZS_ZERO_KEY:
 					break;
 				case SZS_TABLE_FULL:
-					if( sbag_grow( h ) )
-						exit_status = 3;
-					else
+#ifdef HAVE_SET_GROW
+					if( set_grow( h ) == 0 )
 						goto retry;
+#endif
 					break;
 				default:
 					err( -1, "unexpected scanf count" );
@@ -554,8 +569,8 @@ retry:
 				free( line );
 		}
 
-		printf( "cardinality = %d\n", sbag_count( h ) );
-		sbag_destroy( h );
+		printf( "cardinality = %d\n", set_count( h ) );
+		set_destroy( h );
 
 	} else
 		err( -1, "failed creating hash table with capacity %d", CAP );

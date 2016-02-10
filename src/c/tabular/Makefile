@@ -32,12 +32,12 @@ endif
 OBJECTS=main.o\
 	scan.o\
 	bstring.o\
-	table.o\
+	pptable.o\
 	utf8.o\
 	sspp.o\
 	format.o\
-	analyze.o\
-	strbag.o\
+	line.o\
+	strset.o\
 	ascii.o\
 	murmur3.o \
 	json.o
@@ -54,7 +54,7 @@ all : $(EXECUTABLE)
 main.o :
 scan.o : 
 bstring.o :
-table.o :
+pptable.o :
 sspp.o : sspp.h
 
 $(EXECUTABLE) : $(OBJECTS)
@@ -63,7 +63,7 @@ $(EXECUTABLE) : $(OBJECTS)
 ############################################################################
 # Unit tests
 
-UNITTESTS=$(addprefix ut-,format sspp csv strbag)
+UNITTESTS=$(addprefix ut-,format sspp csv strset)
 
 allunit : $(UNITTESTS)
 
@@ -76,11 +76,11 @@ ut-sspp : sspp.c
 ut-csv : csv.c utf8.c
 	$(CC) -o $@ $(CFLAGS) -DUNIT_TEST_CSV -D_POSIX_C_SOURCE=200809L $^
 
-ut-strbag : strbag.c murmur3.c
-	$(CC) -o $@ $(CFLAGS) -DUNIT_TEST_STRBAG -D_POSIX_C_SOURCE=200809L $^
+ut-strset : strset.c murmur3.c
+	$(CC) -o $@ $(CFLAGS) -DUNIT_TEST_STRSET -D_POSIX_C_SOURCE=200809L $^
 
-at-strbag : strbag.c murmur3.c
-	$(CC) -o $@ $(CFLAGS) -DAUTO_TEST_STRBAG -D_POSIX_C_SOURCE=200809L $^
+at-strset : strset.c murmur3.c
+	$(CC) -o $@ $(CFLAGS) -DAUTO_TEST_STRSET -D_POSIX_C_SOURCE=200809L $^
 
 ut-stats : stats.c
 	$(CC) -o $@ $(CFLAGS) -DUNIT_TEST_STATS -D_POSIX_C_SOURCE=200809L $^

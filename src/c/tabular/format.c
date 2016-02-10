@@ -55,7 +55,7 @@
 #include <alloca.h>
 #endif
 
-#include "format.h"
+#include "tabular.h"
 #include "rstrip.h"
 
 #ifdef HAVE_QUOTE_COMMA_QUOTE
@@ -182,7 +182,7 @@ int _count_candidate_separators( const char *line, const int len, unsigned *coun
 }
 
 
-static int _parse_line_simple_sep( char *pc, struct format *ps, 
+static int _split_line_simple_sep( char *pc, struct format *ps, 
 		FIELD_PARSER process_field, void *context ) {
 
 	const int SEP = ps->column_separator[0];
@@ -218,14 +218,14 @@ static int _parse_line_simple_sep( char *pc, struct format *ps,
 }
 
 
-static int _parse_line_coalesce_ws( char *line, struct format *ps, 
+static int _split_line_coalesce_ws( char *line, struct format *ps, 
 		FIELD_PARSER process_field, void *arg ) {
 	fputs( "TODO: unimplemented: parsing of coalescable whitespace.\n", stderr ); abort();
 	return -1;
 }
 
 /*
-static int _parse_line_csv( char *line, struct format *ps, 
+static int _split_line_csv( char *line, struct format *ps, 
 		FIELD_PARSER process_field, void *arg ) {
 	fputs( "TODO: unimplemented: parsing of RFC4180 CSV files.\n", stderr ); abort();
 	return -1;
@@ -246,7 +246,7 @@ static bool _is_admissable_separator( int c ) {
   * character in the (possibly multi-character) sequence line-termination
   * sequence. 
   */
-int format_infer( FILE *fp, int delim, int nlines, struct format *table ) {
+int _format_infer( FILE *fp, int delim, int nlines, struct format *table ) {
 
 	int status = -1; // Assume failure until success below...
 
@@ -275,7 +275,7 @@ int format_infer( FILE *fp, int delim, int nlines, struct format *table ) {
 	assert( strlen( table->column_separator) == 0 );
 	assert( table->column_count == 0 );
 	assert( table->data_lines_sampled == 0 );
-	assert( table->parse_line == NULL );
+	assert( table->split_line == NULL );
 	assert( ! table->column_separator_is_regex );
 
 	while( nlines > 0 
@@ -351,7 +351,7 @@ int format_infer( FILE *fp, int delim, int nlines, struct format *table ) {
 		if( c > 0 && _is_admissable_separator(c) ) {
 			table->column_separator[0] = c;
 			table->column_count = reference[c] + 1;
-			table->parse_line = _parse_line_simple_sep;
+			table->split_line = _split_line_simple_sep;
 			status = 0;
 		}
 
@@ -363,14 +363,14 @@ int format_infer( FILE *fp, int delim, int nlines, struct format *table ) {
 		if( reference[ P_SPC_GROUP ] > 0 ) {
 			strcpy( table->column_separator, " +" );
 			table->column_count = reference[ P_SPC_GROUP ] + 1;
-			table->parse_line = _parse_line_coalesce_ws;
+			table->split_line = _split_line_coalesce_ws;
 			table->column_separator_is_regex = true;
 			status = 0;
 		} else
 		if( reference[ '\t' ] > 0 ) {
 			table->column_separator[0] = '\t';
 			table->column_count = reference[ '\t' ] + 1;
-			table->parse_line = _parse_line_simple_sep;
+			table->split_line = _split_line_simple_sep;
 			status = 0;
 
 		} else { // ...it's a non-whitespace pattern.
@@ -394,7 +394,7 @@ int format_infer( FILE *fp, int delim, int nlines, struct format *table ) {
 				assert( strchr( candidate_seps, C ));
 				table->column_separator[0] = C;
 				table->column_count = reference[ C ] + 1;
-				table->parse_line = _parse_line_simple_sep;
+				table->split_line = _split_line_simple_sep;
 				status = 0;
 			}
 		}

@@ -1,6 +1,10 @@
 
-#ifndef _scan_h_
-#define _scan_h_
+/**
+  * This header constitutes the full public interface to table analysis.
+  */
+
+#ifndef _tabular_h_
+#define _tabular_h_
 
 /**
   * These character class labels are used to index two histograms:
@@ -23,38 +27,48 @@ enum {
 
 extern const char *CC_NAME[ CC_COUNT ];
 
-enum {
+enum TabularStatus {
+
 	E_COMPLETE = 0,
 	/**
 	  * Analysis completed fully.
 	  * Character content AND table analysis is valid.
 	  */
+
 	E_NO_TABLE,
 	/**
-	  * Analysis completed on character content, but no table was detected.
+	  * Analysis of character content completed, but no table was detected.
 	  * Only character content analysis is valid.
 	  */
+
 	E_UTF8_PREFIX,
 	/**
 	  * Analysis terminated early for non UTF-8 byte sequence.
 	  * Implies file is binary, not text.
 	  * Only offset of offending byte is valid.
 	  */
+
 	E_UTF8_SUFFIX,
 	/**
 	  * Analysis terminated early for non UTF-8 byte sequence.
 	  * Implies file is binary, not text.
 	  * Only offset of offending byte is valid.
 	  */
+
 	E_FILE_IO,
 	/**
 	  * Analysis terminated early for non content-related error.
 	  * Nothing in analysis is completely valid.
 	  */
+
+	E_UNINITIALIZED_OUTPUT,
+	/**
+	  * The output container (a struct table_description) was not zeroed.
+	  */
+
 	E_COUNT
 };
 
-extern const char *error_string[ E_COUNT ];
 
 /**
   * We currently assume tables in which rows are objects and columns are
@@ -104,17 +118,71 @@ struct column {
 	bool  label_set_exhausted;
 };
 
+struct format; // ...forward decl for following type decls.
+typedef void (*FIELD_PARSER)( const char *field, int offset, void *context );
+typedef int (*LINE_SPLITTER)( char *pc, struct format *ps, FIELD_PARSER, void *context );
+
+/**
+  * There are only three (supported) possibilities for parsing fields from
+  * lines:
+  * 1. single ASCII character separators (e.g. tab, comma)
+  * 2. whitespace clusters (described by the regex / +/)
+  *    These are explicitly "coalescing;" single whitespace separators
+  *    may also satisfy #1.
+  * 3. CSV as defined by RFC4180.
+  */
+struct format {
+
+#define MAXLEN_METADATA_PREFIX (7)
+
+	/**
+	  * UTF-8 character believed to indicate header/metadata/comment rows.
+	  * We don't try to distinguish between them.
+	  * A line beginning with this sequence is not parsed.
+	  */
+	char metadata_line_prefix[MAXLEN_METADATA_PREFIX+1];
+	char metadata_line_prefix_len;
+
+	/**
+	  * Usually only the first character of this buffer is used.
+	  */
+	char column_separator[8];
+	bool column_separator_is_regex;
+
+	/**
+	  * The fields per line.
+	  */
+	unsigned column_count;
+
+	/**
+	  * Number of (data) lines that contributed to the inference.
+	  */
+	unsigned data_lines_sampled;
+
+	/**
+	  * The function selected during scanning to chop up a data line
+	  * into a series of NUL-terminated tokens.
+	  */
+	LINE_SPLITTER split_line;
+};
+
+
 /**
   * Every row is classified as
   * 1. empty
   * 2. metadata, header, or comment
   * 3. data
   */
-struct file_analysis {
+struct table_description {
 
 	/**
-	  * Holds the up to four bytes of a UTF8 character WITHOUT NUL-
-	  * terimination!
+	  * One of enum TabularStatus codes.
+	  */
+	long status;
+
+	/**
+	  * Holds the most recently consumed UTF8 character
+	  * WITHOUT NUL-termination! (TODO verify)
 	  */
 	char utf8[8];
 
@@ -150,52 +218,45 @@ struct file_analysis {
 	  */
 	struct format table;
 
-	/**
-	  * Number of empty lines ("empty" means containing only line
-	  * terminators).
-	  */
-	unsigned empty_rows;
-
-	/**
-	  * INVARIANT: meta_rows + data_rows + empty_rows == total lines.
-	  */
-	unsigned meta_rows;
-
-	/**
-	  * We only distinguish two types of rows: data, non-data. The non-data
-	  * are implicitly total row count (available from 
-	  * char_class_transition_matrix) minus data_rows.
-	  */
-	unsigned data_rows;
-
-	/**
-	  * Number of *data* rows for which parsing failed for any reason.
-	  * INVARIANT: .aberrant_rows <= .data_rows
-	  * (...though this might be transiently violated in _analyze_row
-	  *  because of order of operations.)
-	  */
-	unsigned aberrant_rows;
+	struct counts {
+		unsigned empty; // contain ONLY line terminator(s)
+		unsigned meta;  // lines prefixed by metadata_line_prefix
+		unsigned data;  // all lines not matching one of above.
+		// INVARIANT: sum of above == total line count
+		unsigned aberrant; // *data* rows with any parse failure
+		// INVARIANT: aberrant <= data
+	} rows;
 
 	/**
 	  * This member not only contains column summaries, it also serves
 	  * as an indicator of whether or not table analysis succeeded.
-	  * Typically callers will hold a <struct file_analysis> on the stack,
+	  * Typically callers will hold a <struct table_description> on the stack,
 	  * but this one member is dynamically allocated and must be freed!
 	  */
 	struct column *column;
 };
 
-void scan_pretty_print( struct file_analysis *fs, FILE *fp );
-
 /**
   * 
   */
-long scan( FILE *fp, struct file_analysis *summary );
+int tabular_scan( FILE *fp, struct table_description *summary );
+
 /**
-  * Even though struct file_analysis may be allocated on the stack, the
+  * Even though struct table_description may be allocated on the stack, the
   * struct contains dynamically-allocated members which require cleanup!
   */
-void fini_analysis( struct file_analysis *a );
+void tabular_free( struct table_description *a );
+
+/**
+  * If <len> == 0 and buf is NULL this returns the size of the buffer
+  * required to contain the full error message. (See snprintf.)
+  */
+int tabular_error( struct table_description *analysis, int len, char *buf );
+
+/**
+  * Write a table description as JSON.
+  */
+int tabular_as_json( const struct table_description *a, FILE *fp );
 
 #endif
 

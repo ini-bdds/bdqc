@@ -9,15 +9,16 @@
 
 #include "utf8.h"
 #include "sspp.h"
-#include "format.h"
-#include "scan.h"
+#include "tabular.h"
 #include "rstrip.h"
 
 /**
   * Some of the scan subsystem is 
   */
-extern int _init_analysis( struct file_analysis *fs );
-extern int _analyze_row( struct file_analysis *fs, char *line, int len );
+extern int _format_infer( FILE *fp, int delim, int nlines, struct format *inferred );
+extern int _init_analysis( struct table_description * );
+extern int _analyze_line( struct table_description *, char *line, int len );
+extern void _analyze_columns( struct table_description * );
 
 #define MAX_COUNT_HEADER_LINES (256)
 #define MAX_COUNT_SAMPLE_LINES (16)
@@ -59,11 +60,16 @@ static inline bool _is_line_terminator_cc( unsigned cc ) {
 }
 
 
-const char *error_string[E_COUNT] = {
+/**
+  * AUDIT: tabular_error count must match error code count.
+  */
+static const char *_error_template[E_COUNT] = {
 	"OK",
-	"I/O",
-	"UTF8 prefix",
-	"UTF8 suffix"
+	"no table detected, only character stats are valid",
+	"not UTF8: invalid UTF8 prefix",
+	"not UTF8: invalid UTF8 suffix",
+	"file I/O error",
+	"uninitialized output struct"
 };
 
 
@@ -136,7 +142,7 @@ struct state {
 	  */
 	int state_lines;
 
-	struct file_analysis *analysis;
+	struct table_description *analysis;
 };
 
 
@@ -155,7 +161,7 @@ static int _analyze_top_lines( struct state *s ) {
 
 	rewind( s->cache );
 
-	if( format_infer( s->cache, s->final_line_separator, s->lines, & s->analysis->table ) )
+	if( _format_infer( s->cache, s->final_line_separator, s->lines, & s->analysis->table ) )
 		return ASTAT_ABORT;
 
 	assert( s->analysis->table.column_count > 0 );
@@ -166,7 +172,7 @@ static int _analyze_top_lines( struct state *s ) {
 	rewind( s->cache );
 
 	while( (llen = getdelim( &_line, &_blen, s->final_line_separator, s->cache )) > 0 )
-		_analyze_row( s->analysis, _line, llen );
+		_analyze_line( s->analysis, _line, llen );
 
 	rewind( s->cache );
 
@@ -282,7 +288,7 @@ static bool _is_admissable_prefix( const char *prefix ) {
   * lines that are genuinely part of a header (or otherwise metadata)--is
   * Bad since table structure likely cannot be correctly inferred from them.
   *
-  * Note that the reliability of format_infer() is roughly proportional
+  * Note that the reliability of _format_infer() is roughly proportional
   * to the size of the line group it analyzes because the probability of
   * the counts of any candidate separator character being equal on every
   * line *just by chance* decreases as the line count increases.
@@ -398,7 +404,7 @@ static int _cs_analyze_content( struct state *s ) {
 		rewind( s->cache );
 
 		if( (llen = getdelim( &_line, &_blen, s->final_line_separator, s->cache )) > 0 )
-			_analyze_row( s->analysis, _line, llen ); // ...whether empty or not!
+			_analyze_line( s->analysis, _line, llen ); // ...whether empty or not!
 
 		rewind( s->cache );
 	}
@@ -407,6 +413,9 @@ static int _cs_analyze_content( struct state *s ) {
 
 
 /**
+  * This is the primary entry point for tabular file analysis.
+  * The <analysis> parameter should point to a zeroed struct.
+  *
   * Count and classify characters and transitions between character classes
   * in a byte stream assumed to represent UTF8-encoded text.
   * Counts 6 character types: LF, CR, and non-line-terminating characters,
@@ -420,18 +429,40 @@ static int _cs_analyze_content( struct state *s ) {
   * complete file
   *		with only character content					JSON
   *		with character content and table analysis	JSON
+  *
+  * Returns:
+  *  0 if at least some analysis was completed and output is expected to
+  *    contain some valid information
+  * -1 otherwise 
   */
-long scan( FILE *fp, struct file_analysis *analysis ) {
+int tabular_scan( FILE *fp, struct table_description *d /* out */ ) {
 
 	static struct state s;
-
-	long status = E_COMPLETE;
 	memset( &s, 0, sizeof(s) );
+
+	/**
+	  * Verify output container is empty before allocating anything.
+	  * Yes, I could simply zero it here, but it contains pointers to heap-
+	  * allocated elements, the validity of which can't be ascertained here.
+	  * Thus, it's caller's responsibility to insure it's initialized...and
+	  * our responsibility to trust but verify.
+	  */
+	{
+		int i = sizeof(struct table_description);
+		const char *raw = (const char *)d;
+		while( i-- > 0 ) {
+			if( *raw++ ) {
+				d->status = E_UNINITIALIZED_OUTPUT;
+				return EXIT_FAILURE; // This is the ONLY early return!
+			}
+		}
+	}
+
 	s.cc_last = CC_COUNT;  // an invalid value
 	s.cache = tmpfile();
 	s.check_state = _cs_infer_lineterm;
 	s.lpas = sspp_create_state( 2 );
-	s.analysis = analysis;
+	s.analysis = d;
 
 	do {
 		s.suffix_len = 0;
@@ -440,7 +471,7 @@ long scan( FILE *fp, struct file_analysis *analysis ) {
 		if( feof(fp) )
 			break;
 		if( ferror(fp) ) {
-			status = E_FILE_IO;
+			d->status = E_FILE_IO;
 			goto leave;
 		}
 
@@ -458,24 +489,24 @@ long scan( FILE *fp, struct file_analysis *analysis ) {
 		default:
 			s.cc_curr = CC_CHAR;
 			// Set up error info speculatively.
-			analysis->len     = 1;
-			analysis->ordinal = s.nbytes;
+			d->len     = 1;
+			d->ordinal = s.nbytes;
 			s.suffix_len = utf8_suffix_len( *s.analysis->utf8 );
 			if( s.suffix_len > 0 ) {
 				const int n
 					= utf8_consume_suffix( s.suffix_len, fp, s.analysis->utf8+1 );
 				if( n != 0 /* some kind of failure */ ) {
 					if( n > 0 ) {
-						analysis->len += n;
-						status = E_UTF8_SUFFIX;
+						d->len += n;
+						d->status = E_UTF8_SUFFIX;
 					} else
-						status = E_FILE_IO;
+						d->status = E_FILE_IO;
 					goto leave;
 				}
 				s.nbytes += s.suffix_len;
 			} else
 			if( s.suffix_len < 0 ) {
-				status=E_UTF8_PREFIX;
+				d->status = E_UTF8_PREFIX;
 				goto leave;
 			}
 		}
@@ -486,16 +517,16 @@ long scan( FILE *fp, struct file_analysis *analysis ) {
 		  */
 
 		s.nchars                                                += 1;
-		analysis->char_class_counts[ s.cc_curr + s.suffix_len ] += 1;
+		d->char_class_counts[ s.cc_curr + s.suffix_len ] += 1;
 
 		if( s.nchars >= 2 /* character transitions have occurred */ )
-			analysis->char_class_transition_matrix[ s.cc_last*CC_COARSE_COUNT + s.cc_curr ] += 1;
+			d->char_class_transition_matrix[ s.cc_last*CC_COARSE_COUNT + s.cc_curr ] += 1;
 
 		if( s.cache ) {
 
 			const int N = 1+s.suffix_len;
 			if( fwrite( s.analysis->utf8, sizeof(char), N, s.cache ) != N ) {
-				status=E_FILE_IO;
+				d->status = E_FILE_IO;
 				goto leave;
 			}
 
@@ -511,7 +542,7 @@ long scan( FILE *fp, struct file_analysis *analysis ) {
 				// we no longer need the cache...
 				fclose( s.cache );
 				s.cache = NULL;
-				status = E_NO_TABLE;
+				d->status = E_NO_TABLE;
 			}
 		}
 
@@ -520,22 +551,28 @@ long scan( FILE *fp, struct file_analysis *analysis ) {
 	} while( 1 );
 
 	if( s.check_state /* If we didn't abort analysis... */ ) {
-		/* ...and we didn't reach the actual analysis phase, */
+		/** ...but we didn't reach the actual analysis phase,
+		  * do it now...
+		  */
 		if( s.check_state != _cs_analyze_content ) {
 			if( _analyze_top_lines( &s ) != ASTAT_CONTINUE )
 				s.check_state = NULL;
 		}
 	}
 
+	if( s.check_state /* If we didn't abort analysis... */ ) {
+		_analyze_columns( d );
+	}
+
 	/**
 	  * Check invariants
 	  */
 
-	assert( (analysis->table.column_separator[0] != 0) == (analysis->table.column_count > 0) );
+	assert( (d->table.column_separator[0] != 0) == (d->table.column_count > 0) );
 	assert( s.check_state == NULL /* we aborted analysis */ ||
-			( s.lines== analysis->empty_rows
-			  + analysis->meta_rows
-			  + analysis->data_rows ) );
+			( s.lines == d->rows.empty
+			  + d->rows.meta
+			  + d->rows.data ) );
 leave:
 	if( _line )
 		free( _line );
@@ -551,6 +588,27 @@ leave:
 	_line = NULL;
 	_blen = 0;
 
-	return status;
+	return d->status < E_FILE_IO ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+
+int tabular_error( struct table_description *d, int len, char *buf ) {
+	int n = 0;
+	const char *template = _error_template[ d->status ];
+	switch( d->status ) {
+	// Cases are only for purpose of supplying analysis state parameters
+	// to error message template, but (TODO) currently none are defined.
+	case E_COMPLETE:
+	case E_NO_TABLE:
+	case E_UTF8_PREFIX:
+	case E_UTF8_SUFFIX:
+	case E_FILE_IO:
+	case E_UNINITIALIZED_OUTPUT:
+		n = snprintf( buf, len, "%s", template );
+		break;
+	default:
+		;
+	}
+	return n;
 }
 

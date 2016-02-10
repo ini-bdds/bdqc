@@ -2,8 +2,7 @@
 #include <Python.h>
 #include <stdbool.h>
 
-#include "tabular/format.h"
-#include "tabular/scan.h"
+#include "tabular/tabular.h"
 #include "stats/quantile.h"
 #include "stats/density.h"
 
@@ -40,17 +39,16 @@ static void dump_buffer( const Py_buffer *v, FILE *fp ) {
 extern FILE *fopenx( const char *, const char * );
 extern int fclosex( FILE * );
 
-extern int write_json( long status, const struct file_analysis *a, FILE *fp );
 extern double medcouple_naive( double *values, int n );
 
 // forward decl
-static PyObject * tabular_scan( PyObject *self, PyObject *args);
-static PyObject * robust_bounds( PyObject *self, PyObject *args);
-static PyObject * gaussian_kde( PyObject *self, PyObject *args);
+static PyObject * _tabular_scan( PyObject *self, PyObject *args);
+static PyObject * _robust_bounds( PyObject *self, PyObject *args);
+static PyObject * _gaussian_kde( PyObject *self, PyObject *args);
 
 
 static PyMethodDef CharCompMethods[] = {
-	{"tabular_scan",  tabular_scan, METH_VARARGS,
+	{"tabular_scan",  _tabular_scan, METH_VARARGS,
 	"Analyzes a file that is a priori assumed:\n"
 	"1. to contain only UTF-8 text, and\n"
 	"2. to contain a data table or matrix.\n"
@@ -89,11 +87,11 @@ static PyMethodDef CharCompMethods[] = {
 	"sake of performance--specifically, in order to infer as much as\n"
 	"possible about a file in *one pass*.\n",
 	},
-	{"robust_bounds",  robust_bounds, METH_VARARGS,
+	{"robust_bounds", _robust_bounds, METH_VARARGS,
 	"This function identifies the bounds of non-outlier data using the\n"
 	"medcouple.\n",
 	},
-	{"gaussian_kde",  gaussian_kde, METH_VARARGS,
+	{"gaussian_kde",  _gaussian_kde, METH_VARARGS,
 	"Produce a series of points describing a density function.\n",
 	},
 	{NULL, NULL, 0, NULL}        /* Sentinel */
@@ -115,7 +113,7 @@ static struct PyModuleDef _moduledef = {
 
 
 static PyObject *
-tabular_scan(PyObject *self, PyObject *args) {
+_tabular_scan(PyObject *self, PyObject *args) {
 
 	FILE *fp = NULL;
 	const char *filename = NULL;
@@ -127,11 +125,11 @@ tabular_scan(PyObject *self, PyObject *args) {
 	fp = fopenx( filename, "r" );
 	if( fp ) {
 
-		struct file_analysis analysis;
-		long STATUS;
+		struct table_description results;
+		int failed = 0;
 	
-		memset( &analysis, 0, sizeof(analysis) );
-		STATUS = scan( fp, &analysis );
+		memset( &results, 0, sizeof(results) );
+		failed = tabular_scan( fp, &results );
 		fclosex( fp );
 
 		/**
@@ -139,13 +137,13 @@ tabular_scan(PyObject *self, PyObject *args) {
 		  * except file I/O errors.
 		  */
 
-		if( STATUS != E_FILE_IO ) {
+		if( ! failed ) {
 
 			FILE *json_fp = tmpfile();
 			if( json_fp ) {
 				void *buf;
 				size_t len;
-				write_json( STATUS, &analysis, json_fp );
+				tabular_as_json( &results, json_fp );
 				len = ftell( json_fp );
 				buf = calloc( len + 1, sizeof(char) );
 				if( buf ) {
@@ -163,18 +161,24 @@ tabular_scan(PyObject *self, PyObject *args) {
 
 		} else {
 
-			switch( STATUS ) {
+			switch( results.status ) {
+
+			case E_UNINITIALIZED_OUTPUT:
+				PyErr_SetString( PyExc_RuntimeError,
+					"tabular_scan received uninitialized output struct" );
+				break;
 
 			case E_FILE_IO:
 				PyErr_SetFromErrnoWithFilename( PyExc_IOError, filename );
 				break;
+
 			default:
 				PyErr_SetString( PyExc_RuntimeError,
 					"unhandled error (unfinished code?) in " __FILE__ );
 			}
 		}
 	
-		fini_analysis( &analysis );
+		tabular_free( &results );
 
 	} else
 		PyErr_SetFromErrnoWithFilename( PyExc_IOError, filename );
@@ -192,7 +196,7 @@ tabular_scan(PyObject *self, PyObject *args) {
   * fence <- c( quantile(x)['25%'] - whisk[1], quantile(x)['75%'] + whisk[2] );
   */
 static PyObject *
-robust_bounds( PyObject *self, PyObject *args) {
+_robust_bounds( PyObject *self, PyObject *args) {
 
 	double lb = 0, ub = 0, mc = 0;
 	Py_buffer view;
@@ -232,7 +236,7 @@ robust_bounds( PyObject *self, PyObject *args) {
 
 
 static PyObject *
-gaussian_kde( PyObject *self, PyObject *args) {
+_gaussian_kde( PyObject *self, PyObject *args) {
 
 	Py_buffer view;
 	PyObject *array;

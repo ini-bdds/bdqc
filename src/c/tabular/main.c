@@ -12,16 +12,16 @@
 #include <stdbool.h>
 #include <string.h>
 #include <getopt.h>
-#include "format.h"
-#include "scan.h"
+
+#include "tabular.h"
 
 extern const char *bstring( unsigned int n, int digits );
 
 int main( int argc, char *argv[] ) {
 
-	int exit_status = EXIT_SUCCESS;
+	int exit_status = EXIT_FAILURE;
 	FILE *fp = stdin;
-	struct file_analysis A;
+	struct table_description A;
 
 	memset( &A, 0, sizeof(A) );
 
@@ -52,18 +52,18 @@ int main( int argc, char *argv[] ) {
 
 	if( fp ) {
 
-		const int status = scan( fp, &A );
+		exit_status = tabular_scan( fp, &A );
 		fclose( fp );
 
-		if( status == E_FILE_IO ) {
+		if( exit_status == EXIT_FAILURE && A.status == E_FILE_IO ) {
 
-			fprintf( stdout, "Failure (%s error) at file offset %ld...\n",
-				error_string[status], A.ordinal-1 );
-			exit_status = EXIT_FAILURE;
+			static char ebuf[ 4096 ];
+			tabular_error( &A, sizeof(ebuf), ebuf );
+			fputs( ebuf, stdout ); 
 
 		} else {
 
-			write_json( status, &A, stdout );
+			tabular_as_json( &A, stdout );
 
 			/*for(int i = 0; i < A.len; i++ ) {
 				const unsigned int B
@@ -73,7 +73,8 @@ int main( int argc, char *argv[] ) {
 			}
 			fputc( '\n', stdout );*/
 		}
-		fini_analysis( &A );
+		tabular_free( &A );
+		exit_status = EXIT_SUCCESS;
 	}
 	return exit_status;
 }
