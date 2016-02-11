@@ -21,9 +21,9 @@ int main( int argc, char *argv[] ) {
 
 	int exit_status = EXIT_FAILURE;
 	FILE *fp = stdin;
-	struct table_description A;
+	struct table_description d;
 
-	memset( &A, 0, sizeof(A) );
+	memset( &d, 0, sizeof(d) );
 
 	do {
 		static const char *CHAR_OPTIONS 
@@ -52,29 +52,23 @@ int main( int argc, char *argv[] ) {
 
 	if( fp ) {
 
-		exit_status = tabular_scan( fp, &A );
+		exit_status = tabular_scan( fp, &d );
 		fclose( fp );
 
-		if( exit_status == EXIT_FAILURE && A.status == E_FILE_IO ) {
+		if( d.status != E_COMPLETE ) {
 
 			static char ebuf[ 4096 ];
-			tabular_error( &A, sizeof(ebuf), ebuf );
+			tabular_error( &d, sizeof(ebuf), ebuf );
 			fputs( ebuf, stdout ); 
 
-		} else {
-
-			tabular_as_json( &A, stdout );
-
-			/*for(int i = 0; i < A.len; i++ ) {
-				const unsigned int B
-					= (unsigned int)(A.utf8[i] & 0xFF);
-				fprintf( stdout, "%s0x%02x(%s)",
-					i > 0 ? " " : "", B, bstring(B,8) );
-			}
-			fputc( '\n', stdout );*/
 		}
-		tabular_free( &A );
-		exit_status = EXIT_SUCCESS;
+
+		if( exit_status == EXIT_SUCCESS ) {
+
+			tabular_as_json( &d, stdout );
+		}
+
+		tabular_free( &d );
 	}
 	return exit_status;
 }
