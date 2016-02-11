@@ -243,8 +243,10 @@ void _analyze_columns( struct table_description *d ) {
 
 		struct column *c
 			= d->column + i;
-		const int N
+		const int K
 			= set_count( & c->value_set );
+		const int N_MAG
+			= __builtin_popcount( c->integer_magnitudes );
 		const int SUPPORTED_STAT_CLASSES
 			= count_nonzero( c->type_vote+1 /* exclude FTY_EMPTY */, FTY_COUNT-1 );
 
@@ -261,22 +263,30 @@ void _analyze_columns( struct table_description *d ) {
 
 			switch( find_nonzero( c->type_vote, FTY_COUNT ) ) {
 
-			case FTY_STRING:
-				c->stat_class
-					= c->excess_values
-					? STC_UNK
-					: STC_CAT;
-				break;
-
 			case FTY_INTEGER: // ...integers can be used in many ways!
 
 				if( c->excess_values ) {
 
-					if( (c->extrema[0] == 1.0 ) && 
-						(c->extrema[1] == (double)(c->type_vote[FTY_INTEGER]) ) )
-						c->stat_class = STC_ORD;
-					else
+					// It can only be ordinal or quantitative.
+
+					if( c->has_negative_integers ) { // ...it's not ordinal.
+
 						c->stat_class = STC_QUA;
+
+					} else {
+
+						const int N
+							= c->type_vote[FTY_INTEGER];
+						const int MAX_MAG
+							= (int)floorf( log10f( c->extrema[1] ) );
+
+						if( ( N_MAG == MAX_MAG )
+							&& ( (int)round(c->extrema[0]) == 1 )
+							&& ( (int)round(c->extrema[1]) == N ) )
+							c->stat_class = STC_ORD;
+						else
+							c->stat_class = STC_QUA;
+					}
 
 				} else { // |{value_set}| <= MAX_CATEGORY_CARDINALITY
 
@@ -284,20 +294,29 @@ void _analyze_columns( struct table_description *d ) {
 					// categorical variable, but it has to pass extra
 					// tests...
 
-					if( c->has_negative_integers && N > TYPICAL_MAX_CARDINALITY )
-						c->stat_class = STC_QUA;
-					else
-					if( __builtin_popcount( c->integer_magnitudes ) > 2 ) {
+					if( c->has_negative_integers ) {
+
+						c->stat_class 
+							= K <= TYPICAL_MAX_CARDINALITY
+							? STC_CAT
+							: STC_QUA;
+
+					} else {
+
+						c->stat_class 
+							 = __builtin_popcount( c->integer_magnitudes ) > 1
+							 ? STC_QUA
+							 : STC_CAT;
 					}
 				}
-
-				if( d ) {
-					c->stat_class
-						= c->excess_values
-						? STC_UNK
-						: STC_CAT;
-				}
 				break;
+
+			case FTY_STRING:
+
+				c->stat_class
+					= c->excess_values ? STC_UNK : STC_CAT;
+				break;
+
 			case FTY_FLOAT:
 				c->stat_class = STC_QUA;
 			}
