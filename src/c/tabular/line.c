@@ -1,4 +1,14 @@
 
+/**
+  * FUTURE:
+  * 1. An alternative for positive identification of ordinal variables:
+  *    Maintain an interval tree in which adjacent intervals are merged
+  *    when possible, so worst case tree size is N/2 nodes which would
+  *    (transiently) consume as much memory as holding the entire column
+  *    in memory. Average behavior should be much better and this does
+  *    allow *positive* identification of ordinality.
+  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -13,10 +23,43 @@
 #include "murmur3.h"
 #include "rstrip.h"
 #include "column.h"
-#include "util.h"
 
 #define MAX_CATEGORY_CARDINALITY (32)
-#define TYPICAL_MAX_CARDINALITY  (5)
+#define MAXLEN_CATEGORY_LABEL    (63)
+
+
+/**
+  * Currently this only allocates accumulators for column statistics.
+  */
+int _init_analysis( struct table_description *d ) {
+	const int COLUMNS
+		= d->table.column_count;
+	if( COLUMNS > 0 ) {
+		d->column = calloc( COLUMNS, sizeof(struct column) );
+		if( d->column ) {
+			int i = 0;
+			for(; i < COLUMNS; i++ ) {
+				if( set_init( & d->column[i].value_set,
+					MAX_CATEGORY_CARDINALITY,
+					true, /* duplicate strings */
+					murmur3_32, // fnv_32,
+					rand() ) ) break;
+			}
+			// Graceful, exhaustive clean-up and abort.
+			if( i < COLUMNS ) {
+				// Note that i was NOT initialized above.
+				while( i-- > 0 ) {
+					set_fini( & d->column[i].value_set );
+				}
+				free( d->column );
+				d->column = NULL;
+			}
+		}
+		return d->column ? 0 : -1;
+	} else
+		return 0; // ...not failure, since nothing to allocate.
+}
+
 
 /**
   * Because, in general, a numeric column may contain other non-numeric
@@ -33,10 +76,10 @@
   */
 static void _parse_field( const char *field, int off, void *context ) {
 
-	struct table_description *fs
+	struct table_description *d
 		= (struct table_description*)context;
 	struct column *c
-		= fs->column + off;
+		= d->column + off;
 
 	union {
 		long int ival;
@@ -45,10 +88,16 @@ static void _parse_field( const char *field, int off, void *context ) {
 	char *endpt = NULL;
 	int type = FTY_STRING; // unless demonstrated otherwise below.
 
-	if( *field == 0 ) {
+	const int FIELD_LEN
+		= strlen( field );
+
+	if( FIELD_LEN == 0 ) {
 		c->type_vote[ FTY_EMPTY ] += 1;
 		return;
 	}
+
+	if( c->max_field_len < FIELD_LEN )
+		c->max_field_len = FIELD_LEN;
 
 	/**
 	  * 1. Determine the type
@@ -59,7 +108,7 @@ static void _parse_field( const char *field, int off, void *context ) {
 	  * floating-point representation of an int (1.0) we *want* to treat
 	  * that as a float; someone upstream decided that floats were needed!
 	  *
-	  * Note that strtod DOES handle the distinguish values: [+-]?(inf|nan)
+	  * Note that strtod DOES handle the special values: /[+-]?(inf|nan)/i
 	  * as demonstrated by:
 	  * #include <stdio.h>
 	  * #include <stdlib.h>
@@ -81,16 +130,41 @@ static void _parse_field( const char *field, int off, void *context ) {
 	}
 
 	/**
-	  * 2. Regardless of type add its string value to the value set.
+	  * 2. Add string and integer values to the value set.
+	  *    Never add floats since they *almost* always indicate
+	  *    a quantitative variable and need not participate in
+	  *    the decision tree in _analyze_column.
 	  */
 
-	if( ! c->excess_values ) {
-		const int status
-			= set_insert( & c->value_set, field );
-		c->excess_values = (SZS_TABLE_FULL == status);
-	} else {
-		// TODO: count skipped values as a last resort?
-	}
+	if( FIELD_LEN <= MAXLEN_CATEGORY_LABEL ) {
+
+		/**
+		  * !!! Warning !!!
+		  * If the set is being used as a bag, call set_insert even when
+		  * excess_values so that item counts are updated.
+		  * Otherwise, elide set_insert because it is rather expensive.
+		  * !!! Warning !!!
+		  */
+
+		if( c->excess_values == 0 && type != FTY_FLOAT ) {
+
+			const int status
+				= set_insert( & c->value_set, field );
+			if( SZS_TABLE_FULL == status ) {
+				// Note the (0-based) line number at which the table filled.
+				c->excess_values
+					= d->rows.empty
+					+ d->rows.meta
+					+ d->rows.data;
+				// Since the table can't possibly fill on the 0th line,
+				// excess_values can be treated as a boolean, too.
+			}
+
+		} else {
+			// TODO: count skipped values as a last resort?
+		}
+	} else
+		c->long_field_count ++;
 
 	if( type > FTY_STRING /* it's numeric */ ) {
 
@@ -152,199 +226,6 @@ static void _parse_field( const char *field, int off, void *context ) {
 
 
 /**
-  * Currently this only allocates accumulators for column statistics.
-  */
-int _init_analysis( struct table_description *d ) {
-	const int COLUMNS
-		= d->table.column_count;
-	if( COLUMNS > 0 ) {
-		d->column = calloc( COLUMNS, sizeof(struct column) );
-		if( d->column ) {
-			int i = 0;
-			for(; i < COLUMNS; i++ ) {
-				if( set_init( & d->column[i].value_set,
-					MAX_CATEGORY_CARDINALITY,
-					true, /* duplicate strings */
-					murmur3_32, // fnv_32,
-					rand() ) ) break;
-			}
-			// Graceful, exhaustive clean-up and abort.
-			if( i < COLUMNS ) {
-				// Note that i was NOT initialized above.
-				while( i-- > 0 ) {
-					set_fini( & d->column[i].value_set );
-				}
-				free( d->column );
-				d->column = NULL;
-			}
-		}
-		return d->column ? 0 : -1;
-	} else
-		return 0; // ...not failure, since nothing to allocate.
-}
-
-
-static const char *DV_NA    // case-insensitive
-	= "n/?a|missing|null|none|unavailable|empty";
-/*
-static const char *DV_FLOAT // case-insensitive
-	= "[+-]?(nan|inf)";
-static const char *DV_BOOL  // case-insensitive
-	= "y(es)?|n(o)?|t(rue)?|f(alse)?";
-*/
-
-static bool _isalpha( const char *sz ) {
-	while( *sz ) if( ! isalpha(*sz) ) return false;
-	return true;
-}
-
-
-static int _fetch_string_values( struct strset *s, const char **out, int max ) {
-	void *cookie;
-	const char *v;
-	int n = 0;
-	if( set_iter( s, &cookie ) ) {
-		while( n < max && set_next( s, &cookie, &v ) ) {
-			if( _isalpha( v ) ) {
-				out[ n++ ] = v;
-			}
-		}
-	}
-	return n;
-}
-
-
-/**
-  * Having finished scanning a putatively tabular file, apply heuristics
-  * to the column statistics to finally determine the statistical class
-  * for each column (quantitative, categorical or (maybe) ordinal).
-  * The determination considers:
-  * 1) unanimity in one category
-  * 2) cardinality of the labels
-  * 3) magic string values that might be observed
-  *
-  * Propositions affecting the decision:
-  * P1: the set of strings in the column has cardinality 1
-  * P2: a string value matches a missing-data distinguished value
-  * P3: excess (>32) values have been observed
-  * P4  sample_size <= MAX_CATEGORY_CARDINALITY
-  * P5: (P4 AND |{values}| < sample_size else) OR |{values}|*3 < sample_size else
-  *
-  * If there are TWO supported value types:
-  *       I          F          S
-  *     +------------------------
-  *   I | x          QUA        Note 1
-  *   F | x          x          Note 2
-  *   S | x          x          x
-  */
-void _analyze_columns( struct table_description *d ) {
-
-	for(int i = 0; i < d->table.column_count; i++ ) {
-
-		struct column *c
-			= d->column + i;
-		const int K
-			= set_count( & c->value_set );
-		const int N_MAG
-			= __builtin_popcount( c->integer_magnitudes );
-		const int SUPPORTED_STAT_CLASSES
-			= count_nonzero( c->type_vote+1 /* exclude FTY_EMPTY */, FTY_COUNT-1 );
-
-		c->stat_class = STC_UNK; // ...unless overridden below!
-
-		if( SUPPORTED_STAT_CLASSES == 0 /* all must be empty */ ) {
-
-			assert( c->type_vote[ FTY_EMPTY ] > 0 );
-
-		} else
-		if( SUPPORTED_STAT_CLASSES == 1 /* Unanimity... */ ) {
-
-			// ...doesn't necessarily determine the stat class because...
-
-			switch( find_nonzero( c->type_vote, FTY_COUNT ) ) {
-
-			case FTY_INTEGER: // ...integers can be used in many ways!
-
-				if( c->excess_values ) {
-
-					// It can only be ordinal or quantitative.
-
-					if( c->has_negative_integers ) { // ...it's not ordinal.
-
-						c->stat_class = STC_QUA;
-
-					} else {
-
-						const int N
-							= c->type_vote[FTY_INTEGER];
-						const int MAX_MAG
-							= (int)floorf( log10f( c->extrema[1] ) );
-
-						if( ( N_MAG == MAX_MAG )
-							&& ( (int)round(c->extrema[0]) == 1 )
-							&& ( (int)round(c->extrema[1]) == N ) )
-							c->stat_class = STC_ORD;
-						else
-							c->stat_class = STC_QUA;
-					}
-
-				} else { // |{value_set}| <= MAX_CATEGORY_CARDINALITY
-
-					// There are few enough values to treat it as a
-					// categorical variable, but it has to pass extra
-					// tests...
-
-					if( c->has_negative_integers ) {
-
-						c->stat_class 
-							= K <= TYPICAL_MAX_CARDINALITY
-							? STC_CAT
-							: STC_QUA;
-
-					} else {
-
-						c->stat_class 
-							 = __builtin_popcount( c->integer_magnitudes ) > 1
-							 ? STC_QUA
-							 : STC_CAT;
-					}
-				}
-				break;
-
-			case FTY_STRING:
-
-				c->stat_class
-					= c->excess_values ? STC_UNK : STC_CAT;
-				break;
-
-			case FTY_FLOAT:
-				c->stat_class = STC_QUA;
-			}
-
-		} else 
-		if( SUPPORTED_STAT_CLASSES == 2 ) {
-
-			const bool UNIQUE_STRING
-				= c->type_vote[FTY_STRING] > 0;
-			if( c->type_vote[FTY_INTEGER] > 0 && c->type_vote[FTY_STRING] > 0 ) {
-			}
-		}
-	}
-}
-
-
-void tabular_free( struct table_description *d ) {
-	if( d->column ) {
-		for(int i = 0; i < d->table.column_count; i++ ) {
-			set_fini( & d->column[i].value_set );
-		}
-		free( d->column );
-		d->column = NULL;
-	}
-}
-
-
-/**
   * Classify and, if appropriate, parse the line.
   * Given a line and a struct field_spec parse the line and 
   * update file statistics.
@@ -387,3 +268,23 @@ int _analyze_line( struct table_description *d, char *line, int len ) {
 	return 0;
 }
 
+
+/**
+  * Infer statistical class of each column.
+  */
+void _fini_analysis( struct table_description *d ) {
+
+	for(int i = 0; i < d->table.column_count; i++ )
+		analyze_column( d->column + i );
+}
+
+
+void tabular_free( struct table_description *d ) {
+	if( d->column ) {
+		for(int i = 0; i < d->table.column_count; i++ ) {
+			set_fini( & d->column[i].value_set );
+		}
+		free( d->column );
+		d->column = NULL;
+	}
+}

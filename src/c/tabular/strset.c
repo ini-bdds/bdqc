@@ -13,7 +13,16 @@
 #include "strset.h"
 
 struct entry {
+
 	const char *str;
+
+#ifdef HAVE_BAG
+	/**
+	  * A "bag" is a set which allows duplicates, so a set can
+	  * be turned into a bag just by maintaining a count.
+	  */
+	int count;
+#endif
 };
 
 #define ENTRY_IS_OCCUPIED(s,p) ((s)->array[(p)].str != NULL)
@@ -156,6 +165,12 @@ int set_grow( struct strset *s ) {
 #endif
 
 
+/**
+  * !!! Warning !!!
+  * If this is a "bag" (ifdef HAVE_BAG), we need to try the insertion even
+  * when the table is full in order to update the count.
+  * !!! Warning !!!
+  */
 int set_insert( struct strset *s, const char *str ) {
 
 	if( str != NULL && *str != '\0' ) {
@@ -181,7 +196,7 @@ int set_insert( struct strset *s, const char *str ) {
 
 		ent = s->array + pos;
 #ifdef HAVE_BAG
-		ent->count += 1;
+		ent->count += 1; // ...whatever it's current occupancy state.
 #endif
 		if( ENTRY_IS_EMPTY(s,pos) ) {
 			ent->str    = s->dup ? strdup(str) : str;

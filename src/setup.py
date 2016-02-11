@@ -32,6 +32,8 @@ setup(name="bdqc",
 				'c/tabular/scan.c',
 				'c/tabular/line.c',
 				'c/tabular/json.c',
+				'c/tabular/util.c',
+				'c/tabular/column.c',
 
 				'c/stats/bounds.c',
 				'c/stats/central.c',

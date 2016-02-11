@@ -18,7 +18,7 @@
 extern int _format_infer( FILE *fp, int delim, int nlines, struct format *inferred );
 extern int _init_analysis( struct table_description * );
 extern int _analyze_line( struct table_description *, char *line, int len );
-extern void _analyze_columns( struct table_description * );
+extern void _fini_analysis( struct table_description * );
 
 #define MAX_COUNT_HEADER_LINES (256)
 #define MAX_COUNT_SAMPLE_LINES (16)
@@ -561,7 +561,7 @@ int tabular_scan( FILE *fp, struct table_description *d /* out */ ) {
 	}
 
 	if( s.check_state /* If we didn't abort analysis... */ ) {
-		_analyze_columns( d );
+		_fini_analysis( d );
 	}
 
 	/**

@@ -40,6 +40,7 @@ OBJECTS=main.o\
 	strset.o\
 	ascii.o\
 	murmur3.o \
+	column.o \
 	json.o \
 	util.o
 
