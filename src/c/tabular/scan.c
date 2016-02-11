@@ -431,9 +431,11 @@ static int _cs_analyze_content( struct state *s ) {
   *		with character content and table analysis	JSON
   *
   * Returns:
-  *  0 if at least some analysis was completed and output is expected to
+  *  EXIT_SUCCESS
+  *    if at least some analysis was completed and output is expected to
   *    contain some valid information
-  * -1 otherwise 
+  *  EXIT_FAILURE
+  *    otherwise 
   */
 int tabular_scan( FILE *fp, struct table_description *d /* out */ ) {
 
