@@ -234,11 +234,16 @@ int set_next( const struct strset *s, void **cookie, const char **pstr ) {
 	if( cookie ) {
 		struct entry *ent = (struct entry *)(*cookie);
 		while( ent < s->array + s->capacity ) {
-			if( ent->str ) {
+			if( ent->str 
+#ifdef HAVE_BAG
+					&& ent->count > 0
+#endif
+					) {
 				*pstr = ent->str;
-				*cookie = ent++;
+				*cookie = ++ ent;
 				return 1;
 			}
+			ent++;
 		}
 	}
 	return 0;
@@ -288,6 +293,11 @@ void set_destroy( struct strset *s ) {
 
 #ifdef _DEBUG
 void set_dump( struct strset *s, FILE *fp ) {
+	void *cookie;
+	if( set_iter( s, &cookie ) ) {
+		const char *sz;
+		while( set_next( s, &cookie, &sz ) ) fprintf( fp, "%s\n", sz );
+	}
 }
 #endif
 
@@ -414,9 +424,8 @@ EXIT:
 #include <err.h>
 #include "murmur3.h"
 
-extern unsigned int hash( const char *s, unsigned int );
-
 static void command_loop( struct strset *s ) {
+
 	char *line = NULL;
 	size_t blen = 0;
 	ssize_t llen;
@@ -426,7 +435,9 @@ static void command_loop( struct strset *s ) {
 
 	while( (llen = getline( &line, &blen, stdin )) > 0 ) {
 		if( line[0] == '?' ) {
-			printf( "%d/%d\n", set_count(s), s->capacity );
+			printf( "%d/%d...\n", set_count(s), s->capacity );
+			set_dump( s, stdout );
+			printf( "--\n" );
 			continue;
 		} else
 #ifdef HAVE_SET_GROW
@@ -472,7 +483,7 @@ int main( int argc, char *argv[] ) {
 	struct strset *s = NULL;
 
 	if( argc < 2 )
-		errx( -1, "%s <capacity>", argv[0] );
+		errx( -1, "%s [ -i -c <capacity>[%d] ]", argv[0], CAP );
 
 	do {
 		static const char *CHAR_OPTIONS 
@@ -490,7 +501,7 @@ int main( int argc, char *argv[] ) {
 		switch (c) {
 
 		case 'c':
-			CAP = atoi( argv[1] );
+			CAP = atoi( optarg );
 			break;
 		case 'i':
 			opt_interactive = 1;
@@ -508,6 +519,7 @@ int main( int argc, char *argv[] ) {
 	s = set_create( CAP, 1 /* duplicate */, murmur3_32, 0 );
 
 	if( s ) {
+
 		if( opt_interactive )
 			command_loop( s );
 		else {
@@ -540,7 +552,6 @@ retry:
 				free( line );
 		}
 
-		printf( "cardinality = %d\n", set_count( s ) );
 		set_destroy( s );
 
 	} else
