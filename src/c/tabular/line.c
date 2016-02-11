@@ -46,7 +46,7 @@ int _init_analysis( struct table_description *d ) {
 					rand() ) ) break;
 			}
 			// Graceful, exhaustive clean-up and abort.
-			if( i < COLUMNS ) {
+			if( i < COLUMNS || init_column_analysis() ) {
 				// Note that i was NOT initialized above.
 				while( i-- > 0 ) {
 					set_fini( & d->column[i].value_set );
@@ -276,6 +276,7 @@ void _fini_analysis( struct table_description *d ) {
 
 	for(int i = 0; i < d->table.column_count; i++ )
 		analyze_column( d->column + i );
+	fini_column_analysis();
 }
 
 
