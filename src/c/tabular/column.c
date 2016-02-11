@@ -82,7 +82,7 @@ int init_column_analysis() {
 
 
 static bool _isalpha( const char *sz ) {
-	while( *sz ) if( ! isalpha(*sz) ) return false;
+	while( *sz ) if( ! isalpha(*sz++) ) return false;
 	return true;
 }
 
