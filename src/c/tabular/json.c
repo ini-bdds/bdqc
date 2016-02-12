@@ -8,6 +8,13 @@
 #include "strset.h"
 #include "column.h"
 
+static const char *STAT_CLASS_NAME[] = {
+	"unknown",
+	"categorical",
+	"quantitative",
+	"ordinal"
+};
+
 /**
   * First level items:
   * 1. offending_byte: the ordinal of binary byte, or 0 if file is text.
@@ -58,18 +65,12 @@ static void _json_encode_ascii( const char *pc, FILE *fp ) {
 
 
 /**
+  * Emit select parts of the table description as JSON.
   */
 int tabular_as_json( const struct table_description *a, FILE *fp ) {
 
 	const int NC = a->table.column_count;
 	const struct column *c = a->column;
-
-	/**
-	  * If analysis failed because of an I/O error there is possibly
-	  * nothing valid. TODO: Perhaps write a status string anyway?
-	  */
-	if( a->status != E_FILE_IO )
-		return -1;
 
 	if( fputc( '{', fp ) < 0 )
 		return -1;
@@ -168,15 +169,23 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 				= set_count( & c->value_set );
 
 			if( fprintf( fp, "{"
+				"\"inferred_class\":\"%s\","
 				"\"votes\":{\"empty\":%d,\"integer\":%d,\"float\":%d,\"string\":%d},"
 				"\"stats\":{\"mean\":%f,\"variance\":%f},"
+				"\"extrema\":{\"min\":%f,\"max\":%f},"
+				"\"max_field_length\":%d,"
+				"\"long_field_count\":%d,"
 				"\"labels\":[",
+				STAT_CLASS_NAME[ c->stat_class ],
 				c->type_vote[FTY_EMPTY],
 				c->type_vote[FTY_INTEGER],
 				c->type_vote[FTY_FLOAT],
 				c->type_vote[FTY_STRING],
-				c->statistics[0],
-				c->statistics[1] ) < 0 )
+				c->statistics[0], c->statistics[1],
+				c->extrema[0],    c->extrema[1],
+				c->max_field_len,
+				c->long_field_count
+			   	) < 0 )
 				return -1;
 
 			if( set_iter( & c->value_set, &cookie ) ) {

@@ -5,6 +5,10 @@
   * Types are inferred from syntax; statistical class is inferred from
   * many heuristics on the observed types, their values, and various other
   * metadata collected (in struct column) about them.
+  *
+  * There is a persistent problem with essentially nominative variables
+  * (e.g. identifiers) or essentially non-statistical data such as DNA
+  * sequence fragments being identified as categorical.
   */
 
 #include <stdio.h>
@@ -103,7 +107,12 @@ static int _fetch_string_values( struct strset *s, const char **out, int max ) {
 
 
 /**
-  * 
+  * Handle the case of a vector consisting entirely of integers (possibly
+  * after removal of a unique placeholder string for missing data). This is
+  * the trickiest case since it could be any or none of the 3 statistical
+  * classes.
+  * TODO: For plausibly categorical cases might be better to consider number
+  * of duplicate values (using value_bag instead of value_set).
   */
 static int _integer_inference( const struct column *c ) {
 
@@ -168,7 +177,7 @@ static int _integer_inference( const struct column *c ) {
 			// and the sample size is primary determinant now...
 
 			stat_class 
-				 = K <= ( 1.0 + ceil( log( (double)N ) ) )
+				 = K < N
 				 ? STC_CAT
 				 : STC_QUA;
 
@@ -216,8 +225,10 @@ void analyze_column( struct column *c ) {
 
 		case FTY_STRING:
 
-			c->stat_class
-				= c->excess_values ? STC_UNK : STC_CAT;
+			if( ( ! c->excess_values )
+				&& set_count( & c->value_set ) <  c->type_vote[ FTY_STRING ] 
+				&& c->long_field_count == 0 )
+				c->stat_class = STC_CAT;
 			break;
 
 		case FTY_FLOAT:
