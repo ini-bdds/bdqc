@@ -1,14 +1,11 @@
 
 /**
-  * This module is concerned with analyzing vectors (assumed to come from
-  * table columns) of data of unknown type and statistical class.
+  * This module is concerned with analyzing vectors of data (assumed to
+  * come from table columns) of unknown type and statistical class.
   * Types are inferred from syntax; statistical class is inferred from
-  * many heuristics on the observed types, their values, and various other
-  * metadata collected (in struct column) about them.
-  *
-  * There is a persistent problem with essentially nominative variables
-  * (e.g. identifiers) or essentially non-statistical data such as DNA
-  * sequence fragments being identified as categorical.
+  * many heuristics on the observed types: their values, the cardinality
+  * of their values, and various other metadata collected about them (in
+  * struct column).
   */
 
 #include <stdio.h>
@@ -25,20 +22,21 @@
 #include "strset.h"
 #include "column.h"
 #include "util.h"
+#include "environ.h"
 
 /**
   * Compile regular expressions to identify special string values:
   * 1. missing data placeholders
   * 2. boolean values
   */
-static const char *_patt_NA   // case-insensitive
+static const char *_pattern_NA   // case-insensitive
 	= "n/?a|missing|null|none|unavailable|empty";
-static regex_t _cre_NA;
+static regex_t _compiled_re_NA;
 
 #ifdef HAVE_BOOLEAN_DETECTION
-static const char *_patt_BOOL // case-insensitive
+static const char *_pattern_BOOL // case-insensitive
 	= "y(es)?|n(o)?|t(rue)?|f(alse)?";
-static regex_t _cre_BOOL;
+static regex_t _compiled_re_BOOL;
 #endif
 
 /**
@@ -65,22 +63,24 @@ static int _compile( const char *patt, regex_t *cre, int flags ) {
 
 void fini_column_analysis() {
 #ifdef HAVE_BOOLEAN_DETECTION
-	regfree( &_cre_BOOL );
+	regfree( &_compiled_re_BOOL );
 #endif
-	regfree( &_cre_NA );
+	regfree( &_compiled_re_NA );
 }
+
 
 int init_column_analysis() {
 
 	const int FLAGS
 	   = REG_EXTENDED | REG_NOSUB | REG_ICASE | REG_NEWLINE;
 
-	if( _compile( _patt_NA,   &_cre_NA,   FLAGS ) )
+	if( _compile( _pattern_NA,   &_compiled_re_NA,   FLAGS ) )
 		return -1;
 #ifdef HAVE_BOOLEAN_DETECTION
-	if( _compile( _patt_BOOL, &_cre_BOOL, FLAGS ) )
+	if( _compile( _pattern_BOOL, &_compiled_re_BOOL, FLAGS ) )
 		return -1;
 #endif
+	read_environment_overrides();
 	return 0;
 }
 
@@ -107,12 +107,37 @@ static int _fetch_string_values( struct strset *s, const char **out, int max ) {
 
 
 /**
-  * Handle the case of a vector consisting entirely of integers (possibly
-  * after removal of a unique placeholder string for missing data). This is
-  * the trickiest case since it could be any or none of the 3 statistical
-  * classes.
-  * TODO: For plausibly categorical cases might be better to consider number
+  * Handle the case of a vector consisting entirely (or almost entirely) of
+  * integers. (If the cardinality of string values in a vector is 1 and that
+  * unique string value looks a representation of missing data, the vector
+  * is treated as if it were entirely integral.) This is the trickiest case
+  * since it could be any or none of the 3 statistical classes.
+  *
+  * Heuristics.
+  * 1. card({values}) < MAX_CATEGORY_CARDINALITY
+  *     The real question is whether or not categorical statistical tests
+  *     are applicable to a given vector.
+  *     Categorical methods are rarely applied to data with more than
+  *     MAX_CATEGORY_CARDINALITY categories. However, as the sample size
+  *     grows MAX_CATEGORY_CARDINALITY *can* grow as well.
+  * 2. max(abs({values})) < MAX_VALUE
+  *		Although integers can serve as category labels it rarely makes
+  *     sense for those integers to have large absolute values.
+  *     Zip codes are a confounder of this heuristic.
+  * 3. negative integers are almost never involved in categorical data
+  *    UNLESS they represent levels symmetric around 0...which further
+  *    constrains plausible max(abs({values})).
+  *
+  * Caveats:
+  * 1. The current rationale will miss quantitative variables (of either
+  *    integral or floating-point type) that might be usefully treated as
+  *    categorical (e.g. a vector of zip codes containing only 3 distinct
+  *    values). Or even more extreme: an essentially boolean variable in
+  *    which the labels happen to be two large integers.
+  *
+  * For plausibly categorical cases might be better to consider number
   * of duplicate values (using value_bag instead of value_set).
+  *
   */
 static int _integer_inference( const struct column *c ) {
 
@@ -160,12 +185,14 @@ static int _integer_inference( const struct column *c ) {
 
 		if( c->has_negative_integers ) {
 
-			// ...require all values to be in (-K,+K).
+			// ...require all values to be in (-K,+K) where
+			// K == MAX_ABSOLUTE_CATEGORICAL_VALUE
 			// e.g. { -2, -1, 0, 1, 2 } with -2 indicating
 			// "strongly dislike" and +2 "strongly like"
 
 			stat_class 
-				= (-K <= c->extrema[0]) && (c->extrema[1] <= +K)
+				= (-(MAX_ABSOLUTE_CATEGORICAL_VALUE/2) <= c->extrema[0])
+					&& (c->extrema[1] <= +(MAX_ABSOLUTE_CATEGORICAL_VALUE/2))
 				? STC_CAT
 				: STC_QUA;
 
@@ -177,16 +204,20 @@ static int _integer_inference( const struct column *c ) {
 			// and the sample size is primary determinant now...
 
 			stat_class 
-				 = K < N
+				 = (K <= MAX_CATEGORY_CARDINALITY)
+				 	&& (c->extrema[1] <= MAX_ABSOLUTE_CATEGORICAL_VALUE)
+				 	&& (K < (N/2))
+					// 3rd clause is just a sanity check for very small
+					// sample sizes.
 				 ? STC_CAT
 				 : STC_QUA;
 
-			// Zip codes are a confounding case; they're neither
-			// categorical nor quantitative. They're nominative.
-			// If a small enough subset of zipcodes are present
-			// in a given data set, treatable as categorical.
+			// Zip codes are a confounding case. They *can* be categorical,
+			// but in a large sample they're more likely to be nominative--
+			// that is, non-statistical.
 		}
 	}
+
 	return stat_class;
 }
 
@@ -254,7 +285,7 @@ void analyze_column( struct column *c ) {
 			&& _fetch_string_values( & c->value_set, sval, 2 ) == 1;
 		const bool HAS_CANDIDATE_MISSING_DATA_PLACEHOLDER
 			= UNIQUE_STRING
-			&& regexec( &_cre_NA, sval[0], 0, NULL, 0 ) == 0;
+			&& regexec( &_compiled_re_NA, sval[0], 0, NULL, 0 ) == 0;
 
 		if( OBSERVED_TYPE_COUNT == 2 ) {
 
