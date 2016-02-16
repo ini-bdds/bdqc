@@ -23,9 +23,7 @@
 #include "murmur3.h"
 #include "rstrip.h"
 #include "column.h"
-
-#define MAX_CATEGORY_CARDINALITY (32)
-#define MAXLEN_CATEGORY_LABEL    (63)
+#include "environ.h"
 
 
 /**
