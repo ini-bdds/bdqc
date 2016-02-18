@@ -280,14 +280,20 @@ class MetaAnalysis(object):
 		"""
 		Actually write a datum to the appropriate cache.
 		Called by _visit every time it reaches a leaf node (necessarily
-		a scalar) and *just before* descending into a matrix.
+		a scalar) or a JSON Array (which might represent an arbitrary
+		dimensional matrix or a set).
 		The latter case allows:
 		1. emission of matrix metadata 
-		2. emission of potential sets
+		2. emission of potential sets as values
 		...which are mutually exclusive. As long as these possibilities
 		*are* mutually exclusive we don't need any additional path
 		differentiators--that is, we can just use the JSON path.
+
+		Returns:
+			Boolean value for which True means "descend into the matrix."
+		(A True is only meaningful if the node is, in fact, a JSON Array).
 		"""
+		descend = (meta is not None) and (_ALWAYS_TRAVERSE or meta[1] == 0)
 		# Insure a cache exists for the statistic...
 		try:
 			cache = self.cache[ statname ]
@@ -295,7 +301,7 @@ class MetaAnalysis(object):
 			# ...IF AND ONLY IF it passes path-based filters that define
 			# statistics of interest.
 			if not self._accept( statname ):
-				return
+				return descend # ...without caching anything. 
 			cache = Cache(len(self.files))
 			self.cache[ statname ] = cache
 		# ...then cache the value(s)
@@ -307,6 +313,8 @@ class MetaAnalysis(object):
 				# of values, then encode it as a set.
 				if len(S) == meta[0][0]:
 					cache( S )
+					descend = False
+					# ...because the list was just treated as a *value*.
 				else:
 					cache( meta )
 			else:
@@ -316,6 +324,8 @@ class MetaAnalysis(object):
 		else:
 			assert value is None or _is_scalar( value )
 			cache( value )
+			descend = False
+		return descend
 
 	def _visit( self, data ):
 		"""
@@ -360,10 +370,10 @@ class MetaAnalysis(object):
 							mt = _json_matrix_type(v) if len(v) > 0 else _EMPTY_MATRIX_TYPE
 							if mt is None:
 								raise RuntimeError(_MSG_BAD_ARRAY)
-							self._addstat( pa, v, mt )
+							
 							# If there are nested Objects (or we're traversing
 							# all), descend...
-							if len(v) > 0 and (_ALWAYS_TRAVERSE or mt[1] == 0):
+							if self._addstat( pa, v, mt ) and len(v) > 0:
 								push = ( k, i )
 						else:
 							assert v is None or _is_scalar(v)
@@ -387,10 +397,10 @@ class MetaAnalysis(object):
 							mt = _json_matrix_type(v) if len(v) > 0 else _EMPTY_MATRIX_TYPE
 							if mt is None:
 								raise RuntimeError(_MSG_BAD_ARRAY)
-							self._addstat( pa, v, mt )
+							
 							# If there are nested Objects (or we're traversing
 							# all), descend...
-							if len(v) > 0 and (_ALWAYS_TRAVERSE or mt[1] == 0):
+							if self._addstat( pa, v, mt ) and len(v) > 0:
 								push = ( str(i), i+1 )
 							else:
 								i += 1
