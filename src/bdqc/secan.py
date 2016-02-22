@@ -431,6 +431,21 @@ class MetaAnalysis(object):
 		"""
 		This reloads (as needed) cached vectors and analyzes in the following
 		sense:
+		1. Verify no missing data exists. Missing data suggests structural
+			differences existed between the files and further comparison
+			is probably unwarranted--that is, at least some of the files
+			*are* fundamentally different.
+		2. Each column is unambiguously typed. That is, each column contains
+			elements that are unamibuously one of the following:
+			A. scalars
+				i. floating-point values
+				ii. integer values
+				iii. string values
+			B. sets of strings
+			C. arbitrary dimension matrix of one scalar type
+		3. Configured heuristics are applied to all columns. In particular,
+			columns that are "matched" by rule selectors are tested by the
+			associated rules.
 		"""
 		missing_data = [ v.missing_data() for v in self.cache.values() ]
 		if any(missing_data):
