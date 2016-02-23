@@ -224,7 +224,10 @@ class Executor(object):
 						d = p.process( s, declared_reqs )
 
 						# Automatically append plugin's version to results.
+						# converting results to dict if they're not already.
 						if hasattr( p, _PLUGIN_VERSION ):
+							if not isinstance(d,dict):
+								d = {"value":d,}
 							d[_CACHE_VERSION] = int( getattr( p, _PLUGIN_VERSION ) )
 
 						# Add this plugin's results to subject's cache.
