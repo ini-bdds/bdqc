@@ -168,7 +168,7 @@ Apply heuristics to aggregated summaries (*across-file* analysis)
 3. A specified set of heuristics are applied to the columns of the matrix.
 
 The columns of the matrix are the individual statistics that plugins produce
-from their file analyses.
+in their analysis summaries.
 Plugins_ are described more fully `elsewhere <Plugins_>`_. Here it suffices
 to understand that a plugin's output can be (*almost*) anything
 representable as JSON_ data.
@@ -176,8 +176,6 @@ Since JSON_ is capable of representing compound datatypes [#]_,
 the individual statistics in plugins' summaries are identified by *paths*
 in the JSON_ data. For example, in the following sample output from the
 bdqc.builtin.tabular plugin...
-
-__	Plugins_
 
 .. code-block:: JSON
 
@@ -214,7 +212,7 @@ __	Plugins_
                             "variance": 57562.872727
                         },
                     }
-                ]
+                ],
                 "data_lines": 391,
                 "empty_lines": 0,
                 "meta_lines": 3,
@@ -228,6 +226,40 @@ The mean value of the 2nd column is identified by the path:
 
 When summaries are aggregated and "flattened" individual columns in the resulting
 matrix are named by such paths.
+These paths can be used to make heuristic analysis selective.
+
+**Advanced:** The process of flattening plugin summaries can be "tuned" by
+limiting how deeply compound JSON_ types are traversed. By default, summaries
+are traversed exhaustively, producing a scalar-type column for every scalar
+statistic in the summaries.
+
+Heuristic analysis
+==================
+
+Clearly, it is not generally possible to reliably identify "anomalies"
+(classify samples) without **some** *a priori* knowledge of the "normal."
+BDQC's goals are slightly less ambitious: to bootstrap classification
+heuristically. Moreover, it aims to be easy to
+(learn to) use by doing *something* reasonable with very little
+guidance--that is, by having sensible default behavior.
+
+To understand what is possible via heuristic analysis one must first
+understand a set of concepts on which it is based.
+
+The columns of the matrix of aggregated summaries each have a type:
+
+	1. floating-point
+	2. integer
+	3. string
+	4. matrix descriptor
+	5. set (a 1-dimensional matrix of string values)
+
+The first three represent scalar values, and a column (vector) of scalar
+values can be associated with a statistical class.
+
+	1. quantitative (typically continuous values for which magnitude is meaningful)
+	2. ordinal (magnitude is meaningless, only order matters, typically 1..N exhaustive)
+	3. categorical (a small set of unordered values, boolean is a special case)
 
 .. The aggregate analysis consists of a set statistical techniques to
 .. identify outliers in the *univariate* statistics produced by plugins.
@@ -359,9 +391,9 @@ Footnotes
 
 .. [#] `Alan Kay`_
 .. [#] The BDQC *package* includes several "built-in" plugins which insure
-	it is useful "out of the box." Though they are build-in, they are
+	it is useful "out of the box." Though they are built-in, they are
 	nonetheless plugins.
-.. [#] And "visible" to the BDQC framework by virtue of PYTHONPATH. 
+.. [#] ...and "visible" to the BDQC framework by virtue of PYTHONPATH. 
 .. [#] JSON_ "Objects" can contain anything including other Objects. Similarly, JSON_ Arrays can contain Arrays.
 .. [#] The type constraints are motivated partially by what the Python json module can serialize and partially by limitations in the definition of heuristics.
 .. [#] One use for set-valued returns is passing arguments to a "downstream"
