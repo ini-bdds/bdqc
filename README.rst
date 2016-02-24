@@ -59,7 +59,7 @@ _`What is it for?`
 BDQC identifies anomalous files among large collections of files which are
 *a priori* assumed to be "similar."
 It was motivated by the realization that when faced with many thousands of
-individual files it becomes challenging to even confirm they all contain
+individual files it can be challenging to even confirm they all contain
 approximately what they should.
 
 It is intended to:
@@ -122,14 +122,15 @@ _`How does it work?`
 ####################
 
 This section describes exhaustively how BDQC works internally.
-This and following sections is required reading for plugin developers.
+This and following sections are required reading for people
+wanting to develop their own plugins.
 
 Analyze and summarize individual files (*within-file* analysis)
 ===============================================================
 
-Possibly the most important thing to understand about BDQC is that
+The most important fact to understand about BDQC is that
 *plugins*, not the *framework*, carry out all analysis of input files.
-The BDQC *framework* merely orchestrates the execution of *plugins*. [#]_
+The BDQC *framework* merely orchestrates the execution of plugins. [#]_
 
 Said another way, the plugins that are executed on a file entirely determine
 the content of the summary generated for that file. The framework itself
@@ -154,6 +155,8 @@ and a plugin that is "upstream" in the DAG can determine how (or even whether
 or not) a downstream plugin is run.
 The framework minimizes work by only executing a plugin when required.
 
+.. TODO: cover the rerun decision tree.
+
 By default, the summary for file foo.txt is left in an adjacent file named
 foo.txt.bdqc.
 
@@ -163,14 +166,16 @@ handles filenames.
 Apply heuristics to aggregated summaries (*across-file* analysis)
 =================================================================
 
+In the 2nd stage:
+
 1. Summary (\*.bdqc) files are collected.
 2. The JSON_ content of all files' summaries is *flattened* into a matrix.
-3. A specified set of heuristics are applied to the columns of the matrix.
+3. A specified set of heuristics are applied to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
 
 The columns of the matrix are the individual statistics that plugins produce
 in their analysis summaries.
 Plugins_ are described more fully `elsewhere <Plugins_>`_. Here it suffices
-to understand that a plugin's output can be (*almost*) anything
+to understand that a plugin's output can be (almost) anything
 representable as JSON_ data.
 Since JSON_ is capable of representing compound datatypes [#]_,
 the individual statistics in plugins' summaries are identified by *paths*
@@ -296,12 +301,12 @@ elements shown in the example below.
 			'a_set_result':['foo','bar','baz'],
 			'a_categorical_result':"yes" }
 
-Plugins must observe several constrains (some shown in the example):
+Plugins must satisfy several constraints:
 
-1. Every plugin *must* provide a list called DEPENDENCIES (which may be empty). Each dependency is a fully-qualified Python package name.
+1. Every plugin *must* provide a list called DEPENDENCIES (which may be empty). Each dependency is a fully-qualified Python package name (as a string).
 2. Every plugin *must* provide a two-argument function called process.
 3. A plugin *may* include a VERSION declaration. If present, it must be convertible to an integer (using int()).
-4. The process function *must* return one of the basic Python type dict, list, tuple, scalar, or None [#]_.
+4. The process function *must* return one of the basic Python types: dict, list, tuple, scalar, or None [#]_.
 
 	a. If the root type is a container (dict, list, tuple) all contained types (recursively) must be basic Python types.
 	b. A plugin should *never* return empty dict's.
@@ -316,7 +321,7 @@ Python mechanisms.
 Moreover, while a plugin is free to return multiple statistics,
 the `Unix philosophy`_ of "Do one thing and do it well" suggests that a
 plugin *should* return few statistics (or even only one).
-This promotes reuse, extensibility, unit-testability of plugins, and is
+This promotes reuse, extensibility, and unit-testability of plugins, and is
 the motivation behind the plugin architecture.
 
 There is no provision for passing arguments to plugins from the framework
@@ -330,7 +335,7 @@ demonstrates how to use C code.
 
 The framework will incorporate the VERSION number into the plugin's output
 automatically. The plugin's code need not and should not include it in the
-returned value. The version number is used by the framework to decide
+returned value. The version number is used by the framework (along with other factors) to decide
 whether to *re*-run a plugin. (This is useful during plugin development.)
 If a plugin does provide a VERSION, it's return *should* be a dict.
 Otherwise, the framework will simply assign the generic name "value" to the
