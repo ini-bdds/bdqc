@@ -237,7 +237,8 @@ Heuristic analysis
 ==================
 
 Clearly, it is not generally possible to reliably identify "anomalies"
-(classify samples) without **some** *a priori* knowledge of the "normal."
+(classify files) without *some a priori* knowledge of what distinguishes
+normal from anomalous files [#]_.
 BDQC's goals are slightly less ambitious: to bootstrap classification
 heuristically. Moreover, it aims to be easy to
 (learn to) use by doing *something* reasonable with very little
@@ -254,12 +255,15 @@ The columns of the matrix of aggregated summaries each have a type:
 	4. matrix descriptor
 	5. set (a 1-dimensional matrix of string values)
 
-The first three represent scalar values, and a column (vector) of scalar
-values can be associated with a statistical class.
+The first three represent scalar types, and a column (vector) of scalar
+type can be assigned a *statistical class*:
 
 	1. quantitative (typically continuous values for which magnitude is meaningful)
 	2. ordinal (magnitude is meaningless, only order matters, typically 1..N exhaustive)
 	3. categorical (a small set of unordered values, boolean is a special case)
+
+A column's statistical class constrains the set of candidate statistical
+tests that might be applied.
 
 .. The aggregate analysis consists of a set statistical techniques to
 .. identify outliers in the *univariate* statistics produced by plugins.
@@ -395,6 +399,7 @@ Footnotes
 	nonetheless plugins.
 .. [#] ...and "visible" to the BDQC framework by virtue of PYTHONPATH. 
 .. [#] JSON_ "Objects" can contain anything including other Objects. Similarly, JSON_ Arrays can contain Arrays.
+.. [#] "classification" in the absence of *a priori* training is essentially clustering.
 .. [#] The type constraints are motivated partially by what the Python json module can serialize and partially by limitations in the definition of heuristics.
 .. [#] One use for set-valued returns is passing arguments to a "downstream"
 	(dependent) plugin.}
