@@ -1,0 +1,181 @@
+
+http://www.iana.org/assignments/media-types/text/tab-separated-values
+https://www.w3.org/TR/2015/WD-tabular-data-model-20150416
+https://en.wikipedia.org/wiki/Comma-separated_values
+https://tools.ietf.org/html/rfc4180
+----------------------------------------------------------------------------
+Three formatting attributes fully specify 99% of tabular data formats:
+1.	What, if any, delimiter is in use?
+2.	What separator is in use?
+3.	Is the separator subject to coalescing?
+
+Delimiters ALWAYS occur in pairs and delimit the extent of a field.
+Typically when delimiters are in use *anything* (including line-breaking
+characters!) is allowed inside the delimiters. Delimiters are typically
+double-quotes, but need not be. When delimiters are in use, if a delimiter
+is to appear inside a field it must be escaped, often by doubling it.
+Delimiters are usually used *with* separators.
+
+Separators separate fields (and implicitly delimit) fields. Adjacent
+separators imply an empty field. A separator is usually a character
+completly prohibited from appearing *in* a field as there is typically
+no defined escaping mechanism (though there could be).
+
+When separators are used without delimiters every line should have the
+exact same count of separator characters (and a field count one greater
+than the separator count).
+
+Whitespace *may* get special treatment at a line's start and end.
+
+Moreover, not all combinations of these are actually used in practice.
+For example, only whitespace is ever subject to coalescing.
+
+CSV format is probably the worst of all in that delimiters are optional.
+----------------------------------------------------------------------------
+
+Focus on relations, not procedures.
+
+May begin with multiple non-data records, exactly 0 or 1 of which is a header.
+
+five types:
+	boolean			histogram
+	categorical		histogram: cardinality
+	ordinal			?
+	numeric			Kullback Leibler
+	complex			?
+	identity		sample count == cardinality (AND not numeric)
+
+do corresponding structural elements have
+	similar distributions of content
+	identical underlying sets (for categorical data)
+
+counts of NAs
+
+nonrecs begin with distinguished character
+nonrec*
+header{0,1}
+{record | nonrec }
+
+
+countable
+	nonrecs (comments + headers)
+	records (aka data rows)
+	record fields (aka columns)
+
+are there correspondences between structural elements in the set of files?
+some dimension equal (fields/rows)
+	explicit tags (row/column names)
+	implicit positional
+	assumed content type
+
+extrinsic/extensive properties are those that can be acquired
+without looking into the file at all (depend on filesystem
+and or physical location/protocol (different metadata will
+be available for URL vs. local file)
+
+compare aggregate properties of byte streams
+
+compare aggregate properties of corresponding parts of bytestreams
+
+
+
+Useability goals:
+	user provides AS LITTLE AS POSSIBLE
+
+Use cases:
+	unsupervised
+		characterize the distributions of metrics of a "pile of files"
+		identify outliers within this distribution
+	supervised
+		identify outliers in a "pile of files" relative to pre-learned
+			distributions
+
+Relations to support minimal use cases:
+file => { measurable attributes }
+
+	extrinsic properties apply to all files
+	intrinsic properties are measurable aspects of structure
+		counts of structure elements (plus some other minutiae)
+
+{ fileset } => { distributions (of measurable attributes) }
+
+How to specify a fileset
+	root directory + recursion (to a max depth) (subject to pattern)
+	manifest
+
+Qualify the output
+	summaries/distributions (+/- graphics)
+
+Measurable attributes of a blob of bytes depend on structure.
+	Need to infer structure
+		Shortcuts provided by file type recognition
+			Classes
+				binary
+					special purpose types JPG
+					BAM
+				text (conventions guide decomposition)
+					unstructured
+					ragged array (variably sized records)
+					tabular
+				hybrid
+					HDF (here lies recursion!)
+			Specific types provide hint/short circuit to class membership
+				VCF
+				BED
+				GFF
+				...
+
+A Class defines structural elements
+Each structural element can contain an information (not nec. "data") type
+
+Levels of inspection
+	extrinsic
+		size
+		mod date
+		???
+	intrinsic
+		fundamental structural class
+	deep(er)
+		class-specific
+
+
+Challenge is accomodating data containers of arbitrary structure.
+Assumption: if processor p's output for file f is not empty it is
+	comparable (aggregatable) with the the non-empty output of 
+	processor p on all other files.
+
+Executor
+	Max extensibility => knows only that it has N processors to throw
+	at a file. It knows nothing.
+Processors
+	Examine file produce either empty output or map
+
+processor.key[.subkey[.subusbkey]] = value
+
+tt.column.5 = (numeric,mean,var)
+
+	OR
+
+tt.column.5.class = numeric
+tt.column.5.mean  = value
+tt.column.5.var   = value
+
+
+Do processors have to save *state* between file? ...or is each
+file processed in complete isolation from others?
+
+Assuming a given processor's output for M of N files is "compatible,"
+another round of aggregation is possible on those M files.
+
+Extensibility is a goal?
+	Might we like to handle images.
+Aggregation on several levels?
+	Each processor emits what?
+	Within the class of tab files.
+What it does must be general enough to be be non-trivial add some value,
+	 not so general that it's not achievable within timeframe.
+
+Files are containers
+	A file's "format" is a structure of subcontainers
+	Sometime's explicitly recursive (HDF5)
+		At some level there is data that can be summarized

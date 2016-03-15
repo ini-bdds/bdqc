@@ -1,0 +1,7 @@
+README.html
+src/build
+cruft
+*.pdf
+*.aux
+*.log
+*.toc
