@@ -43,16 +43,16 @@ DEFAULT_PLUGIN_RCFILE = os.path.join(os.environ['HOME'],'.bdqc','plugins.txt')
 _PLUGIN_VERSION = "VERSION"
 _CACHE_VERSION  = "version"
 
-def build_input( sources, include=None, exclude=None, depth=None, preclude_recursion=True ):
+def build_input( subjects, include=None, exclude=None, depth=None, preclude_recursion=True ):
 	"""
 	Create a list of absolute file paths from a variety of sources in
-	the <sources> list which may include:
+	the <subjects> list which may include:
 	1. root directories to be recursively walked
 	2. file names to include verbatim
 	3. file naems of manifests which contain filenames to be included.
 	"""
 	accum = []
-	for s in sources:
+	for s in subjects:
 		try:
 			if s.startswith("@"):
 				with open( s[1:] ) as fp:
@@ -67,8 +67,12 @@ def build_input( sources, include=None, exclude=None, depth=None, preclude_recur
 	# without a sufficiently specific manifest and/or filters, recursive
 	# analysis will occur that is almost certainly not wanted.
 	if preclude_recursion:
-		accum = filter( lambda f:not f.endswith(ANALYSIS_EXTENSION), accum )
-	return list(accum)
+		prefilter_count = len(accum)
+		accum = list(filter( lambda f:not f.endswith(ANALYSIS_EXTENSION), accum ))
+		if len(accum) < prefilter_count:
+			logging.warning( "filtered {} *{} files".format(
+				prefilter_count-len(accum), ANALYSIS_EXTENSION ) )
+	return accum
 
 
 def _format_time( s ):
@@ -154,8 +158,10 @@ class Executor(object):
 			accumulate:"file destination for aggregate results"=None,
 			progress:"file to which progress updates are written"=None ):
 		"""
+		Returns a count of missing files.
 		TODO: Eventually this should incorporate the multiprocessing module.
 		"""
+		missing = 0
 		# 0. Validate arguments
 
 		ARG_ERROR = "\"{}\" argument must be an open file or None"
@@ -172,6 +178,7 @@ class Executor(object):
 		START_TIME = time.clock()
 		for s in self.subjects: # for each file...
 
+			SUBJECT_EXISTS = os.path.isfile( s )
 			ran.clear()
 
 			# 1. If the data and cache both exist and the data is newer than
@@ -182,7 +189,7 @@ class Executor(object):
 
 			cache_file = s + ANALYSIS_EXTENSION
 			if not self.clobber \
-				and os.path.isfile( s ) \
+				and SUBJECT_EXISTS \
 				and os.path.isfile( cache_file ) \
 				and os.stat( s ).st_mtime < os.stat( cache_file ).st_mtime:
 				try:
@@ -200,46 +207,53 @@ class Executor(object):
 
 			# 2. Apply each plugin to s.
 
-			for p in iter(self.plugin_mgr):
+			if SUBJECT_EXISTS or self.dryrun:
 
-				do_run = self._should_run( p, cache, ran )
+				for p in iter(self.plugin_mgr):
 
-				if self.dryrun:
-					# ALWAYS print on stdout; that's the point of dry run!
-					print( "{}({}): {} because {}".format( p.__name__, s,
-						"run" if do_run[0] else "skip",
-						do_run[1] ) )
-					if do_run[0]:
-						ran.add( p.__name__ ) # *would* have been run!
+					do_run = self._should_run( p, cache, ran )
 
-				elif do_run[0]:
-					# A plugin may only access its DECLARED dependencies.
-					# Currently this excludes implicit dependencies.
-					# TODO: This strictness could be optionally relaxed.
-					declared_reqs = dict( zip(
-							p.DEPENDENCIES,
-							[ cache[d] for d in p.DEPENDENCIES ] ) )
-					try:
+					if self.dryrun:
+						# ALWAYS print on stdout; that's the point of dry run!
+						print( "{}({}): {} because {}".format( p.__name__, s,
+							"run" if do_run[0] else "skip",
+							do_run[1] ) )
+						if do_run[0]:
+							ran.add( p.__name__ ) # *would* have been run!
 
-						d = p.process( s, declared_reqs )
+					elif do_run[0]:
 
-						# Automatically append plugin's version to results.
-						# converting results to dict if they're not already.
-						if hasattr( p, _PLUGIN_VERSION ):
-							if not isinstance(d,dict):
-								d = {"value":d,}
-							d[_CACHE_VERSION] = int( getattr( p, _PLUGIN_VERSION ) )
+						# Plugins may only access DECLARED dependencies.
+						# Currently this excludes implicit dependencies.
+						# TODO: This strictness could be optionally relaxed.
+						declared_reqs = dict( zip(
+								p.DEPENDENCIES,
+								[ cache[d] for d in p.DEPENDENCIES ] ) )
+						try:
+							d = p.process( s, declared_reqs )
 
-						# Add this plugin's results to subject's cache.
-						cache[ p.__name__ ] = d
-						ran.add( p.__name__ )
+							# Automatically append plugin's version to results.
+							# converting results to dict if they're not already.
+							if hasattr( p, _PLUGIN_VERSION ):
+								if not isinstance(d,dict):
+									d = {"value":d,}
+								d[_CACHE_VERSION] = int( getattr( p, _PLUGIN_VERSION ) )
 
-					except Exception as X:
-						logging.error( "{} while processing {} with {}".format( X, s, p.__name__ ) )
-						if not getattr(self,"ignore_exceptions",False):
-							raise
+							# Add this plugin's results to subject's cache.
+							cache[ p.__name__ ] = d
+							ran.add( p.__name__ )
+
+						except Exception as X:
+							logging.error( "{} while processing {} with {}".format( X, s, p.__name__ ) )
+							if not getattr(self,"ignore_exceptions",False):
+								raise
+					else:
+						logging.info( "skipping {}({}): {}".format( p.__name__, s, do_run[1] ) )
 				else:
-					logging.info( "skipping {}({}): {}".format( p.__name__, s, do_run[1] ) )
+					pass # just tagging the end of the for loop.
+			else: # not SUBJECT_EXISTS
+				logging.warning( "{} is missing or is not a file".format( s ) )
+				missing += 1
 
 			# 3. Store locally and/or accumulate cache of s.
 
@@ -270,6 +284,7 @@ class Executor(object):
 
 		if accumulate:
 			print( "}", file=accumulate )
+		return missing
 
 
 def main( args ):
@@ -294,7 +309,7 @@ def main( args ):
 
 	# ...and subjects from command line args.
 
-	subjects = build_input( args.sources, args.include, args.exclude, args.depth )
+	subjects = build_input( args.subjects, args.include, args.exclude, args.depth )
 
 	if args.dryrun:
 		print( "These plugins..." )
@@ -312,20 +327,22 @@ def main( args ):
 			adjacent = (not args.no_adjacent) )
 
 	if args.dryrun:
-		_exec.run() # ...no need for progress indicator or an accumulator.
+		missing = _exec.run() # ...no need for progress indicator or an accumulator.
 	else:
 		prog_fp = _open_output_file( args.progress ) \
 			if args.progress else None
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
-		_exec.run( accum_fp, prog_fp )
+		missing = _exec.run( accum_fp, prog_fp )
 
 		if accum_fp:
 			accum_fp.close()
 		if prog_fp:
 			prog_fp.close()
 		# TODO: Analysis( args.accum, m.plugin_mgr )
+	if missing > 0:
+		logging.warning( "{} file(s) were missing".format( missing ) )
 
 
 ############################################################################
@@ -354,7 +371,8 @@ if __name__=="__main__":
 
 	def _read_manifest( fp ):
 		"""
-		Read a list of filenames from
+		Read a list of filenames from fp. No validation or
+		existence checks are desired at this point.
 		"""
 		accum = []
 		line = fp.readline()
@@ -420,13 +438,13 @@ if __name__=="__main__":
 	_parser.add_argument('-l', '--logfile',
 		type=str, default="",
 		help="""Name of file for logging. Logging is not performed
-		unless this options is specified.""")
+		unless this option is specified.""")
 	_parser.add_argument('-L', '--loglevel',
 		type=str, default="ERROR",
 		help="""One of {\"critical\", \"error\", \"warning\", \"info\",
 		\"debug\"} (default:%(default)s).""")
 
-	_parser.add_argument( "sources", nargs="+",
+	_parser.add_argument( "subjects", nargs="+",
 		help="""Files, directories and/or manifests to analyze. All three
 		classes of input may be freely intermixed with the caveat that the
 		names of manifests (files listing other files) should be prefixed
