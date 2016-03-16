@@ -220,7 +220,8 @@ int set_iter( const struct strset *s, void **cookie ) {
 		if( set_count( s ) > 0 ) {
 			*cookie = s->array;
 			return 1;
-		}
+		} else
+			return 0;
 	}
 	return 0;
 }
@@ -262,8 +263,10 @@ int set_count( const struct strset *s ) {
 void set_clear( struct strset *s ) {
 	if( s->dup ) {
 		for(int i = 0; i < s->capacity; i++ ) {
-			if( s->array[i].str )
+			if( s->array[i].str ) {
 				free( (void*)(s->array[i].str) );
+				s->array[i].str = NULL;
+			}
 		}
 	}
 	memset( s->array, 0, s->capacity*sizeof(struct entry) );
