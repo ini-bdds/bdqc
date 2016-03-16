@@ -89,6 +89,8 @@ static void _parse_field( const char *field, int off, void *context ) {
 	const int FIELD_LEN
 		= strlen( field );
 
+	assert( off < d->table.column_count );
+
 	if( FIELD_LEN == 0 ) {
 		c->type_vote[ FTY_EMPTY ] += 1;
 		return;

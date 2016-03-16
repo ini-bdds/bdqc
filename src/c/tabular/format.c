@@ -182,10 +182,10 @@ int _count_candidate_separators( const char *line, const int len, unsigned *coun
 }
 
 
-static int _split_line_simple_sep( char *pc, struct format *ps, 
+static int _split_line_simple_sep( char *pc, struct format *pf, 
 		FIELD_PARSER process_field, void *context ) {
 
-	const int SEP = ps->column_separator[0];
+	const int SEP = pf->column_separator[0];
 	int foff = 0;
 	const char *token;
 	bool eol = (*pc == 0);
@@ -211,21 +211,26 @@ static int _split_line_simple_sep( char *pc, struct format *ps,
 
 		/**
 		  * ...before sending it to the field processor.
+		  * Don't process excess fields (pf->column_count column data
+		  * accumulators have already been allocated).
 		  */
-		process_field( token, foff++, context );
+		if( foff < pf->column_count )
+			process_field( token, foff, context );
+
+		foff++;
 	}
 	return foff;
 }
 
 
-static int _split_line_coalesce_ws( char *line, struct format *ps, 
+static int _split_line_coalesce_ws( char *line, struct format *pf, 
 		FIELD_PARSER process_field, void *arg ) {
 	fputs( "TODO: unimplemented: parsing of coalescable whitespace.\n", stderr ); abort();
 	return -1;
 }
 
 /*
-static int _split_line_csv( char *line, struct format *ps, 
+static int _split_line_csv( char *line, struct format *pf, 
 		FIELD_PARSER process_field, void *arg ) {
 	fputs( "TODO: unimplemented: parsing of RFC4180 CSV files.\n", stderr ); abort();
 	return -1;
