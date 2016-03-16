@@ -107,6 +107,10 @@ Alternatively, the bdqc.Executor Python class can be incorporated directly
 into third party Python code. This allows it to be incorporated into
 pipelines.
 
+.. image:: doc/dataflow2.png
+	:align: center
+
+
 Design goals
 ============
 
