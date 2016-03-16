@@ -70,7 +70,6 @@ static void _json_encode_ascii( const char *pc, FILE *fp ) {
 int tabular_as_json( const struct table_description *a, FILE *fp ) {
 
 	const int NC = a->table.column_count;
-	const struct column *c = a->column;
 
 	if( fputc( '{', fp ) < 0 )
 		return -1;
@@ -129,7 +128,6 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 		fputs( "null", fp );
 	} else {
 	
-		int nrem;
 		if( fputs( "{\"metadata_prefix\":\"", fp ) < 0 )
 			return -1;
 			_json_encode_ascii( a->table.metadata_line_prefix, fp );
@@ -162,8 +160,9 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 		  * Emit data for each column.
 		  */
 
-		nrem = NC; while( nrem-- > 0 ) {
+		for(int colnum = 0; colnum < NC; colnum++ ) {
 
+			const struct column *c = a->column + colnum;
 			void *cookie;
 			const int NL
 				= set_count( & c->value_set );
@@ -205,9 +204,8 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 
 			if( fprintf( fp, "],\"max_labels_exceeded\":%s}%s",
 					_json_bool_value( c->excess_values ),
-					nrem > 0 ? "," : "" ) < 0 )
+					colnum + 1 < NC ? "," : "" ) < 0 )
 				return -1;
-			c++;
 		}
 		fputs( "]}" /* end of table "analysis" */ , fp );
 	}
