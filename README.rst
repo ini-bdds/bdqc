@@ -199,7 +199,7 @@ bdqc.builtin.tabular plugin...
             },
             "tabledata": {
                 "aberrant_lines": 0,
-                "column_count": 6,
+                "column_count": 2,
                 "column_separator": "\t",
                 "columns": [
                     {
@@ -237,10 +237,27 @@ When summaries are aggregated and "flattened" individual columns in the resultin
 matrix are named by such paths.
 These paths can be used to make heuristic analysis selective.
 
-**Advanced:** The process of flattening plugin summaries can be "tuned" by
-limiting how deeply compound JSON_ types are traversed. By default, summaries
-are traversed exhaustively, producing a scalar-type column for every scalar
-statistic in the summaries.
+Flattening (Advanced) 
+---------------------
+
+Note that the process of flattening the JSON_ to produce the summary matrix
+will not, in general, result in columns of *scalars* (eg. numbers and string
+labels).
+Although it is always possible to arrive at columns of scalars by traversing
+JSON_ data exhaustively, by design traversal is *not* exhaustive.
+Because we want plugins to be able to return compound values as results (e.g. sets,
+vectors, matrices [#]_) *without complicating JSON by defining special labeling
+requirements*, the following rules and conventions are observed:
+
+	1.	Arrays of values of a single *scalar type* are not flattened (e.g. an array with only numbers).
+	2.	Nested Arrays--Arrays that contain other Arrays--of *consistent dimension* are also not flattened.
+
+BDQC interprets the second use of JSON_ Arrays as matrices--thus the
+requirement for consistent dimensions.
+An array that contains non-scalar values (JSON_ Objects) *is* traversed.
+
+Furthermore, an Array (1-dimensional matrix) that contains *string* scalars
+without any repetition is implicitly treated as a *set*.
 
 Heuristic analysis
 ==================
@@ -408,6 +425,7 @@ Footnotes
 	nonetheless plugins.
 .. [#] ...and "visible" to the BDQC framework by virtue of PYTHONPATH. 
 .. [#] JSON_ "Objects" can contain anything including other Objects. Similarly, JSON_ Arrays can contain Arrays.
+.. [#] The bdqc.builtin.tabular plugin returns sets, vectors, and matrices.
 .. [#] "classification" in the absence of *a priori* training is essentially clustering.
 .. [#] The type constraints are motivated partially by what the Python json module can serialize and partially by limitations in the definition of heuristics.
 .. [#] One use for set-valued returns is passing arguments to a "downstream"
