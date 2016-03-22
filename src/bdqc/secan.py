@@ -1,5 +1,10 @@
 
 """
+
+----------------------------------------------------------------------------
+Aggregation
+----------------------------------------------------------------------------
+
 Given either
 1. some root directories to scan for .bdqc cache files and/or
 2. aggregate JSON file(s)
@@ -8,23 +13,39 @@ Given either
 scanning consumes one file's JSON at a time. Identify all features of
 interest according to configuration and build tmp files containing vectors.
 
-Concurrently maintain in memory the vector of filenames consumed and a map
-from statistic names to the tmp files containing them.
+Concurrently, maintain in memory
+1. the vector of filenames consumed and
+2. a map from statistic names to the tmp files containing them.
 
-Whenever a new statistic is identified its vector must be padded with
-placeholders for all the already-scanned files that did not contain it.
-Ideally, when a set of presumed-similar files are in fact similar, this
-should never happen.
+Whenever a new statistic is first encountered its (tempfile-resident) vector
+must be padded with placeholders for all the already-scanned files that did
+not contain it. Ideally, when a set of presumed-similar files are in fact
+similar, this should never happen.
 
+At completion of the above we have a matrix each column of which resides in
+a file and a map from the originally-analyzed files to the rows of the
+matrix to which they correspond.
+
+******** Complex data types ********
+
+The process of flattening can itself be adjusted, particularly with respect
+to its treatment of complex data types. TODO: explore this.
+
+This code inserts one type of column that does not *directly* correspond to
+original data: the matrix descriptor.
+
+----------------------------------------------------------------------------
 Heuristic analysis
+----------------------------------------------------------------------------
 
-Motivation
+******** Motivation ********
+
 The heuristic analysis implemented here is based on an analogy between
 meta-analysis of data and the process of differentiation in calculus.
 Specifically, repeated differentiation of a some (e.g. polynomial) functions
 leads eventually to a constant (and, then, to 0). Similarly, as one
 progresses through progressively more indirect levels of data analysis--that
-is, meta analyses, values can become constant when the underlying data is
+is, meta analyses--values can become constant when the underlying data is
 a priori "similar enough."
 
 For example, if one is analyzing files containing tables disregards the
@@ -32,23 +53,61 @@ content of (values in) columns and focuses on column count per table (an
 example of metadata), one might reasonably expect all files to have the same
 column count (if the files are indeed all "similar").
 
-In the context of BDQC wherein the Stage 1 analysis runs a dynamically-
+In the context of BDQC wherein the within-file analysis runs a dynamically-
 determined set of plugins, one might expect every file (if they're truly
-"similar") to have received identical "treatment" by plugins in Stage 1.
-This implies that no file is missing any statistic (JSON path) that is
-present in one or more other files.
+"similar") to have received identical "treatment" by plugins--that is, the
+same set of plugins was selected to run on every file. This implies that no
+file is missing any statistic (JSON path) that is present in one or more
+other files.
 
-It makes sense to apply these kinds of heuristic to a meta-analysis of
-practically any underlying data. Clearly, these are highly indirect tests.
+******** Approach ********
+
+1. A heuristic is a function that takes a vector of appropriate type and
+	returns a list of indices.
+2. A heuristic may only be applicable to certain data type(s). It must
+	advertise those type(s).
+3. A heuristic may be parameterizable.
+4. Heuristics with parameters can have different parameters for
+	different column selectors (specified in a configuration).
+
+Sources of heuristic:
+1. built-in
+2. analysis plugins can optionally provide their own heuristics
+3. installable heuristics (Python modules)
+
+From all available heuristics a subset are selected:
+1. by default
+	a. all built-ins and
+	b. all those provided by plugins that were run on a given dataset
+2. augmented or overridden by a given configuration
+
+If "augmenting" or merging is allowed precedence rules are needed.
+In particular, if configuration mentions any default plugins:
+1. The most restrictive application is used. That is, any name
+	selectors in the configuration override the implied wildcard
+	of the default heuristics.
+
+During flattening, columns are selected for analysis by:
+1. satisfying a (name) selection filter (in heuristic configuration)
+2. having a type that to which a (non-selective) filter is applied.
+Columns not satisfying one of these conditions are ignored.
+
+Multiple heuristics may be applied to a single column.
+
+******** heuristics ********
+
+The following heuristics are applicable to a meta-analysis of practically
+any underlying data. Clearly, these are highly indirect tests.
 
 Define an ad hoc hierarchy of heuristics:
-1. universal
+1. universal (metadata heuristics)
 	a. no missing values (identical plugin-treatment)
 	b. uniform type inference (inc. identical matrix dimensions)
 		(If matrices' dimensions differ between files, then missing
 		 values will be present, so (if matrices are traverse these)
 		 states are redundant.)
-2. constraint-based
+	c. constancy of value (independent of type)
+2. value-based
 	i. user-supplied XPath-inspired
 	ii. plugin-specific/plugin-suggested (maybe xpath based?)
 		e.g. bdqc.builtin.tabular might supply {"column_count const",
@@ -143,7 +202,7 @@ def _json_matrix_type( l ):
 
 class Cache(object):
 	"""
-	Run-length encodes objects
+	Run-length encodes JSON types representing plugins' statistics.
 	"""
 	def __init__( self, placeholder_count ):
 		self.store = tempfile.SpooledTemporaryFile(mode="w+")
@@ -166,7 +225,7 @@ class Cache(object):
 		<type> is one of {'b','i','f','z','s','t','N'} for
 		'bool', 'int', 'float', 'str', 'set', 'tuple', 'None', respectively.
 		(Tuples hold the dimensions of matrices, and sets are emitted
-		 whenever a 1D matrix of strings is encountered.)
+		 whenever a 1D matrix of non-repeated strings is encountered.)
 		"""
 		assert self.count > 0
 		# Update relevant count statistics...
@@ -226,7 +285,10 @@ class Cache(object):
 
 class MetaAnalysis(object):
 	"""
-	Contains a configuration consisting of
+	1. Loads a set of heuristics, resolving precedence.
+	2. Aggregates within-file analyses into a matrix in the coarse of
+		which it decides whether or not a column is ignorable.
+	3. For each column, 1 or more heuristics are applied.
 	1. heuristics to be applied
 	2. paths to complex multi-level plugins
 	...which guide accumulation of data from a combination of aggregate JSON
