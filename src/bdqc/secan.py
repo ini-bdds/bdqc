@@ -79,6 +79,7 @@ From all available heuristics a subset are selected:
 1. by default
 	a. all built-ins and
 	b. all those provided by plugins that were run on a given dataset
+		(These are ALWAYS applied ONLY to the plugin's own statistics.)
 2. augmented or overridden by a given configuration
 
 If "augmenting" or merging is allowed precedence rules are needed.
@@ -300,9 +301,12 @@ class MetaAnalysis(object):
 	automatically extracted. Other statistics more deeply nested in cached
 	or aggregated analyses are extracted only if mentioned by name.
 	"""
-	def __init__( self ):
+	def __init__( self, config:"a list of heuristics" ):
 		"""
 		"""
+		#assert isinstance(config,list)
+		self.config = config
+		self.config_includes_universals = True
 		# Initialize the cache map
 		self.cache = {}
 		self.files = []
@@ -334,9 +338,11 @@ class MetaAnalysis(object):
 
 	def _accept( self, statname ):
 		"""
-		Test the statname against path based filters.
+		We only create columns for statistics that match path selectors
+		unless any heuristic in use applies to all columns (which most
+		of the default do). TODO:revist this.
 		"""
-		return True # for now
+		return self.config_includes_universals or False
 
 	def _addstat( self, statname, value, meta=None ):
 		"""
@@ -543,7 +549,7 @@ class MetaAnalysis(object):
 
 def _main( args ):
 
-	a = MetaAnalysis()
+	a = MetaAnalysis(None)
 
 	for s in args.sources:
 		if os.path.isdir( s ):
@@ -600,6 +606,17 @@ if __name__=="__main__":
 		help="""When recursing through directories, any files matching the
 		<exclude> pattern are excluded from the analysis. The comments
 		regarding the <include> pattern also apply here.""")
+
+	_parser.add_argument( "--config", "-c",
+		default=None,
+		help="""Load a heuristic configuration from the given file.
+		This configuration is added to (and where applicable overrides)
+		the default configuration unless --no-defaults/-N is also supplied.""")
+	_parser.add_argument( "--no-defaults", "-N",
+		default=False,
+		help="""Do not use any default heuristic configuration.
+		(Use --dry-run/-D to display the heuristics that will be used
+		 on any given run.""")
 
 	_parser.add_argument( "sources", nargs="+",
 		help="""Files, directories and/or manifests to analyze. All three
