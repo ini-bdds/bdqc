@@ -42,14 +42,14 @@ Heuristic analysis
 
 The heuristic analysis implemented here is based on an analogy between
 meta-analysis of data and the process of differentiation in calculus.
-Specifically, repeated differentiation of a some (e.g. polynomial) functions
+Specifically, repeated differentiation of some functions (e.g. polynomials)
 leads eventually to a constant (and, then, to 0). Similarly, as one
 progresses through progressively more indirect levels of data analysis--that
 is, meta analyses--values can become constant when the underlying data is
 a priori "similar enough."
 
-For example, if one is analyzing files containing tables disregards the
-content of (values in) columns and focuses on column count per table (an
+For example, if one is analyzing files containing tables and disregards the
+content of (values in) columns, focusing only on column count per table (an
 example of metadata), one might reasonably expect all files to have the same
 column count (if the files are indeed all "similar").
 
@@ -57,8 +57,8 @@ In the context of BDQC wherein the within-file analysis runs a dynamically-
 determined set of plugins, one might expect every file (if they're truly
 "similar") to have received identical "treatment" by plugins--that is, the
 same set of plugins was selected to run on every file. This implies that no
-file is missing any statistic (JSON path) that is present in one or more
-other files.
+*.bdqc file is missing any statistic (JSON path) that is present in one or
+more other *.bdqc files.
 
 ******** Approach ********
 
@@ -75,14 +75,30 @@ Sources of heuristic:
 2. analysis plugins can optionally provide their own heuristics
 3. installable heuristics (Python modules)
 
-From all available heuristics a subset are selected:
+From all available heuristics a subset is selected:
 1. by default
 	a. all built-ins and
 	b. all those provided by plugins that were run on a given dataset
-		(These are ALWAYS applied ONLY to the plugin's own statistics.)
 2. augmented or overridden by a given configuration
 
-If "augmenting" or merging is allowed precedence rules are needed.
+A heuristic h is applied to every column:
+1. of appropriate type (which may be 'any')
+2. matching a column selector (which may be '*')
+
+Built-in defaults are never columns specific; they cannot be.
+Built-in defaults are applied to every column of appropriate type.
+
+The only real reason for providing a configuration is narrowing
+the scope of application.
+Plugin-provided heuristics are always scoped to columns generated
+by their associated plugin.
+
+If a configuration is provided it is merged with the defaults with
+the following caveats:
+1. if a configuration associates a column selector with a heuristic,
+	that selector replaces the selector associated with that heuristic
+	by the default
+
 In particular, if configuration mentions any default plugins:
 1. The most restrictive application is used. That is, any name
 	selectors in the configuration override the implied wildcard
@@ -131,7 +147,6 @@ import json
 import tempfile
 
 import bdqc.dir
-
 from bdqc.statistic import Descriptor
 
 # Matrices may be traverse:
@@ -577,18 +592,6 @@ if __name__=="__main__":
 		epilog="""The command line interface is one of two ways to use this
 		framework. Within your own Python scripts you can create, configure
 		and programmatically run a bdqc.Executor.""")
-#	_parser.add_argument( "--plugins", "-p",
-#		default=None, metavar="PLUGINLIST",
-#		help="""Plugins to execute EITHER in addition to OR instead of the
-#		defaults listed in {}. The argument is a comma-separated
-#		list of names. Each name must be EITHER the fully-qualified name of
-#		a Python3 package implementing a plugin, OR the name of a file which
-#		itself contains a list of plugins, one per line.
-#		If %(metavar)s is prefixed with "+", the listed plugins AUGMENT
-#		the defaults; otherwise the listed plugins REPLACE the defaults.
-#		Note that a given plugin's dependencies will ALWAYS be added to
-#		whatever you specify.
-#		""".format( DEFAULT_PLUGIN_RCFILE ) )
 
 	# Directory recursion options
 
