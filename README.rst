@@ -90,9 +90,9 @@ _`What does it do?`
 
 BDQC analyzes a collection of files in two stages.
 First, it analyzes each file individually and produces a summary of the
-file's content (*within-file* analysis).
-Second, a configurable set of heuristics is applied to the aggregated
-file summaries (*across-file* analysis) to identify possible anomalies.
+file's content (`within-file analysis <Within-file analysis_>`_).
+Second, the aggregated file summaries are analyzed heuristically
+(`between-file analysis <Between-file analysis_>`_) to identify possible anomalies.
 
 The two stages of operation can be run independently.
 
@@ -107,10 +107,6 @@ Alternatively, the bdqc.Executor Python class can be incorporated directly
 into third party Python code. This allows it to be incorporated into
 pipelines.
 
-.. image:: doc/dataflow2.png
-	:align: center
-
-
 Design goals
 ============
 
@@ -120,33 +116,54 @@ The BDQC framework was developed with several explicit goals in mind:
 2. "Simple things should be simple; complex things should be possible" [#]_ Although basic use should involve almost no learning curve, it should be possible to extend it with arbitrarily complex (and possibly domain-specific) analysis capabilities.
 3. Plugins should be simple (for a competent Python programmer) to develop, and the system must be robust to faults in plugins.
 
-.. The third goal motivated the use of Python.
-
 _`How does it work?`
 ####################
 
-This section describes exhaustively how BDQC works internally.
-This and following sections are required reading for people
+This section describes in more detail how BDQC works internally.
+This and following sections are required reading for anyone
 wanting to develop their own plugins.
 
-Analyze and summarize individual files (*within-file* analysis)
-===============================================================
-
 The most important fact to understand about BDQC is that
-*plugins*, not the *framework*, carry out all analysis of input files.
-The BDQC *framework* merely orchestrates the execution of plugins. [#]_
+*plugins*, **not the** *framework*, **carry out all analysis of input files.**
+The BDQC framework merely orchestrates the execution of `plugins <Plugins_>`_.
+(The BDQC *package* includes several "built-in" plugins which insure
+it is useful "out of the box." Though they are built-in, they are
+nonetheless plugins.)
 
-In other words, the plugins that are executed on a file entirely determine
-the content of the summary, the statistics, generated for that file.
+A plugin is simply a Python module that is installable like any Python module.
+Plugins provide two kinds of analysis: file analysis and heuristic analysis.
+A single plugin can provide:
+	1. zero or one file analyzer and
+	2. zero or more heuristic analyzers.
+
+A *file analyzer* is just a function that can read a file and produce
+one or more summary statistics about it.
+A *heuristic analyzer* is a function that applies a test to a vector
+of data returning a boolean result.
+
+The file and heuristic analyzers in BDQC plugins are expected to take
+certain forms, and the plugin is expected to export certain symbols used
+by the BDQC framework (described in detail `below <Plugins_>`_).
+
+.. image:: doc/dataflow2.png
+	:align: center
+
+
+_`Within-file analysis`
+=======================
+
+The plugins that are executed on a file entirely determine
+the content of the summary (the statistics) generated for that file.
 The framework itself *never* looks inside a file; only the plugins examine
-file content.  The framework:
+file content.
+
+The framework:
 
 1. assembles a list of paths identifying files to be analyzed,
 2. executes a *dynamically-determined* subset of the available plugins on each file path,
-3. combines the executed plugins' results into (JSON_) summaries for each file.
+3. merges the plugins' results into one (JSON_-format) summary per analyzed file.
 
-Plugins are described more fully elsewhere. Here it suffices to understand
-that each plugin can declare (as part of its implementation) that it depends
+Each `plugin <Plugins_>`_ can declare (as part of its implementation) that it depends
 on zero or more other plugins.
 
 The framework:
@@ -154,10 +171,11 @@ The framework:
 1. insures that a plugin's dependencies execute before the plugin itself, and
 2. each plugin is provided with the results of its dependencies' execution.
 
-Thus, the set of all *candidate* plugins--that is, all plugins installed on
-the user's machine [#]_--constitute an implicit DAG (directed acyclic graph),
-and a plugin that is "upstream" in the DAG can determine how (or even whether
-or not) a downstream plugin is run.
+By virtue of their declared dependencies, the set of all plugins available
+to BDQC (installed on the user's computer and visible on the PYTHONPATH)
+constitute a directed acyclic graph (DAG), and a plugin that is "upstream"
+in the DAG can determine how (or even whether or not) a downstream plugin is run.
+
 The framework minimizes work by only executing a plugin when required.
 The figure above represents the skipping of plugins; plugin *#3*, for example,
 was not run on file *#N*.
@@ -167,173 +185,176 @@ was not run on file *#N*.
 By default, the summary for file foo.txt is left in an adjacent file named
 foo.txt.bdqc.
 
-Again, the BDQC *framework* does not touch files' content--it only
-handles filenames.
+Again, the BDQC *framework* does not touch files' content; it only
+handles filenames and paths.
 
-Apply heuristics to aggregated summaries (*across-file* analysis)
-=================================================================
+_`Between-file analysis`
+========================
 
-In the 2nd stage:
+1. Summary (\*.bdqc) files are `collected <Collection_>`_.
+2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are `flattened <Flattening_>`_ into a matrix.
+3. `Heuristics are applied <Heuristic analysis_>`_ to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
 
-1. Summary (\*.bdqc) files are *collected*.
-2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are *flattened* (or "exploded") into a matrix.
-3. *Heuristics are applied* to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
+_`Collection`
+-------------
 
-The columns of the matrix are the individual statistics that plugins produce
-in their analysis summaries.
-Plugins_ are described more fully `elsewhere <Plugins_>`_. Here it suffices
-to understand that a plugin's output can be (almost) anything
-representable as JSON_ data.
-In particular, the "statistics" need not be scalars (numbers and strings);
-they can be complex values like matrices or sets, too.
+Typically bdqc.scan automatically invokes the between-files analysis on
+the results of within-file analysis.
+However, the between-file analysis can also be run independently, and
+files and/or directories to analyze can be specified exactly as with
+bdqc.scan.
 
-Since JSON_ is capable of representing compound datatypes [#]_,
-the individual statistics in plugins' summaries are identified by *paths*
-in the JSON_ data. For example, in the following excerpt of output from the
-bdqc.builtin.tabular plugin...
+_`Flattening`
+-------------
+
+A `plugin's <Plugins_>`_ output can be (almost) anything representable as
+JSON_ data.
+In particular, the "statistic(s)" produced by a plugin need not be scalars
+(numbers and strings); they can be compound data like matrices or sets,
+too [#]_.
+
+Moreover, since even simple scalar statistics are typically embedded in
+hierarchical JSON_ data, the individual statistics in plugins' summaries are
+necessarily identified by *paths* in the JSON_ data.
+For example, the following excerpt of output from the bdqc.builtin.tabular_
+plugin's analysis of *one file* shows some of the many statistics it produces:
 
 .. code-block:: JSON
 
         "bdqc.builtin.tabular": {
-            "character_histogram": {
-                "CHAR": 626324,
-                "CR": 0,
-                "LF": 394,
-                "UTF8/2": 0,
-                "UTF8/3": 0,
-                "UTF8/4": 0
-            },
-            "tabledata": {
-                "aberrant_lines": 0,
-                "column_count": 2,
-                "column_separator": "\t",
-                "columns": [
-                    {
-                        "labels": [
-                            "foo",
-                            "bar",
-                            "baz"],
-                        "max_labels_exceeded": false,
-                        "stats": {
-                            "mean": 0.0,
-                            "variance":0.0 
-                        },
-                    },
-                    {
-                        "labels": [],
-                        "max_labels_exceeded": false,
-                        "stats": {
-                            "mean": 142.454545,
-                            "variance": 57562.872727
-                        },
-                    }
-                ],
-                "data_lines": 391,
-                "empty_lines": 0,
-                "meta_lines": 3,
-                "metadata_prefix": "#",
-                "separator_is_regex": false
-            },
+			"character_histogram": {
+				"cr": 0, 
+				"lf": 29,
+				"ascii": 50418, 
+				"utf8-2": 0, 
+				"utf8-3": 0, 
+				"utf8-4": 0
+			}, 
+			"offending_byte": 0, 
+			"table": {
+				"separator_is_regex": false, 
+				"column_separator": "\t", 
+				"metadata_prefix": "", 
+				"aberrant_lines": 0, 
+				"empty_lines": 0, 
+				"data_lines": 29, 
+				"column_count": 170, 
+				"columns": [
+					{
+						"labels": [
+							"16", 
+							"1"
+						], 
+						"max_field_length": 2, 
+						"extrema": {
+							"min": 1.0, 
+							"max": 16.0
+						}, 
+						"votes": {
+							"integer": 29, 
+							"string": 0, 
+							"empty": 0, 
+							"float": 0
+						}, 
+						"inferred_class": "categorical", 
+						"stats": {
+							"mean": 3.068966, 
+							"variance": 27.70936
+						}, 
+						"long_field_count": 0, 
+						"max_labels_exceeded": false
+					}, 
+					{
+						"labels": [], 
+						"max_field_length": 4, 
+						"extrema": {
+							"min": 38.0, 
+							"max": 52.0
+						}, 
+						"votes": {
+							"integer": 0, 
+							"string": 0, 
+							"empty": 0, 
+							"float": 29
+						}, 
+						"inferred_class": "quantitative", 
+						"stats": {
+							"mean": 47.37931, 
+							"variance": 14.529557
+						}, 
+						"long_field_count": 0, 
+						"max_labels_exceeded": false
+					},
+					...
+			},
+			...
+		}
 
-The mean value of the 2nd column is identified by the path:
-	
-	bdqc.builtin.tabular/tabledata/columns/1/stats/mean.
+The plugin inferred that the 2nd column in the file contains quantitative
+data ("inferred_class"), and the mean value of that column was 47.38.
+The process of "flattening" the JSON summaries creates one column in the
+aggregate matrix from the values of the mean statistic *for all files analyzed*,
+and that column's *name* is the path:
 
-When summaries are aggregated and "flattened" individual columns in the resulting
-matrix are named by such paths.
-These paths can be used to make heuristic analysis selective.
+	bdqc.builtin.tabular/table/columns/1/stats/mean.
 
-An aside about "flattening" (advanced) 
---------------------------------------
+These paths can be used to make heuristic analysis selective. (See
+heuristic configuration (TODO)).
 
-The JSON_-formatted summaries generated by plugins are hierarchical in nature
-since JSON_ Objects and Arrays can each contain other JSON_ Objects and Arrays.
+In summary, each \*.bdqc file contains all plugins' statistics for one
+analyzed file; each column in the aggregate matrix contains one statistic
+(from one plugin) for all files analyzed.
 
-The process of flattening the JSON_ to produce the summary matrix
-need not, in general, result in columns of *scalars* (eg. numbers and string
-labels).
-Although it is always possible to arrive at columns of scalars by flattening ("exploding")
-JSON_ compound objects *exhaustively*, the process is intentionally *not* exhaustive by default.
-Because we want plugins to be able to return compound values as results (e.g. sets,
-vectors, matrices [#]_) *without complicating JSON by defining special labeling
-requirements*, the following rules and conventions are observed:
+.. The columns of the matrix are the individual statistics that plugins produce
+.. in their analysis summaries.
 
-	1.	Arrays of values of a single *scalar type* are not flattened (e.g. an Array with only Numbers).
-	2.	Nested Arrays--Arrays that contain other Arrays of *identical dimension*--are also not flattened.
+_`Heuristic analysis`
+=====================
 
-Arrays of the first type are interpreted as either vectors (1D matrices) or *sets*.
-An Array is interpreted as a set when and only when it contains *non-repeated*
-String values.
+A "heuristic" (in the context of BDQC) is essentially a test that can be
+applied to columns of the aggregate matrix. The heuristic expresses
+properties one or more statistics should (or should not) manifest or
+constraints they should satisfy. Examples:
+	1. Quantitative data have no "outliers" (suitably defined).
+	2. Certain columns should be constant. In other words, all analyzed files should have the same value for certain statistics.
 
-BDQC interprets the second use of JSON_ Arrays as matrices. For example, in...
+Some heuristics are only applicable to specific types of data, e.g.
+quantitative; some are universal (e.g. "constantness").
 
-.. code-block:: JSON
+BDQC defines several heuristics internally. The built-in plugins each
+define additional heuristics. Finally, developers may add heuristics in
+their own plugins.
+Intuitively, a plugin that defines a file analyzer (and, implicitly,
+one or more statistics) ought usually to also define a heuristic that
+applies to those statistics.
 
-        "foo.bar": {
-            "baz": [
-                [ 1, 2 ],
-                [ 3, 4 ],
-                [ 5, 6 ],
-                [ 7, 8 ],
-            ],
-            "fuz": [
-                [ [ "a", "b", "c", "d" ], [ "e", "f", "g", "h" ] ],
-                [ [ "i", "j", "k", "l" ], [ "m", "n", "o", "p" ] ],
-                [ [ "q", "r", "s", "t" ], [ "u", "v", "w", "x" ] ],
-            ],
-            "woz": [ "none","of","these","strings","are","repeated" ]
-            ...
-        }
+BDQC applies heuristics in one of two modes: default and configured.
 
-1. foo.bar/baz will be treated as a 4x2 (numeric) matrix.
-2. foo.bar/fuz will be treated as a 3x2x4 (String-valued) matrix.
-3. foo.bar/woz will be treated as a *set*.
+In default mode, BDQC applies:
 
-An Array that contains *any* JSON_ Objects is *always* further flattened.
+	1. all available heuristics (internal and plugin-defined) to
+	2. all columns of the aggregate matrix to which they are applicable (as determined by the data types of columns)
 
-Heuristic analysis
-==================
+If a heuristic configuration is provided, it entirely replaces the defaults.
 
-It is not generally possible to reliably identify "anomalies"
-(classify files) without some *a priori* knowledge of what distinguishes
-normal from anomalous files [#]_.
-BDQC's goals are slightly less ambitious: to bootstrap classification
-heuristically. Moreover, it aims to be easy to
-(learn to) use by doing *something* reasonable with very little
-guidance--that is, by having sensible default behavior.
+Heuristics are always applied *independently* to columns of the aggregate
+matrix; there is currently no covariate analysis of any kind.
 
-To understand what is possible via heuristic analysis one must first
-understand a set of concepts on which it is based.
+**It is the heuristics that flag files (which correspond to rows in the
+aggregate matrix) as "anomalies".**
+BDQC's default mode applies relatively conservative heuristics--that is,
+it favors minimizing false positives.
 
-The columns of the matrix of aggregated summaries each have a type:
-
-	1. floating-point
-	2. integer
-	3. string
-	4. matrix descriptor
-	5. set (a 1-dimensional matrix of string values)
-
-The first three represent scalar types, and a column (vector) of scalar
-type can be assigned a *statistical class*:
-
-	1. quantitative (typically continuous values for which magnitude is meaningful)
-	2. ordinal (magnitude is meaningless, only order matters, typically 1..N exhaustive)
-	3. categorical (a small set of unordered values, boolean is a special case)
-
-A column's statistical class constrains the set of candidate statistical
-tests that might be applied.
-
-.. The aggregate analysis consists of a set statistical techniques to
-.. identify outliers in the *univariate* statistics produced by plugins.
-.. By default, any file that is an outlier in any statistic is flagged as
-.. potentially anomalous.
+The default configuration can be exported and edited to produce configurations
+more appropriate for specific data domains. In this way, BDQC "bootstraps" and
+simplifies the creation of semi-automated "sanity checks" for large data.
 
 _`Plugins`
 ##########
 
-To reiterate, the BDQC executable *framework* does not touch
-files itself. All file analysis is carried out by plugins.
-Several plugins are included in but, nonetheless, distinct from the
+To reiterate, the BDQC executable *framework* does not touch files itself.
+All file analysis, both *within* and *between* files, is performed by plugins.
+Several plugins are included in (but are, nonetheless, distinct from) the
 framework. These plugins are referred to as "`Built-ins`_".
 
 A plugin is simply a Python module with several required and optional
@@ -382,8 +403,8 @@ itself. Environment variables can be used when a plugin must be
 parameterized. [#]_
 
 Developers are advised to look at the source code of any of the built-in
-plugins for examples of how to write their own. The bdqc.builtin.extrinsic
-is a very simple plugin; bdqc.builtin.tabular is much more complex and
+plugins for examples of how to write their own. The bdqc.builtin.extrinsic_
+is a very simple plugin; bdqc.builtin.tabular_ is much more complex and
 demonstrates how to use C code.
 
 The framework will incorporate the VERSION number into the plugin's output
@@ -404,18 +425,18 @@ Although their output is demonstrably useful on its own, the built-in plugins
 may be viewed as a means to "bootstrap" more specific (more domain-aware)
 analyses.
 
-bdqc.buildtin.extrinsic
+_`bdqc.builtin.extrinsic`
+-------------------------
+
+.. warning:: Unfinished.
+
+_`bdqc.builtin.filetype`
+------------------------
+
+.. warning:: Unfinished.
+
+_`bdqc.builtin.tabular`
 -----------------------
-
-.. warning:: Unfinished.
-
-bdqc.buildtin.filetype
-----------------------
-
-.. warning:: Unfinished.
-
-bdqc.buildtin.tabular
----------------------
 
 .. warning:: Unfinished.
 
@@ -448,20 +469,74 @@ bdqc.buildtin.tabular
 .. 4. if any of the plugin's dependencies were (re)run.
 .. 5. when the plugin version is (present and) newer (greater) than the version that produced existing results.
 
+Advanced topics
+###############
+
+Aggregation and "flattening" of JSON data
+=========================================
+
+The JSON_-formatted summaries generated by plugins are hierarchical in nature
+since JSON_ Objects and Arrays can each contain other JSON_ Objects and Arrays.
+
+The process of flattening the JSON_ to produce the summary matrix
+need not, in general, result in columns of *scalars* (eg. numbers and string
+labels).
+Although it is always possible to arrive at columns of scalars by flattening ("exploding")
+JSON_ compound objects *exhaustively*, the process is intentionally *not* exhaustive by default.
+Because we want plugins to be able to return compound values as results (e.g. sets,
+vectors, matrices [#]_) *without complicating JSON by defining special labeling
+requirements*, the following rules and conventions are observed:
+
+	1.	Arrays of values of a single *scalar type* are not flattened (e.g. an Array with only Numbers).
+	2.	Nested Arrays--Arrays that contain other Arrays of *identical dimension*--are also not flattened.
+
+Arrays of the first type are interpreted as either vectors (1D matrices) or *sets*.
+An Array is interpreted as a set when and only when it contains *non-repeated*
+String values.
+
+BDQC interprets the second use of JSON_ Arrays as matrices. For example, in...
+
+.. code-block:: JSON
+
+        "foo.bar": {
+            "baz": [
+                [ 1, 2 ],
+                [ 3, 4 ],
+                [ 5, 6 ],
+                [ 7, 8 ],
+            ],
+            "fuz": [
+                [ [ "a", "b", "c", "d" ], [ "e", "f", "g", "h" ] ],
+                [ [ "i", "j", "k", "l" ], [ "m", "n", "o", "p" ] ],
+                [ [ "q", "r", "s", "t" ], [ "u", "v", "w", "x" ] ],
+            ],
+            "woz": [ "none","of","these","strings","are","repeated" ],
+            ...
+        }
+
+1. foo.bar/baz will be treated as a 4x2 (numeric) matrix.
+2. foo.bar/fuz will be treated as a 3x2x4 (String-valued) matrix.
+3. foo.bar/woz will be treated as a *set*.
+
+An Array that contains *any* JSON_ Objects is *always* further flattened.
+
+Terms and Definitions
+#####################
+
+file analyzer
+within-file analysis
+between-file analysis
+summary matrix
+heuristic
+
 Footnotes
 #########
 
 .. [#] `Alan Kay`_
-.. [#] The BDQC *package* includes several "built-in" plugins which insure
-	it is useful "out of the box." Though they are built-in, they are
-	nonetheless plugins.
-.. [#] ...and "visible" to the BDQC framework by virtue of PYTHONPATH. 
-.. [#] JSON_ "Objects" can contain anything including other Objects. Similarly, JSON_ Arrays can contain Arrays.
 .. [#] The bdqc.builtin.tabular plugin returns sets, vectors, and matrices.
-.. [#] "classification" in the absence of *a priori* training is essentially clustering.
+.. [#] One use for compound-valued returns is passing arguments to a "downstream"
+	(dependent) plugin.
 .. [#] The type constraints are motivated partially by what the Python json module can serialize and partially by limitations in the definition of heuristics.
-.. [#] One use for set-valued returns is passing arguments to a "downstream"
-	(dependent) plugin.}
 
 
 .. Collected external URLS
@@ -516,3 +591,30 @@ Footnotes
 .. 		"pull */tabledata/columns/labels out of all files' .bdqc"
 .. 	2. an analysis
 .. 		All sets should be identical
+.. 
+.. To understand what is possible via heuristic analysis one must first
+.. understand a set of concepts on which it is based.
+.. 
+.. The columns of the matrix of aggregated summaries each have a type:
+.. 
+.. 	1. floating-point
+.. 	2. integer
+.. 	3. string
+.. 	4. matrix descriptor
+.. 	5. set (a 1-dimensional matrix of string values)
+.. 
+.. The first three represent scalar types, and a column (vector) of scalar
+.. type can be assigned a *statistical class*:
+.. 
+.. 	1. quantitative (typically continuous values for which magnitude is meaningful)
+.. 	2. ordinal (magnitude is meaningless, only order matters, typically 1..N exhaustive)
+.. 	3. categorical (a small set of unordered values, boolean is a special case)
+.. 
+.. A column's statistical class constrains the set of candidate statistical
+.. tests that might be applied.
+.. 
+.. The aggregate analysis consists of a set statistical techniques to
+.. identify outliers in the *univariate* statistics produced by plugins.
+.. By default, any file that is an outlier in any statistic is flagged as
+.. potentially anomalous.
+
