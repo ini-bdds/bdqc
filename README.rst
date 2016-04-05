@@ -12,8 +12,8 @@ Table of Contents
 - Plugins_
 
 
-_`Installation`
-###############
+Installation
+############
 
 The BDQC framework has no requirements other than Python 3.3.2 or later.
 The GCC toolchain is required for installation as some of its
@@ -41,11 +41,11 @@ After extracting the archive...
 The contents of the online help is not repeated in this document.
 
 
-_`Overview`
-###########
+Overview
+########
 
-_`What is it?`
-==============
+What is it?
+===========
 
 BDQC is a Python3_ software framework and executable module.
 Although it provides built-in capabilities that make it useful "out of the
@@ -53,8 +53,8 @@ box", being a "framework" means that users (knowledgeable in Python
 programming) can extend its capabilities, and it is *intended* to
 be so extended.
 
-_`What is it for?`
-==================
+What is it for?
+===============
 
 BDQC identifies anomalous files among large collections of files which are
 *a priori* assumed to be "similar."
@@ -85,8 +85,8 @@ This means that a file must constitute a meaningful unit of
 information--one sample's data, for example--in any
 application of BDQC.
 
-_`What does it do?`
-===================
+What does it do?
+================
 
 BDQC analyzes a collection of files in two stages.
 First, it analyzes each file individually and produces a summary of the
@@ -116,8 +116,8 @@ The BDQC framework was developed with several explicit goals in mind:
 2. "Simple things should be simple; complex things should be possible" [#]_ Although basic use should involve almost no learning curve, it should be possible to extend it with arbitrarily complex (and possibly domain-specific) analysis capabilities.
 3. Plugins should be simple (for a competent Python programmer) to develop, and the system must be robust to faults in plugins.
 
-_`How does it work?`
-####################
+How does it work?
+#################
 
 This section describes in more detail how BDQC works internally.
 This and following sections are required reading for anyone
@@ -134,14 +134,15 @@ A plugin is simply a Python module that is installable like any Python module.
 Plugins provide two kinds of analysis: file analysis and heuristic analysis.
 A single plugin can provide:
 	1. zero or one file analyzer and
-	2. zero or more heuristic analyzers.
+	2. zero or more data analyzers.
 
 A *file analyzer* is just a function that can read a file and produce
 one or more summary statistics about it.
-A *heuristic analyzer* is a function that applies a test to a vector
-of data returning a boolean result.
+A *data analyzer* is a function that applies a test to a vector of data
+and returns a (possibly empty) list of indices (of aberrant or otherwise
+"interesting" data points).
 
-The file and heuristic analyzers in BDQC plugins are expected to take
+The file and data analyzers in BDQC plugins are expected to take
 certain forms, and the plugin is expected to export certain symbols used
 by the BDQC framework (described in detail `below <Plugins_>`_).
 
@@ -149,8 +150,8 @@ by the BDQC framework (described in detail `below <Plugins_>`_).
 	:align: center
 
 
-_`Within-file analysis`
-=======================
+Within-file analysis
+====================
 
 The plugins that are executed on a file entirely determine
 the content of the summary (the statistics) generated for that file.
@@ -188,15 +189,15 @@ foo.txt.bdqc.
 Again, the BDQC *framework* does not touch files' content; it only
 handles filenames and paths.
 
-_`Between-file analysis`
-========================
+Between-file analysis
+=====================
 
 1. Summary (\*.bdqc) files are `collected <Collection_>`_.
 2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are `flattened <Flattening_>`_ into a matrix.
-3. `Heuristics are applied <Heuristic analysis_>`_ to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
+3. Data analyzers `apply their heuristics <Heuristic analysis_>`_ to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
 
-_`Collection`
--------------
+Collection
+----------
 
 Typically bdqc.scan automatically invokes the between-files analysis on
 the results of within-file analysis.
@@ -204,11 +205,11 @@ However, the between-file analysis can also be run independently, and
 files and/or directories to analyze can be specified exactly as with
 bdqc.scan.
 
-_`Flattening`
--------------
+Flattening
+----------
 
-A `plugin's <Plugins_>`_ output can be (almost) anything representable as
-JSON_ data.
+A `file analyzer's <Plugins_>`_ output can be (almost) anything
+representable as JSON_ data.
 In particular, the "statistic(s)" produced by a plugin need not be scalars
 (numbers and strings); they can be compound data like matrices or sets,
 too [#]_.
@@ -308,15 +309,16 @@ analyzed file; each column in the aggregate matrix contains one statistic
 .. The columns of the matrix are the individual statistics that plugins produce
 .. in their analysis summaries.
 
-_`Heuristic analysis`
-=====================
+Heuristic analysis
+==================
 
 A "heuristic" (in the context of BDQC) is essentially a test that can be
 applied to columns of the aggregate matrix. The heuristic expresses
 properties one or more statistics should (or should not) manifest or
 constraints they should satisfy. Examples:
-	1. Quantitative data have no "outliers" (suitably defined).
-	2. Certain columns should be constant. In other words, all analyzed files should have the same value for certain statistics.
+
+	1. "Quantitative data should have no 'outliers'".
+	2. "Specified columns should be constant. In other words, all analyzed files should have the same value for certain statistics.
 
 Some heuristics are only applicable to specific types of data, e.g.
 quantitative; some are universal (e.g. "constantness").
@@ -324,16 +326,16 @@ quantitative; some are universal (e.g. "constantness").
 BDQC defines several heuristics internally. The built-in plugins each
 define additional heuristics. Finally, developers may add heuristics in
 their own plugins.
-Intuitively, a plugin that defines a file analyzer (and, implicitly,
-one or more statistics) ought usually to also define a heuristic that
-applies to those statistics.
+Intuitively, a plugin that defines a file analyzer (and, thus, one or more
+statistics) ought usually to also define a heuristic that applies to those
+statistics.
 
 BDQC applies heuristics in one of two modes: default and configured.
 
 In default mode, BDQC applies:
 
-	1. all available heuristics (internal and plugin-defined) to
-	2. all columns of the aggregate matrix to which they are applicable (as determined by the data types of columns)
+1. all available heuristics (internal and plugin-defined) to
+2. all columns of the aggregate matrix to which they are applicable (as determined by the data types of columns)
 
 If a heuristic configuration is provided, it entirely replaces the defaults.
 
@@ -347,10 +349,28 @@ it favors minimizing false positives.
 
 The default configuration can be exported and edited to produce configurations
 more appropriate for specific data domains. In this way, BDQC "bootstraps" and
-simplifies the creation of semi-automated "sanity checks" for large data.
+simplifies the creation of automated "sanity checks" for large data.
 
-_`Plugins`
-##########
+Data analyzers may be parameterizable.
+
+Internal heuristics
+-------------------
+
+outlier
+const
+limit
+
+
+Selective application
+---------------------
+
+
+Heuristic configuration
+-----------------------
+
+
+Plugins
+#######
 
 To reiterate, the BDQC executable *framework* does not touch files itself.
 All file analysis, both *within* and *between* files, is performed by plugins.
@@ -415,8 +435,8 @@ If a plugin does provide a VERSION, it's return *should* be a dict.
 Otherwise, the framework will simply assign the generic name "value" to the
 plugin's root return.
 
-_`Built-ins`
-============
+Built-ins
+=========
 
 The BDQC software package includes several built-in plugins so that it is
 useful "out of the box." These plugins provide very general purpose analyses
@@ -425,18 +445,18 @@ Although their output is demonstrably useful on its own, the built-in plugins
 may be viewed as a means to "bootstrap" more specific (more domain-aware)
 analyses.
 
-_`bdqc.builtin.extrinsic`
--------------------------
+bdqc.builtin.extrinsic
+----------------------
 
 .. warning:: Unfinished.
 
-_`bdqc.builtin.filetype`
-------------------------
+bdqc.builtin.filetype
+---------------------
 
 .. warning:: Unfinished.
 
-_`bdqc.builtin.tabular`
------------------------
+bdqc.builtin.tabular
+--------------------
 
 .. warning:: Unfinished.
 

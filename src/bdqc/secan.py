@@ -70,39 +70,8 @@ more other *.bdqc files.
 4. Heuristics with parameters can have different parameters for
 	different column selectors (specified in a configuration).
 
-Sources of heuristic:
-1. built-in
-2. analysis plugins can optionally provide their own heuristics
-3. installable heuristics (Python modules)
-
-From all available heuristics a subset is selected:
-1. by default
-	a. all built-ins and
-	b. all those provided by plugins that were run on a given dataset
-2. augmented or overridden by a given configuration
-
-A heuristic h is applied to every column:
-1. of appropriate type (which may be 'any')
-2. matching a column selector (which may be '*')
-
-Built-in defaults are never columns specific; they cannot be.
-Built-in defaults are applied to every column of appropriate type.
-
-The only real reason for providing a configuration is narrowing
-the scope of application.
 Plugin-provided heuristics are always scoped to columns generated
 by their associated plugin.
-
-If a configuration is provided it is merged with the defaults with
-the following caveats:
-1. if a configuration associates a column selector with a heuristic,
-	that selector replaces the selector associated with that heuristic
-	by the default
-
-In particular, if configuration mentions any default plugins:
-1. The most restrictive application is used. That is, any name
-	selectors in the configuration override the implied wildcard
-	of the default heuristics.
 
 During flattening, columns are selected for analysis by:
 1. satisfying a (name) selection filter (in heuristic configuration)
@@ -613,13 +582,7 @@ if __name__=="__main__":
 	_parser.add_argument( "--config", "-c",
 		default=None,
 		help="""Load a heuristic configuration from the given file.
-		This configuration is added to (and where applicable overrides)
-		the default configuration unless --no-defaults/-N is also supplied.""")
-	_parser.add_argument( "--no-defaults", "-N",
-		default=False,
-		help="""Do not use any default heuristic configuration.
-		(Use --dry-run/-D to display the heuristics that will be used
-		 on any given run.""")
+		This configuration entirely replaces the defaults.""")
 
 	_parser.add_argument( "sources", nargs="+",
 		help="""Files, directories and/or manifests to analyze. All three
