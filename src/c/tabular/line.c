@@ -274,8 +274,11 @@ int _analyze_line( struct table_description *d, char *line, int len ) {
   */
 void _fini_analysis( struct table_description *d ) {
 
-	for(int i = 0; i < d->table.column_count; i++ )
+	for(int i = 0; i < d->table.column_count; i++ ) {
 		analyze_column( d->column + i );
+		// Convert variance to standard deviation
+		d->column[i].statistics[1] = sqrt( d->column[i].statistics[1] );
+	}
 	fini_column_analysis();
 }
 

@@ -37,6 +37,7 @@ import io
 
 import bdqc.plugin
 import bdqc.dir
+import bdqc.analysis
 
 ANALYSIS_EXTENSION = ".bdqc"
 DEFAULT_PLUGIN_RCFILE = os.path.join(os.environ['HOME'],'.bdqc','plugins.txt')
@@ -154,21 +155,18 @@ class Executor(object):
 				plugin_version, "" if run else "not ", oldres_version )
 			return ( run, why )
 
-	def run( self,
-			accumulate:"file destination for aggregate results"=None,
-			progress:"file to which progress updates are written"=None ):
+	def run( self, matrix:"bdqc.analysis.Matrix"=None, **args ):
 		"""
 		Returns a count of missing files.
 		TODO: Eventually this should incorporate the multiprocessing module.
 		"""
 		missing = 0
-		# 0. Validate arguments
 
-		ARG_ERROR = "\"{}\" argument must be an open file or None"
-		if accumulate is not None and not isinstance( accumulate, io.TextIOBase ):
-			raise TypeError( ARG_ERROR.format( "accumulate" ) )
-		if progress is not None and not isinstance( progress, io.TextIOBase ):
-			raise TypeError( ARG_ERROR.format( "progress" ) )
+		accumulate = args.get( "accumulator", None )
+		progress = args.get( "progress_output", None )
+
+		assert accumulate is None or isinstance( accumulate, io.TextIOBase )
+		assert progress is None or isinstance( progress, io.TextIOBase )
 
 		if accumulate:
 			print( "{", file=accumulate )
@@ -255,10 +253,13 @@ class Executor(object):
 				logging.warning( "{} is missing or is not a file".format( s ) )
 				missing += 1
 
-			# 3. Store locally and/or accumulate cache of s.
+			# 3. Store locally, accumulate, and/or add to an analysis.Matrix
+			#    for immediate second stage analysis.
 
 			if not self.dryrun:
 				results = json.dumps( cache, sort_keys=True, indent=4 )
+				if matrix:
+					matrix( s, results )
 				if self.adjacent: # store JSON results adjacent to subject
 					with open( cache_file, "w" ) as fp:
 						print( results, file=fp )
@@ -326,6 +327,8 @@ def main( args ):
 			clobber = args.clobber,
 			adjacent = (not args.no_adjacent) )
 
+	status = bdqc.analysis.STATUS_NOTHING_TO_SEE
+
 	if args.dryrun:
 		missing = _exec.run() # ...no need for progress indicator or an accumulator.
 	else:
@@ -334,15 +337,20 @@ def main( args ):
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
-		missing = _exec.run( accum_fp, prog_fp )
+		m = bdqc.analysis.Matrix()	
+		missing = _exec.run( m, accumulator=accum_fp, progress_output=prog_fp )
 
 		if accum_fp:
 			accum_fp.close()
 		if prog_fp:
 			prog_fp.close()
-		# TODO: Analysis( args.accum, m.plugin_mgr )
+
+		status = m.analyze()
+
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
+
+	return status
 
 
 ############################################################################
@@ -469,5 +477,5 @@ if __name__=="__main__":
 	if _args.exclude:
 		re.compile( _args.exclude )
 
-	main( _args )
+	print( bdqc.analysis.STATUS[ main( _args ) ] )
 
