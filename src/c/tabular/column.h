@@ -107,8 +107,8 @@ struct column {
 	int excess_values;
 };
 
-int  init_column_analysis();
-void fini_column_analysis();
+int  init_column_analysis( void );
+void fini_column_analysis( void );
 void analyze_column( struct column *c );
 
 #endif

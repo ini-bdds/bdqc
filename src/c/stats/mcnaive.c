@@ -43,6 +43,7 @@
 #ifdef _DEBUG
 #include <stdio.h>
 #endif
+#include <string.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>

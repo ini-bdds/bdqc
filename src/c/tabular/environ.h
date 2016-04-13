@@ -13,7 +13,7 @@ extern int MAX_ABSOLUTE_CATEGORICAL_VALUE;
   */
 extern int MAXLEN_CATEGORY_LABEL;
 
-void read_environment_overrides();
+void read_environment_overrides( void );
 
 #endif
 
