@@ -288,7 +288,7 @@ class Executor(object):
 		return missing
 
 
-def main( args ):
+def main( args, matrix ):
 
 	# Build lists of plugins...
 
@@ -337,15 +337,14 @@ def main( args ):
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
-		m = bdqc.analysis.Matrix()	
-		missing = _exec.run( m, accumulator=accum_fp, progress_output=prog_fp )
+		missing = _exec.run( matrix, accumulator=accum_fp, progress_output=prog_fp )
 
 		if accum_fp:
 			accum_fp.close()
 		if prog_fp:
 			prog_fp.close()
 
-		status = m.analyze()
+		status = matrix.analyze()
 
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
@@ -476,6 +475,7 @@ if __name__=="__main__":
 		re.compile( _args.include )
 	if _args.exclude:
 		re.compile( _args.exclude )
-
-	print( bdqc.analysis.STATUS[ main( _args ) ] )
+	
+	m = bdqc.analysis.Matrix()	
+	print( bdqc.analysis.STATUS[ main( _args, m ) ] )
 

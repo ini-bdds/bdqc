@@ -71,28 +71,13 @@ more other *.bdqc files.
 Column selectors:
 	path match, e.g.
 		"/x/y/[p,q-r]/z,<type>
-Constraints:
-	column_cardinality <comparison> <int>
-	value_cardinality <comparison> <int>
-	value <comparison> <values>
-	has_gaussian_outliers
 """
 
 import sys
-import os
-import os.path
-import json
-import tempfile
-import array
 
-
-import bdqc.dir
 from bdqc.statistic import Descriptor
-import bdqc.builtin.compiled
-
-# TODO: Investigate what makes sense for this.
-# It relies on the performance of the median couple.
-MIN_CARD_IMPLYING_QUANTITATIVE_INTEGER = 26
+from column import Vector
+from report import HTML
 
 STATUS_NOTHING_TO_SEE = 0
 STATUS_MISSING_VALUES = 1
@@ -172,261 +157,6 @@ def _json_matrix_type( l ):
 		else:
 			return ( (len(types),), types[0] ) 
 
-
-class Cache(object):
-	"""
-	Caches one matrix column's data in a tempfile.
-	Writing to (and even opening) the file is deferred until two distinct
-	values are witnessed.
-	"""
-	def __init__( self, placeholder_count=0 ):
-		"""
-		This cache's initial state is equivalent to that which would result
-		from <placeholder_count> invocations of self.__call__( None ).
-		"""
-		self.store = None
-		self.last  = None
-		self.count   = placeholder_count
-		self.missing = placeholder_count
-		# The counts in self.types are only valid after _flush.
-		self.types = {'b':0,'i':0,'f':0,'s':0}
-
-	def __del__( self ):
-		if self.store:
-			self.store.close()
-
-	def __str__( self ):
-		assert self.store is not None
-		types = "b:{b},i:{i},f:{f},s:{s}".format( **self.types )
-		return "{}/{}/{}".format( self.count, self.missing, types )
-
-	def __len__( self ):
-		return self.count
-
-	def __call__( self, value ):
-		"""
-		Just count identical values until a second distinct value is
-		observed. When a second distinct value is observed, create the
-		tempfile. Subsequently, all values are written directly to the
-		file.
-		"""
-		_incTypeCount(value)
-		if self.store:
-			self._write( value )
-		elif self.count > 0:
-			if self.last != value:
-				self._flush()
-				self._write( value )
-		else:
-			self.last = value
-		self.count += 1
-
-	def _incTypeCount( self, value ):
-		if value is None:
-			self.missing += 1
-		else:
-			if not ( isinstance(value,float) \
-				or isinstance(value,int) \
-				or isinstance(value,str) \
-				or isinstance(value,bool) ):
-				raise TypeError( "unexpected type: " + type(value).__name__ )
-			self.types[ type(value).__name__[0] ] += 1
-
-	def _write( self, value ):
-		"""
-		To insure that string values of "None" aren't confused with the
-		None type, replace None by a more literal representation of None:
-		an empty line.
-		"""
-		print( repr(value) if value is not None else "", file=self.store )
-
-	def _flush( self ):
-		"""
-		"""
-		assert self.store is None # because this should only be called once!
-		self.store = tempfile.SpooledTemporaryFile( mode="w+" )
-		for i in range(self.count):
-			self._write( self.last )
-
-	def data( self ):
-		"""
-		Idempotent--reload if and only if data hasn't been loaded.
-		"""
-		if self._data is None:
-			assert self.store.tell() > 0
-			self.store.seek(0)
-			# Remember: None is represented as empty lines. See _write.
-			self._data = [ eval(l.rstrip()) if len(l.rstrip()) > 0 else None
-				for l in self.store.readlines() ]
-			# We won't be using the tempfile again, so...
-			self.store.close()
-			self.store = None
-		return self._data
-
-	def _non_missing_len( self ):
-		return self.count - self.missing
-
-	def _make_value_histogram( self, min_card=0 ):
-		"""
-		Create dict mapping values to their cardinality within self.data().
-
-		If min_card is non-zero, caller is only interested in whether or
-		not the cardinality of distinct values is >= min_card. In this
-		case, we may exit before finishing enumeration of the data and,
-		thus, before finishing computation of the histogram.
-
-		If min_card is zero, the histogram is fully computed and left in
-		self.
-		"""
-		self.value_histogram = dict()
-		for v in self.data():
-			if v is not None:
-				try:
-					self.value_histogram[ v ] += 1
-				except KeyError:
-					self.value_histogram[ v ]  = 1
-			if min_card > 0 and len(self.value_histogram) >= min_card:
-				# Since the histogram is incomplete, if we need it later
-				# we'll have to recomputed it. So don't leave it around.
-				delattr(self,value_histogram)
-				return min_card
-		return len(self.value_histogram)
-
-	def add_missing_to_insure_count( self, expected_count ):
-		"""
-		This method insures that missing data is noted.
-		If the last file processed by Matrix did not contain the
-		statistic held by this cache, self.__call__ was not called and
-		this cache's total count of statistics will be expected_count-1.
-		"""
-		if len(self) < expected_count:
-			self( None )
-			return True
-		return False
-
-	def is_numeric( self ):
-		"""
-		...if int and float items account for all non-missing items.
-		Note that quantitative implies numeric, but numeric does NOT
-		imply quantitative.
-		"""
-		return self._non_missing_len() == (self.types['i'] + self.types['f'])
-
-	def is_quantitative( self ):
-		"""
-		If *any* cached values were floating-point, the entire column will
-		be treated as floating-point. That is, integers will be coerced.
-		This is to accomodate the possibility that floating-point data that
-		happens to occasionally have integral values may be emitted by the
-		plugins as integers.
-
-		If all non-missing values were integral AND the cardinality of the
-		values is sufficiently large the column will be treated as quanti-
-		tative for the purpose of anomaly detection.
-		"""
-		
-		if self.types['f'] > 0: # Presence of floats implies...
-			return True  # ...quantitative, but...
-		elif not self.is_numeric(): # ...complete absence of numbers...
-			return False # ...precludes quantitative.
-		else: # Otherwise, we need the cardinality of integral values.
-			assert all([ v is None or isinstance(v,int)
-				for v in self.data() ])
-			n = MIN_CARD_IMPLYING_QUANTITATIVE_INTEGER
-			return self._make_value_histogram( n ) >= n
-
-	def is_missing_data( self ):
-		"""
-		Returns the count of missing data--that is, a count of values
-		of None--in this cache.
-		"""
-		return self.missing > 0
-
-	def is_uniquely_typed( self ):
-		"""
-		Indicates whether or this cache contains exactly one of boolean,
-		string, or numeric data. Missing data is ignored.
-
-		Note that integral and floating-point are treated as a single
-		type for the purposes of this method. More specifically, if any
-		floating-point values are present, integral values will be treated
-		as floating-point.
-		"""
-		return self.store is None \
-			or self.is_numeric() \
-			or sum([ int(v > 0) for v in self.types.values()]) == 1
-
-	def is_single_valued( self ):
-		"""
-		Determine whether or not this column is *effectively* single-valued.
-
-		By "effectively" it is meant that EITHER:
-		1. only a single value (of any type) was observed, OR
-		2. all (non-missing) values were numeric and they were sufficiently
-			centrally-distributed without outliers.
-
-		This method compute as little as possible to arrive at an answer.
-		However, in the case of quantitative data, the answer actually
-		requires determination of the presence of outliers, and thus the
-		identities of the aberrant elements.
-
-		For non-quantitative data more work will be required later if
-		the identities of aberrant elements is sought.
-		"""
-		if self.store is None: # self.last was never flushed because only...
-			return True        # ...one value was ever seen. Case closed!
-		if self.is_quantitative():
-			# Filter missing values and force floating-point types.
-			data = [ float(v) for v in filter( lambda x:x is not None, self.data()) ]
-			array_data = array.array("d", data )
-			lb,ub = bdqc.builtin.compiled.robust_bounds( array_data )
-			self.aberrant = [ i for i in range(len(data)) if
-				(data[i] is not None) 
-				and (data[i] < lb or data[i] > ub) ]
-			self.lb = lb
-			self.ub = ub
-			# self.density = bdqc.builtin.compiled.gaussian_kde( array_data )
-			return len(self.aberrant) == 0
-
-		# Computation within is_quantitative sometimes yields a partial or
-		# complete cardinality assessment as a side effect...
-
-		if hasattr(self,"value_histogram"):
-			# If it's *not* quantitative, but a histogram exists, then the
-			# data *was* exhaustively enumerated...
-			assert sum(self.value_histogram.values()) == self._non_missing_len()
-			return len(self.value_histogram) > 1
-
-		return self._make_value_histogram() > 1
-
-	def aberrant_indices( self ):
-		"""
-		Return a list of the indices of aberrant elements.
-
-		The "aberrant elements": 
-		1. in quantitative data are the outliers.
-		2. in non-quantitative data are whichever elements have the
-			value of smallest cardinality (the minority).
-
-		This method should only be called if this Cache is known to contain
-		multiple values. (Otherwise, state assumed to exist won't!)
-		"""
-		assert hasattr(self,"aberrant") \
-			or hasattr(self,"value_histogram")
-		# ...otherwise, if neither of these exist, we could just make the
-		# tail of this method conditional on "not is_single_valued" which
-		# would trigger their generation.
-		if hasattr(self,"aberrant"):
-			return self.aberrant
-		else:
-			min_cardinality = min( self.value_histogram.values() )
-			minority_values = frozenset( filter(
-				lambda k:self.value_histogram[k] == min_cardinality,
-				self.value_histogram.keys() ) )
-			return [ i for i in range(len(self.column)) 
-				if self.column[i] in minority_values ]
-
-
 class Matrix(object):
 	"""
 	Holds the "flattened" results of the "within-file" analysis carried out
@@ -443,6 +173,10 @@ class Matrix(object):
 		self.column = {}
 		self.files  = []
 		self.rejects = set()
+		# deferred attributes
+		# self.status
+		# self.anom_stat
+		# self.anom_file
 
 	def __call__( self, filename, analysis:"JSON data represented as Python objects" ):
 		"""
@@ -513,8 +247,8 @@ class Matrix(object):
 			if not self._accept( statname ):
 				self.rejects.add( statname )
 				return descend # ...without caching anything. 
-			# Otherwise, create a new Cache for statname...
-			column = Cache(len(self.files))
+			# Otherwise, create a new Vector for statname...
+			column = Vector(len(self.files))
 			self.column[ statname ] = column
 		# ...then append the value(s)
 		if meta:
@@ -639,10 +373,6 @@ class Matrix(object):
 				node,i = stack.pop(-1)
 		# end _visit
 
-	def _create_incidence( self ):
-		"""
-		"""
-
 	def analyze( self ):
 		"""
 		1. Identify columns with missing data.
@@ -650,6 +380,9 @@ class Matrix(object):
 		3. Identify columns with:
 			a. multiple values if non-quantitative
 			b. outliers if quantitative.
+
+		If no columns meet any of these criteria there is essentially
+		nothing to report--everything is normal.
 
 		Missing data implies that the same set of (dynamically determined)
 		plugins (or parts of plugins) were not run on all subject files and
@@ -670,37 +403,36 @@ class Matrix(object):
 		typed, each column should contain:
 		1. a tightly distributed set of quantitative values (no outliers) or
 		2. a single non-quantitative value
+
 		Creates a sparse representation of an incidence matrix.
 		"""
+
 		if any([ c.is_missing_data() for c in self.column.values() ]):
-			return STATUS_MISSING_VALUES
-		if any([ not c.is_uniquely_typed() for c in self.cache.values() ]):
-			return STATUS_MULTIPLE_TYPES
+			self.status = STATUS_MISSING_VALUES
+			return self.status
+		if any([ not c.is_uniquely_typed() for c in self.column.values() ]):
+			self.status = STATUS_MULTIPLE_TYPES
+			return self.status
 
 		# The preceding two cases are the uninteresting cases.
 
 		self.anom_stat = sorted( list( filter(
 			lambda k: not self.column[k].is_single_valued(),
-			self.cache.keys() ) ) )
+			self.column.keys() ) ) )
+
 		if len(self.anom_stat) > 0:
-			return STATUS_ANOMALIES
+			# We have a list of column keys (names corresponding to
+			# statistics) that are anomalous. Now generate a list of
+			# all indices into the self.files list of files that
+			# contain anomalies (by virtue of being included in any
+			# column's anomaly list).
+			self.anom_file = sorted( list( set().union(*[
+				self.column[k].aberrant_indices() for k in self.anom_stat ]) ) )
+			self.status = STATUS_ANOMALIES
+		else:
+			self.status = STATUS_NOTHING_TO_SEE
 
-		return STATUS_NOTHING_TO_SEE
-
-	def dump( self, prefix="." ):
-		n = 0
-		for k in sorted(self.cache.keys()):
-			ifp = self.cache[k].fileptr()
-			ifp.seek(0)
-			with open( os.path.join( prefix, "{:04d}.txt".format(n) ), "w" ) as ofp:
-				print( "#", k, file=ofp )
-				line = ifp.readline()
-				while len(line) > 0:
-					ofp.write( line )
-					line = ifp.readline()
-				print( "#", str(self.cache[k]), sep="", file=ofp )
-			n += 1
-
+		return self.status
 
 class _Loader(object):
 	"""
@@ -730,12 +462,16 @@ class _Loader(object):
 		self.target( basename, analysis )
 
 
-def analyze( args ):
+def analyze( args, output ):
 	"""
 	Aggregate JSON into a Matrix then call the Matrix' analyze method.
 	This function allows 
 	"""
-	m = Matrix(None)
+	import bdqc.dir
+	import os.path
+	import json
+
+	m = Matrix()
 	for s in args.sources:
 		if os.path.isdir( s ):
 			# Look for "*.bdqc" files under "s/" each of which contains
@@ -751,10 +487,9 @@ def analyze( args ):
 					m( filename, content )
 		else:
 			raise RuntimeError( "{} is neither file nor directory".format(s) )
-	if __debug__:
-		m.dump( 'tmp' )
 	m.analyze()
-
+	if m.status == STATUS_ANOMALIES:
+		HTML(m).render( output )
 
 if __name__=="__main__":
 	import argparse
@@ -805,5 +540,5 @@ if __name__=="__main__":
 	if _args.exclude:
 		re.compile( _args.exclude )
 
-	analyze( _args )
+	analyze( _args, sys.stdout )
 
