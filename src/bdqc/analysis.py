@@ -201,7 +201,7 @@ class Matrix(object):
 		# placeholders where necessary) before exiting.
 		missing_added = 0
 		for c in self.column.values():
-			if c.add_missing_to_insure_count( len(self.files) ):
+			if c.pad_to_count( len(self.files) ):
 				missing_added += 1
 		assert all([ len(c)==len(self.files) for c in self.column.values() ])
 		return missing_added > 0 or (
@@ -258,18 +258,18 @@ class Matrix(object):
 				# ...the cardinality of the set of values equals the count
 				# of values, then encode it as a set.
 				if len(S) == meta[0][0]:
-					column( S )
+					column.push( S )
 					descend = False
 					# ...because the list was just treated as a *value*.
 				else:
-					column( meta )
+					column.push( meta )
 			else:
 				# It's either multi-dimensional or it's element type
 				# is Numeric or non-scalar.
-				column( meta )
+				column.push( meta )
 		else:
 			assert value is None or _is_scalar( value )
-			column( value )
+			column.push( value )
 			descend = False
 		return descend
 
@@ -427,7 +427,7 @@ class Matrix(object):
 			# contain anomalies (by virtue of being included in any
 			# column's anomaly list).
 			self.anom_file = sorted( list( set().union(*[
-				self.column[k].aberrant_indices() for k in self.anom_stat ]) ) )
+				self.column[k].outlier_indices() for k in self.anom_stat ]) ) )
 			self.status = STATUS_ANOMALIES
 		else:
 			self.status = STATUS_NOTHING_TO_SEE

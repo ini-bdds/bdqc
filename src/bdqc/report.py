@@ -19,7 +19,7 @@ class HTML(object):
 		body = [ [ "c{}_{}".format(r,c)
 			for c in range(len(self.source.anom_stat)) ]
 			for r in range(len(self.source.anom_file)) ]
-		hl   = [ [ fi in self.source.column[k].aberrant_indices()
+		hl   = [ [ fi in self.source.column[k].outlier_indices()
 			for k  in self.source.anom_stat ]
 			for fi in self.source.anom_file ]
 		row_labels = [ self.source.files[fi] for fi in self.source.anom_file ]
