@@ -9,7 +9,6 @@ It then applies the heuristics to identify potentially anomalous files:
 2. categorical data and compound data types are expected to be identical
 	across files
 
-----------------------------------------------------------------------------
 Aggregation
 ----------------------------------------------------------------------------
 
@@ -18,55 +17,13 @@ Given either
 2. aggregate JSON file(s)
 
 ...scan all the JSON. In both cases (which can be arbitrarily interleaved)
-scanning consumes one file's JSON at a time. Identify all features of
-interest according to configuration and build tmp files containing vectors.
+scanning consumes one file's JSON at a time.
 
-Concurrently, maintain in memory
-1. the vector of filenames consumed and
-2. a map from statistic names to the tmp files containing them.
-
-Whenever a new statistic is first encountered its (tempfile-resident) vector
-must be padded with placeholders for all the already-scanned files that did
-not contain it. Ideally, when a set of presumed-similar files are in fact
-similar, this should never happen.
-
-At completion of the above we have a matrix, each column of which resides in
-a file, and a map from the originally-analyzed files to the rows of the
-matrix to which they correspond.
-
-******** Complex data types ********
+Complex data types
+----------------------------------------------------------------------------
 
 The process of flattening can itself be adjusted, particularly with respect
 to its treatment of complex data types. TODO: explore this.
-
-This code inserts one type of column that does not *directly* correspond to
-original data: the matrix descriptor.
-
-----------------------------------------------------------------------------
-Heuristic analysis
-----------------------------------------------------------------------------
-
-Files that are a priori expected to be "similar" should be *identical* with
-respect to specific characteristics. For example, files that are known to
-contain tabular data typically should have identical column counts. (This
-need not *always* apply, though; that is why it is a heuristic.) Moreover,
-if one of those columns contains labels (i.e. categorical data) all files
-might be expected to contain the same *set* of labels in that column.
-
-Quantitative (i.e. numerical, floating-point) data is rarely expected to
-manifest identity because of noise inherent in the phenomena and/or its
-measurement. However, quantitative data from "similar" sources may be
-expected to exhibit a central tendency: to be dispersed about its mean.
-For example, files containing genome sequencing results of a different
-individual of the same species, performed on the same sequencing platform,
-etc. should typically be *approximately* the same size (in terms of bytes).
-
-In the context of BDQC wherein the within-file analysis runs a dynamically-
-determined set of plugins, one might expect every file (if they're truly
-"similar") to have received identical "treatment" by plugins--that is, the
-same set of plugins was selected to run on every file. This implies that no
-*.bdqc file is missing any statistic (JSON path) that is present in one or
-more other *.bdqc files.
 
 Column selectors:
 	path match, e.g.

@@ -124,16 +124,16 @@ This and following sections are required reading for anyone
 wanting to develop their own plugins.
 
 The most important fact to understand about BDQC is that
-*plugins*, **not the** *framework*, **carry out all analysis of input files.**
+**plugins, not the** *framework*, **carry out all analysis of input files.**
 The BDQC framework merely orchestrates the execution of `plugins <Plugins_>`_.
 (The BDQC *package* includes several "built-in" plugins which insure
 it is useful "out of the box." Though they are built-in, they are
-nonetheless plugins.)
+nonetheless plugins because the follow the plugin architecture.)
 
 A plugin is simply a Python module that is installable like any Python module.
 Plugins provide functions that can read a file and produce one or more summary
 statistics about it.
-The function are expected to take certain forms, and the plugin is expected to
+The functions are expected to take certain forms, and the plugin is expected to
 export certain symbols used by the BDQC framework (described in detail
 `below <Plugins_>`_).
 
@@ -192,15 +192,16 @@ Collection
 
 Typically bdqc.scan automatically invokes the between-files analysis on
 the results of within-file analysis.
-However, the between-file analysis can also be run independently, and
-files and/or directories to analyze can be specified exactly as with
-bdqc.scan.
+However, the between-file analysis can also be run independently, and files
+listing and/or directories containing \*.bdqc files to analyze can be
+specified exactly as with bdqc.scan.
 
 Flattening
 ----------
 
 A `plugin's <Plugins_>`_ output can be (almost) anything
 representable as JSON_ data.
+
 ..	In particular, the "statistic(s)" produced by a plugin need not be scalars
 ..	(numbers and strings); they can be compound data like matrices or sets,
 ..	too .
@@ -251,7 +252,7 @@ plugin's analysis of *one file* shows some of the many statistics it produces:
 	}
 
 The plugin inferred that the 3rd column in the file contains quantitative
-data ("inferred_class"), and the mean value of that column was 47.38.
+data ("class"), and the mean value of that column was 47.38.
 The process of "flattening" the JSON summaries creates one column in the
 aggregate matrix from the values of the mean statistic *for all files analyzed*,
 and that column's *name* is the path:
@@ -267,6 +268,46 @@ analyzed file; each column in the aggregate matrix contains one statistic
 
 .. The columns of the matrix are the individual statistics that plugins produce
 .. in their analysis summaries.
+
+Heuristic analysis
+------------------
+
+The BDQC framework is based on a simple core idea:
+
+	**Files that a priori are expected to be "similar" should be**
+	*effectively identical* **in specific, measurable ways.**
+
+For example, files that are known to contain tabular data typically should
+have identical column counts. This need not *always* be the case, though;
+that is why it is a *heuristic*.
+
+In concrete terms this means that each column in the summary matrix should
+contain *a single value*. (e.g. The bdqc.builtin.tabular/table/column_count
+column in the summary matrix should contain only one value in all rows.)
+
+If the column is not single-valued, by default the rows (corresponding to
+analyzed files) containing the minority value(s) will be reported as
+anomalies.
+
+Clearly, this rational cannot be applied to quantitative (floating-point)
+data since it is expected to contain noise inherent in the phenomena itself
+or its measurement. However, an analogous concept applies: quantitative
+data about a shared property--identical in the absence of noise--is expected
+to manifest central tendency exemplified by an *absence* of "outliers."
+(The *mean* can be thought of as the expected value that *would* be unique
+in the absence of "noise" or other imprecision.)
+
+For example, files containing genetic variant calls of many individuals
+of the same species (one individual per file), performed on the same
+sequencing platform, called by the same variant-calling algorithm, etc.
+should typically be *approximately* the same size (in bytes).
+
+.. In the context of BDQC wherein the within-file analysis runs a dynamically-
+.. determined set of plugins, one might expect every file (if they're truly
+.. "similar") to have received identical "treatment" by plugins--that is, the
+.. same set of plugins was selected to run on every file. This implies that no
+.. \*.bdqc file is missing any statistic (JSON path) that is present in one or
+.. more other \*.bdqc files.
 
 Plugins
 #######
