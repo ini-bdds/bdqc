@@ -258,6 +258,7 @@ class Executor(object):
 
 			if not self.dryrun:
 				results = json.dumps( cache, sort_keys=True, indent=4 )
+				assert results is not None
 				if matrix:
 					matrix( s, results )
 				if self.adjacent: # store JSON results adjacent to subject
@@ -288,7 +289,7 @@ class Executor(object):
 		return missing
 
 
-def main( args, matrix ):
+def main( args ):
 
 	# Build lists of plugins...
 
@@ -337,6 +338,7 @@ def main( args, matrix ):
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
+		matrix = bdqc.analysis.Matrix() #if not args.skip_analysis else None
 		missing = _exec.run( matrix, accumulator=accum_fp, progress_output=prog_fp )
 
 		if accum_fp:
@@ -344,13 +346,15 @@ def main( args, matrix ):
 		if prog_fp:
 			prog_fp.close()
 
-		status = matrix.analyze()
+		if matrix:
+			status = matrix.analyze()
+			if status: # is other than STATUS_NOTHING_TO_SEE
+				report.Plaintext(matrix).render( sys.stdout )
 
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
 
-	return status
-
+	return status 
 
 ############################################################################
 # Command line args
@@ -476,6 +480,5 @@ if __name__=="__main__":
 	if _args.exclude:
 		re.compile( _args.exclude )
 	
-	m = bdqc.analysis.Matrix()	
-	print( bdqc.analysis.STATUS[ main( _args, m ) ] )
+	main( _args )
 

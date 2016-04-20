@@ -207,6 +207,21 @@ class Vector(object):
 
 		return len(self.value_histogram) == 1
 
+	def missing_indices( self ):
+		"""
+		Return a list of the indices of elements with missing data (None).
+		"""
+		return [ i for i in range(len(self)) if self[i] is None ]
+
+	def minor_type_indices( self ):
+		"""
+		Return a list of the indices of elements with types in the minority.
+		"""
+		MINOR_TYPE_COUNT = min( self.types.values() )
+		MINOR_TYPES = frozenset([ k for k in self.types.keys()
+			if self.types[k] == MINOR_TYPE_COUNT ])
+		return [ i for i in range(len(self)) if type(self[i]).__name__[0] in MINOR_TYPES ]
+
 	def outlier_indices( self ):
 		"""
 		Return a list of the indices of outlier elements.

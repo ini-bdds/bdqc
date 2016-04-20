@@ -33,8 +33,8 @@ Column selectors:
 import sys
 
 from bdqc.statistic import Descriptor
-from column import Vector
-from report import HTML
+from bdqc.column import Vector
+from bdqc.report import HTML
 
 STATUS_NOTHING_TO_SEE = 0
 STATUS_MISSING_VALUES = 1
@@ -120,6 +120,11 @@ class Matrix(object):
 	by plugins on a set of data files.
 	Each column corresponds to one of the statistics produced by one of the
 	plugins.
+	Each row corresponds to an analyzed file.
+	Result of analysis is a list of anomalous rows and columns such that:
+	1. a column is anomalous if it contains any anomalous row, and
+	2. a row is anomalous if its file is anomalous in any statistic (column)
+	An incidence matrix can be constructed from these.
 	"""
 	def __init__( self, config:"a list of column filters"=[] ):
 		"""
@@ -132,8 +137,8 @@ class Matrix(object):
 		self.rejects = set()
 		# deferred attributes
 		# self.status
-		# self.anom_stat
-		# self.anom_file
+		# self.anom_col
+		# self.anom_row
 
 	def __call__( self, filename, analysis:"JSON data represented as Python objects" ):
 		"""
@@ -363,33 +368,49 @@ class Matrix(object):
 
 		Creates a sparse representation of an incidence matrix.
 		"""
-
-		if any([ c.is_missing_data() for c in self.column.values() ]):
+		self.anom_col = sorted( list( filter(
+			lambda k: self.column[k].is_missing_data(),
+			self.column.keys() ) ) )
+		if len(self.anom_col) > 0:
+			self.anom_row = sorted( list( set().union(*[
+				self.column[k].missing_indices() for k in self.anom_col ]) ) )
 			self.status = STATUS_MISSING_VALUES
 			return self.status
-		if any([ not c.is_uniquely_typed() for c in self.column.values() ]):
+
+		self.anom_col = sorted( list( filter(
+			lambda k: not self.column[k].is_uniquely_typed(),
+			self.column.keys() ) ) )
+		if len(self.anom_col) > 0:
+			self.anom_row = sorted( list( set().union(*[
+				self.column[k].minor_type_indices() for k in self.anom_col ]) ) )
 			self.status = STATUS_MULTIPLE_TYPES
 			return self.status
 
 		# The preceding two cases are the uninteresting cases.
 
-		self.anom_stat = sorted( list( filter(
+		self.anom_col = sorted( list( filter(
 			lambda k: not self.column[k].is_single_valued(),
 			self.column.keys() ) ) )
 
-		if len(self.anom_stat) > 0:
+		if len(self.anom_col) > 0:
 			# We have a list of column keys (names corresponding to
 			# statistics) that are anomalous. Now generate a list of
 			# all indices into the self.files list of files that
 			# contain anomalies (by virtue of being included in any
 			# column's anomaly list).
-			self.anom_file = sorted( list( set().union(*[
-				self.column[k].outlier_indices() for k in self.anom_stat ]) ) )
+			self.anom_row = sorted( list( set().union(*[
+				self.column[k].outlier_indices() for k in self.anom_col ]) ) )
 			self.status = STATUS_ANOMALIES
 		else:
 			self.status = STATUS_NOTHING_TO_SEE
 
 		return self.status
+
+	def anomalous_stats( self ):
+		return self.anom_col
+
+	def anomalous_files( self ):
+		return [ self.files[ r ] for r in self.anom_row ]
 
 class _Loader(object):
 	"""

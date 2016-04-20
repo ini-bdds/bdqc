@@ -12,22 +12,22 @@ class HTML(object):
 		"""
 		Emit HTML5 markup representing an incidence matrix.
 		"""
-		assert hasattr(self.source,"anom_stat") \
-			and isinstance(self.source.anom_stat,list) \
-			and all([ isinstance(i,str) for i in self.source.anom_stat])
+		assert hasattr(self.source,"anom_col") \
+			and isinstance(self.source.anom_col,list) \
+			and all([ isinstance(i,str) for i in self.source.anom_col])
 
 		body = [ [ "c{}_{}".format(r,c)
-			for c in range(len(self.source.anom_stat)) ]
-			for r in range(len(self.source.anom_file)) ]
+			for c in range(len(self.source.anom_col)) ]
+			for r in range(len(self.source.anom_row)) ]
 		hl   = [ [ fi in self.source.column[k].outlier_indices()
-			for k  in self.source.anom_stat ]
-			for fi in self.source.anom_file ]
-		row_labels = [ self.source.files[fi] for fi in self.source.anom_file ]
+			for k  in self.source.anom_col ]
+			for fi in self.source.anom_row ]
+		row_labels = [ self.source.files[fi] for fi in self.source.anom_row ]
 		# The prelude
 		print( '<table id="incidence_matrix">\n<caption></caption>\n', file=fp )
 		# The header
 		print( '<thead class="im">\n<tr>\n<th></th>\n', file=fp )
-		for label in self.source.anom_stat:
+		for label in self.source.anom_col:
 			print( '<th scope="col" class="im">{}</th>\n'.format(label), file=fp )
 		print( '</tr>\n</thead>\n', file=fp )
 		# The body
@@ -63,10 +63,10 @@ class HTML(object):
 		# statistic
 		# outliers=[[x00,x01,...],[x10,x11,x12],...];
 		# density=[ [[x,y],[x,y],...], [[x,y],[x,y],...], ... ];
-		N = len(self.source.anom_stat)
+		N = len(self.source.anom_col)
 		print( "var density=[" )
 		for si in range(N):
-			k = self.source.anom_stat[si]
+			k = self.source.anom_col[si]
 			print( "\t[", end="" )
 			########
 			print( "/*",k,"*/", sep="", end="" )
@@ -87,13 +87,13 @@ class HTML(object):
 
 		print( "var outlier=[" )
 		for si in range(N):
-			k = self.source.anom_stat[si]
+			k = self.source.anom_col[si]
 			print( "\t[", end="" )
 			########
 			print( "/*",k,"*/", sep="", end="" )
 			if hasattr(self.source.column[k],"density"):
 				print( "{:+.3e}".format(self.source.column[k][0], end="" ) )
-				for fi in self.source.anom_file[1:]:
+				for fi in self.source.anom_row[1:]:
 					print( ",{:+.3e}".format(self.source.column[k][fi]), end="" )
 			else:
 				pass
@@ -134,7 +134,7 @@ class HTML(object):
 		# 3. correspondence between DOM nodes is explicit by identifiers.
 		# I'm using #3.
 
-		for i in range(len(self.source.anom_stat)):
+		for i in range(len(self.source.anom_col)):
 			print(
 				"""<svg id="s{STATINDEX}" width="320" height="240"
 					style="position:absolute;top:0;left:0">
@@ -146,4 +146,49 @@ class HTML(object):
 		</body>
 		</html>
 		""" )
+
+
+class Plaintext(object):
+	"""
+	TODO: lots
+	"""
+
+	def __init__( self, source ):
+		self.source = source
+
+	def _renderMissingValuesReport( self, fp ):
+		"""
+		Identify which files are missing which values
+		"""
+		print( "Missing values present in a subset of the cross-product...\n")
+		for f in self.source.anomalous_files():
+			print( f )
+		for s in self.source.anomalous_stats():
+			print( s )
+		print( "...probably need to further constrain which files are analyzed.\n")
+
+	def _renderMultipleTypesReport( self, fp ):
+		print( "Ambiguous types present in...\n")
+		for s in self.source.anomalous_stats():
+			print( s )
+		print( "...probable bug and/or improper plugin design.\n")
+
+	def _renderAnomaliesReport( self, fp ):
+		print( "Anomalies present in a subset of the cross-product...\n")
+		for f in self.source.anomalous_files():
+			print( f )
+		for s in self.source.anomalous_stats():
+			print( s )
+
+	def render( self, fp ):
+		STATUS = self.source.status
+		if STATUS == STATUS_NOTHING_TO_SEE:
+			print( "No anomalies detected.", file=fp )
+		elif STATUS == STATUS_MISSING_VALUES:
+			self._renderMissingValuesReport( fp )
+		elif STATUS == STATUS_MULTIPLE_TYPES:
+			self._renderMultipleTypesReport( fp )
+		else:
+			assert STATUS == STATUS_ANOMALIES
+			self._renderAnomaliesReport( fp )
 
