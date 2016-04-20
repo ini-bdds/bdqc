@@ -1,5 +1,6 @@
 
 import pkgutil
+import bdqc.analysis
 
 class HTML(object):
 	"""
@@ -157,38 +158,62 @@ class Plaintext(object):
 		self.source = source
 
 	def _renderMissingValuesReport( self, fp ):
-		"""
-		Identify which files are missing which values
-		"""
-		print( "Missing values present in a subset of the cross-product...\n")
-		for f in self.source.anomalous_files():
-			print( f )
-		for s in self.source.anomalous_stats():
-			print( s )
-		print( "...probably need to further constrain which files are analyzed.\n")
+		print(
+"""
+The incidence matrix shows {statistics} X {files} with MISSING VALUES.
+These typically arise when different sets of plugins were run on different
+files (or one or more plugins ran differently on different files).
+Either of these cases implies some discrepancy between input files, but
+in this case we cannot (usually) say which are the anomalous files.
+""" )
 
 	def _renderMultipleTypesReport( self, fp ):
-		print( "Ambiguous types present in...\n")
-		for s in self.source.anomalous_stats():
-			print( s )
-		print( "...probable bug and/or improper plugin design.\n")
+		print(
+"""
+The incidence matrix shows {statistics} for which A SINGLE TYPE COULD
+NOT BE INFERRED. (The files are those with the minority type.)
+This usually implies either software bugs or poorly designed plugins.
+""" )
 
 	def _renderAnomaliesReport( self, fp ):
-		print( "Anomalies present in a subset of the cross-product...\n")
-		for f in self.source.anomalous_files():
-			print( f )
-		for s in self.source.anomalous_stats():
-			print( s )
+		print(
+"""
+The incidence matrix shows {statistics} for which a minority of files
+exhibited either QUANTITATIVE OUTLIERS or otherwise NON-CONSTANT
+VALUES (in the case of non-quantitative data). These are likely
+anomalies.
+""" )
+
+	@staticmethod
+	def _render_im( im, fp ):
+		print( "Incidence matrix:", file=fp )
+		NR = len(im['body'])
+		assert NR == len(im['rows'])
+		wid = max([len(r) for r in im['rows']])
+		FMT = "{{0:>{}s}} {{1}}".format(wid)
+		for rn in range(NR):
+			print( FMT.format(
+				im['rows'][rn],
+				''.join([ '+' if f else ' ' for f in im['body'][rn] ]) ),
+				file=fp )
+		print( "Column legend:", file=fp )
+		for cn in range(len(im['cols'])):
+			print( cn+1, im['cols'][cn], sep="\t", file=fp )
 
 	def render( self, fp ):
 		STATUS = self.source.status
-		if STATUS == STATUS_NOTHING_TO_SEE:
+		if STATUS == bdqc.analysis.STATUS_NOTHING_TO_SEE:
 			print( "No anomalies detected.", file=fp )
-		elif STATUS == STATUS_MISSING_VALUES:
+			return
+
+		im = self.source.incidence_matrix()
+		Plaintext._render_im( im, fp )
+
+		if STATUS == bdqc.analysis.STATUS_MISSING_VALUES:
 			self._renderMissingValuesReport( fp )
-		elif STATUS == STATUS_MULTIPLE_TYPES:
+		elif STATUS == bdqc.analysis.STATUS_MULTIPLE_TYPES:
 			self._renderMultipleTypesReport( fp )
 		else:
-			assert STATUS == STATUS_ANOMALIES
+			assert STATUS == bdqc.analysis.STATUS_ANOMALIES
 			self._renderAnomaliesReport( fp )
 

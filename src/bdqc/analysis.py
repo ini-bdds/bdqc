@@ -36,6 +36,8 @@ from bdqc.statistic import Descriptor
 from bdqc.column import Vector
 from bdqc.report import HTML
 
+# Warning: the values of these constants are used to index function pointer
+# arrays. Don't change these without changing code that uses them!
 STATUS_NOTHING_TO_SEE = 0
 STATUS_MISSING_VALUES = 1
 STATUS_MULTIPLE_TYPES = 2
@@ -196,6 +198,13 @@ class Matrix(object):
 			Boolean value for which True means "descend into the matrix."
 		(A True is only meaningful if the node is, in fact, a JSON Array).
 		"""
+		# Following line is preempting fahncy matrix processing.
+		# Doing it here rather than tampering with the very complicated
+		# _visit method. Let _visit does what it does; we're just not going
+		# to act on it now. TODO: revisit this later.
+		if meta:
+			assert isinstance(value,list)
+			return True # descend WITHOUT adding a column
 		descend = (meta is not None) and (_ALWAYS_TRAVERSE or meta[1] == 0)
 		# Insure a column exists for the statistic...
 		try:
@@ -214,6 +223,7 @@ class Matrix(object):
 			self.column[ statname ] = column
 		# ...then append the value(s)
 		if meta:
+			assert isinstance(value,list)
 			# If it's a vector (1D matrix) of strings and...
 			if len(meta[0]) == 1 and meta[1] == Descriptor.TY_STR:
 				S = set(value)
@@ -406,11 +416,24 @@ class Matrix(object):
 
 		return self.status
 
-	def anomalous_stats( self ):
-		return self.anom_col
-
-	def anomalous_files( self ):
-		return [ self.files[ r ] for r in self.anom_row ]
+	def incidence_matrix( self ):
+		"""
+		Return an incidence matrix the content of which depends on the
+		nature of the anomalies (missing data, ambiguous types, or
+		value discrepancies).
+		"""
+		fxn = (
+			None,
+			Vector.missing_indices,
+			Vector.minor_type_indices,
+			Vector.outlier_indices)[self.status]
+		body = [ [ r in fxn( self.column[c] )
+			for c in self.anom_col ]
+			for r in self.anom_row ]
+		return {
+			'body':body,
+			'rows':[ self.files[ r ] for r in self.anom_row ],
+			'cols':self.anom_col }
 
 class _Loader(object):
 	"""

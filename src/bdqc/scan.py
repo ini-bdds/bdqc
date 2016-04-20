@@ -38,6 +38,7 @@ import io
 import bdqc.plugin
 import bdqc.dir
 import bdqc.analysis
+import bdqc.report
 
 ANALYSIS_EXTENSION = ".bdqc"
 DEFAULT_PLUGIN_RCFILE = os.path.join(os.environ['HOME'],'.bdqc','plugins.txt')
@@ -257,10 +258,10 @@ class Executor(object):
 			#    for immediate second stage analysis.
 
 			if not self.dryrun:
+				if matrix:
+					matrix( s, cache )
 				results = json.dumps( cache, sort_keys=True, indent=4 )
 				assert results is not None
-				if matrix:
-					matrix( s, results )
 				if self.adjacent: # store JSON results adjacent to subject
 					with open( cache_file, "w" ) as fp:
 						print( results, file=fp )
@@ -338,7 +339,7 @@ def main( args ):
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
-		matrix = bdqc.analysis.Matrix() #if not args.skip_analysis else None
+		matrix = bdqc.analysis.Matrix() if not args.skip_analysis else None
 		missing = _exec.run( matrix, accumulator=accum_fp, progress_output=prog_fp )
 
 		if accum_fp:
@@ -349,7 +350,7 @@ def main( args ):
 		if matrix:
 			status = matrix.analyze()
 			if status: # is other than STATUS_NOTHING_TO_SEE
-				report.Plaintext(matrix).render( sys.stdout )
+				bdqc.report.Plaintext(matrix).render( sys.stdout )
 
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
@@ -435,6 +436,10 @@ if __name__=="__main__":
 	_parser.add_argument( "--dryrun", "-D",
 		action='store_true',
 		help="""Don't actually run. Just describe what would be done.""")
+	_parser.add_argument( "--skip-analysis",
+		action='store_true', default=False,
+		help="""Don't carry out between-file (final) analysis; just run plugins.""")
+		
 	_parser.add_argument('-C', '--clobber',
 		action='store_true', default=False,
 		help="""Skip all optimizations intended to minimize work;

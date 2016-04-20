@@ -274,8 +274,8 @@ Heuristic analysis
 
 The BDQC framework is based on a simple core idea:
 
-	**Files that a priori are expected to be "similar" should be**
-	*effectively identical* **in specific, measurable ways.**
+	**Files that** *a priori* **are expected to be "similar" should be
+	effectively** *identical* **in specific, measurable ways.**
 
 For example, files that are known to contain tabular data typically should
 have identical column counts. This need not *always* be the case, though;
@@ -289,11 +289,11 @@ If the column is not single-valued, by default the rows (corresponding to
 analyzed files) containing the minority value(s) will be reported as
 anomalies.
 
-Clearly, this rational cannot be applied to quantitative (floating-point)
-data since it is expected to contain noise inherent in the phenomena itself
-or its measurement. However, an analogous concept applies: quantitative
-data about a shared property--identical in the absence of noise--is expected
-to manifest central tendency exemplified by an *absence* of "outliers."
+Clearly, this heuristic cannot be applied to quantitative (especially
+floating-point) data since it is expected to contain noise inherent in
+the phenomena itself or its measurement. However, an analogous heuristic
+applies: quantitative data about a shared property is expected
+to manifest *central tendency* and an *absence* of "outliers."
 (The *mean* can be thought of as the expected value that *would* be unique
 in the absence of "noise" or other imprecision.)
 

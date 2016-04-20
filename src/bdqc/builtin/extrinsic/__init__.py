@@ -31,8 +31,9 @@ def process( name, state ):
 	else:
 		readable = 'missing'
 	size  = info.st_size  if info else None
-	mtime = info.st_mtime if info else None
-	return {'readable':readable,'size':size,'mtime':mtime, 'ext':ext }
+	# Time is incompatible with current heuristic approach.
+	#mtime = info.st_mtime if info else None
+	return {'readable':readable,'size':size,'ext':ext }
 
 # Unit test
 if __name__=="__main__":
