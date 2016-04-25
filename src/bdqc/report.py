@@ -160,7 +160,8 @@ class Plaintext(object):
 	def _renderMissingValuesReport( self, fp ):
 		print(
 """
-The incidence matrix shows {statistics} X {files} with MISSING VALUES.
+The incidence matrix shows (file,statistic) pairs with present (+) or
+missing (-) values.
 These typically arise when different sets of plugins were run on different
 files (or one or more plugins ran differently on different files).
 Either of these cases implies some discrepancy between input files, but
@@ -170,34 +171,41 @@ in this case we cannot (usually) say which are the anomalous files.
 	def _renderMultipleTypesReport( self, fp ):
 		print(
 """
-The incidence matrix shows {statistics} for which A SINGLE TYPE COULD
-NOT BE INFERRED. (The files are those with the minority type.)
+The incidence matrix shows (file,statistic) pairs for statistics for which
+a single type could not be inferred. (The files in these pairs are those
+with the minority type.)
 This usually implies either software bugs or poorly designed plugins.
 """ )
 
 	def _renderAnomaliesReport( self, fp ):
 		print(
 """
-The incidence matrix shows {statistics} for which a minority of files
-exhibited either QUANTITATIVE OUTLIERS or otherwise NON-CONSTANT
-VALUES (in the case of non-quantitative data). These are likely
-anomalies.
+The incidence matrix shows (file,statistic) pairs for statistics which
+exhibited either QUANTITATIVE OUTLIERS or otherwise NON-CONSTANT VALUES
+(in the case of non-quantitative data). These are likely anomalies.
 """ )
 
 	@staticmethod
 	def _render_im( im, fp ):
 		print( "Incidence matrix:", file=fp )
 		NR = len(im['body'])
+		NC = len(im['cols'])
 		assert NR == len(im['rows'])
 		wid = max([len(r) for r in im['rows']])
 		FMT = "{{0:>{}s}} {{1}}".format(wid)
+		# Print headers
+		# This will handle up to 9999 columns but only the 10's and 1's
+		# values will be printed as column headers.
+		CIX = [ "{:04d}".format(i+1) for i in range(0,NC) ]
+		print( ' '*wid, ''.join([s[2] for s in CIX]) )
+		print( ' '*wid, ''.join([s[3] for s in CIX]) )
 		for rn in range(NR):
 			print( FMT.format(
 				im['rows'][rn],
-				''.join([ '+' if f else ' ' for f in im['body'][rn] ]) ),
+				''.join([ '+' if f else '-' for f in im['body'][rn] ]) ),
 				file=fp )
 		print( "Column legend:", file=fp )
-		for cn in range(len(im['cols'])):
+		for cn in range(NC):
 			print( cn+1, im['cols'][cn], sep="\t", file=fp )
 
 	def render( self, fp ):
