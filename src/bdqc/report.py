@@ -157,34 +157,6 @@ class Plaintext(object):
 	def __init__( self, source ):
 		self.source = source
 
-	def _renderMissingValuesReport( self, fp ):
-		print(
-"""
-The incidence matrix shows (file,statistic) pairs with present (+) or
-missing (-) values.
-These typically arise when different sets of plugins were run on different
-files (or one or more plugins ran differently on different files).
-Either of these cases implies some discrepancy between input files, but
-in this case we cannot (usually) say which are the anomalous files.
-""" )
-
-	def _renderMultipleTypesReport( self, fp ):
-		print(
-"""
-The incidence matrix shows (file,statistic) pairs for statistics for which
-a single type could not be inferred. (The files in these pairs are those
-with the minority type.)
-This usually implies either software bugs or poorly designed plugins.
-""" )
-
-	def _renderAnomaliesReport( self, fp ):
-		print(
-"""
-The incidence matrix shows (file,statistic) pairs for statistics which
-exhibited either QUANTITATIVE OUTLIERS or otherwise NON-CONSTANT VALUES
-(in the case of non-quantitative data). These are likely anomalies.
-""" )
-
 	@staticmethod
 	def _render_im( im, fp ):
 		print( "Incidence matrix:", file=fp )
@@ -209,19 +181,8 @@ exhibited either QUANTITATIVE OUTLIERS or otherwise NON-CONSTANT VALUES
 			print( cn+1, im['cols'][cn], sep="\t", file=fp )
 
 	def render( self, fp ):
-		STATUS = self.source.status
-		if STATUS == bdqc.analysis.STATUS_NOTHING_TO_SEE:
-			print( "No anomalies detected.", file=fp )
-			return
-
-		im = self.source.incidence_matrix()
-		Plaintext._render_im( im, fp )
-
-		if STATUS == bdqc.analysis.STATUS_MISSING_VALUES:
-			self._renderMissingValuesReport( fp )
-		elif STATUS == bdqc.analysis.STATUS_MULTIPLE_TYPES:
-			self._renderMultipleTypesReport( fp )
-		else:
-			assert STATUS == bdqc.analysis.STATUS_ANOMALIES
-			self._renderAnomaliesReport( fp )
+		print( "Status:", self.source.status_msg() )
+		if self.source.status != bdqc.analysis.STATUS_NO_OUTLIERS:
+			im = self.source.incidence_matrix()
+			Plaintext._render_im( im, fp )
 

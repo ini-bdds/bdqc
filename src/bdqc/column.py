@@ -213,6 +213,13 @@ class Vector(object):
 		"""
 		return [ i for i in range(len(self)) if self[i] is None ]
 
+	def present_indices( self ):
+		"""
+		Return a list of the indices of elements with NON-MISSING data.
+		This is the complement of the set returned by missing_indices.
+		"""
+		return [ i for i in range(len(self)) if self[i] is not None ]
+
 	def minor_type_indices( self ):
 		"""
 		Return a list of the indices of elements with types in the minority.

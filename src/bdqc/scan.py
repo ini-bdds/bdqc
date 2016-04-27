@@ -259,7 +259,7 @@ class Executor(object):
 
 			if not self.dryrun:
 				if matrix:
-					matrix( s, cache )
+					matrix.include( s, cache )
 				results = json.dumps( cache, sort_keys=True, indent=4 )
 				assert results is not None
 				if self.adjacent: # store JSON results adjacent to subject
@@ -329,7 +329,7 @@ def main( args ):
 			clobber = args.clobber,
 			adjacent = (not args.no_adjacent) )
 
-	status = bdqc.analysis.STATUS_NOTHING_TO_SEE
+	status = bdqc.analysis.STATUS_NO_OUTLIERS
 
 	if args.dryrun:
 		missing = _exec.run() # ...no need for progress indicator or an accumulator.
@@ -349,7 +349,7 @@ def main( args ):
 
 		if matrix:
 			status = matrix.analyze()
-			if status: # is other than STATUS_NOTHING_TO_SEE
+			if status: # is other than STATUS_NO_OUTLIERS
 				bdqc.report.Plaintext(matrix).render( sys.stdout )
 
 	if missing > 0:
