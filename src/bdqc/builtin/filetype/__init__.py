@@ -15,7 +15,8 @@ import warnings
 import importlib
 import logging
 
-TARGET = "file"
+TARGET  = "file"
+VERSION = 0x00010100
 DEPENDENCIES = ['bdqc.builtin.extrinsic',]
 
 _KNOWN_CODECS = (
@@ -85,9 +86,11 @@ def process( name, state ):
 		if _open:
 			with _open( name, "rb") as fp:
 				sig = fp.read(8)
-			# Convert sig from a bytes object (which the json module can't
-			# serialize) to a list of byte values (or None) which it can.
-			sig = list(sig) if len(sig) > 0 else None
+			# Pad it to 8 bytes and convert it to a hexadecimal string
+			# which is more easily dealt with in JSON.
+			if len(sig) < 8:
+				sig += bytes(8-len(sig))
+			sig = "{0:08X}{1:08X}".format( *struct.unpack( ">2I", sig ) )
 		# TODO: Signature-based file infererence should attempt to
 		# categorize file as "definitely binary" or "potentially text" and
 		# further
