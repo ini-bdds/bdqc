@@ -9,7 +9,8 @@ every other conceivable plugin.
 import os
 import os.path
 
-TARGET = "file"
+TARGET  = "file"
+VERSION = 0x00010100
 #DEPENDENCIES = []
 
 def process( name, state ):

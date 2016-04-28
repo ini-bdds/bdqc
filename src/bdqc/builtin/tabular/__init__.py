@@ -7,8 +7,8 @@ a file as either 1) ASCII text, 2) UTF-8 text, or 3) binary.
 import bdqc.builtin.compiled
 import json
 
-TARGET = "file"
-VERSION=0x00010000
+TARGET  = "file"
+VERSION = 0x00010100
 DEPENDENCIES = ['bdqc.builtin.extrinsic',]
 
 def process( name, state ):
