@@ -14,6 +14,7 @@ import os.path
 import warnings
 import importlib
 import logging
+import struct
 
 TARGET  = "file"
 VERSION = 0x00010100
