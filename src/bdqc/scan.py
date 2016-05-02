@@ -12,19 +12,11 @@
 	on that file
 
 Plugins
-	1. are of two types:
-		a. file analysis -- concern themselves with ONE FILE
-		b. accumulator analysis
 	1. declare dependencies on other plugins (by plugin name).
 	2. can read accumulated analysis state
 	3. return either
 		a. tuples of data to the executor, or
 		b. indication that they did not run/were not applicable
-
-Some plugins may not run on some files, so the data accumulation need
-not be the same for all files, though we can formally impose a tabular
-structure regardless: each file's accumulated data can be defined to
-have one entry per analysis plugin, though that entry may be empty.
 """
 
 import sys
@@ -37,8 +29,8 @@ import io
 
 import bdqc.plugin
 import bdqc.dir
-import bdqc.analysis
-import bdqc.report
+from bdqc.report import HTML,Plaintext
+from bdqc.analysis import Matrix,selectors
 
 ANALYSIS_EXTENSION = ".bdqc"
 DEFAULT_PLUGIN_RCFILE = os.path.join(os.environ['HOME'],'.bdqc','plugins.txt')
@@ -339,7 +331,9 @@ def main( args ):
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
-		matrix = bdqc.analysis.Matrix() if not args.skip_analysis else None
+		matrix = Matrix(
+			ignore = selectors(args.ignore) if args.ignore else None ) \
+			if not args.skip_analysis else None
 		missing = _exec.run( matrix, accumulator=accum_fp, progress_output=prog_fp )
 
 		if accum_fp:
@@ -349,8 +343,13 @@ def main( args ):
 
 		if matrix:
 			status = matrix.analyze()
-			if status: # is other than STATUS_NO_OUTLIERS
-				bdqc.report.Plaintext(matrix).render( sys.stdout )
+			if status: # ...is other than STATUS_NO_OUTLIERS
+				if args.report:
+					report = args.report.lower()
+					if report.startswith("text"):
+						Plaintext(matrix).render( sys.stdout )
+					elif report.startswith("html"):
+						HTML(matrix).render( sys.stdout )
 
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
@@ -459,6 +458,16 @@ if __name__=="__main__":
 		type=str, default="ERROR",
 		help="""One of {\"critical\", \"error\", \"warning\", \"info\",
 		\"debug\"} (default:%(default)s).""")
+
+	_parser.add_argument( "--ignore",
+		default=None,
+		help="""Specify a list of statistics to ignore in heuristic
+		analysis. This may either be a file containing one statistic
+		per line, or a literal semi-colon-separated list of statistics.""")
+	_parser.add_argument( "--report",
+		default=None,
+		help="""Specify the type of analysis report desired. Must be
+		one of {none,text,html}.""")
 
 	_parser.add_argument( "subjects", nargs="+",
 		help="""Files, directories and/or manifests to analyze. All three

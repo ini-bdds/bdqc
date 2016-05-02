@@ -25,7 +25,7 @@ Examples:
 
 import re
 
-class Selector(object):
+class _Component(object):
 	"""
 	Encapsulates a selector for one component of a data path. The selector
 	is either a compiled regular expression object or a list of ranges.
@@ -33,21 +33,6 @@ class Selector(object):
 	polymorphism might be preferable. Maybe override base class __new__
 	to return appropriate subclass(?)
 	"""
-	@staticmethod
-	def pmatch( selseq, subject ):
-		"""
-		"""
-		assert isinstance( selseq, list )
-		subseq = subject.split('/') if isinstance(subject,str) else subject
-		try:
-			for i in range(len(selseq)):
-				sel = selseq[i]
-				assert isinstance( sel, Selector )
-				if not sel.match( subseq[i] ):
-					return False
-		except IndexError:
-			return False
-		return True
 
 	@staticmethod
 	def _parse_range( rngexp ):
@@ -62,9 +47,9 @@ class Selector(object):
 		"""
 		assert isinstance( rngexp, str ) 
 		ranges = []
-		parts = rngexp.split(',')
+		part = rngexp.split(',')
 		try:
-			for p in parts:
+			for p in part:
 				r = tuple([ int(v) for v in p.split('-') ])
 				ranges.append( r )
 				if len(r) != 1 and (len(r) != 2 or r[0] > r[1]):
@@ -82,7 +67,7 @@ class Selector(object):
 		self.spec = None # implies wildcard
 		if spec != '*':
 			if spec.startswith('[') and spec.endswith(']'):
-				self.spec = Selector._parse_range( spec[1:-1] )
+				self.spec = _Component._parse_range( spec[1:-1] )
 			if not self.spec:
 				self.spec = re.compile( spec )
 				# Let re.error propagate up.
@@ -97,7 +82,7 @@ class Selector(object):
 
 	def _in_range( self, value ):
 		"""
-		Indicates whether or not the <value> is in this Selector's
+		Indicates whether or not the <value> is in this _Component's
 		numeric range.
 		"""
 		assert isinstance(value,int)
@@ -131,12 +116,38 @@ class Selector(object):
 			return m and m.group() == s
 
 
+class Selector(object):
+	"""
+	Encapsulates a list of statpath._Components and the means to
+	match them.
+	"""
+
+	def __init__( self, path ):
+		self.part = [ _Component(p) for p in path.split('/') ]
+
+	def __call__( self, subject ):
+		"""
+		"""
+		subseq = subject.split('/') if isinstance(subject,str) else subject
+		try:
+			for i in range(len(self.part)):
+				if not self.part[i].match( subseq[i] ):
+					return False
+		except IndexError:
+			return False
+		return True
+
+	def __getitem__( self, index ):
+		assert isinstance(index,int)
+		return self.part[index]
+
+
 if __name__ == "__main__":
 	import sys
-	Xpath = [ Selector(p) for p in sys.argv[1].split('/') ]
-	for p in Xpath:
-		print( p )
+	sel = Selector( sys.argv[1] )
+	for part in sel:
+		print( part )
 	while len(sys.argv) > 2:
 		subject = sys.argv.pop(2)
-		print( "{} {}".format( subject, Selector.pmatch( Xpath, subject ) ) )
+		print( "{} {}".format( subject, sel( subject ) ) )
 

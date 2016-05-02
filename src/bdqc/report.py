@@ -1,6 +1,5 @@
 
 import pkgutil
-import bdqc.analysis
 
 class HTML(object):
 	"""
@@ -182,7 +181,7 @@ class Plaintext(object):
 
 	def render( self, fp ):
 		print( "Status:", self.source.status_msg() )
-		if self.source.status != bdqc.analysis.STATUS_NO_OUTLIERS:
+		if self.source.status:
 			im = self.source.incidence_matrix()
 			Plaintext._render_im( im, fp )
 
