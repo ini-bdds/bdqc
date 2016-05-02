@@ -62,11 +62,11 @@ It was motivated by the realization that when faced with many thousands of
 individual files it can be challenging to even confirm they all contain
 approximately what they should.
 
-It is intended to:
+It is useful for:
 
-1. validate primary input data to pipelines
-2. validate output (or intermediate stages of) data processing pipelines
-3. discover potentially "interesting" outliers
+1. validating primary input data to pipelines
+2. validating output (or intermediate stages of) data processing pipelines
+3. discovering potentially "interesting" outliers
 
 These use cases merely highlight different sources of anomalies in data.
 In the first, anomalies might be due to faulty data handling or acquisition
@@ -107,6 +107,25 @@ Alternatively, the bdqc.Executor Python class can be incorporated directly
 into third party Python code. This allows it to be incorporated into
 pipelines.
 
+Results
+-------
+
+A successful run of bdqc.scan ends with one of 3 general results:
+
+1. nothing of interest found ("Everything is OK.")
+2. two or more files were found to be *incomparable*
+3. anomalies were detected in specific files
+
+Case #2 can occur when analyzed files are *so* different (e.g.
+log files and JPEG image files) that comparison is essentially meaningless.
+
+The rationale behind classifying files as "anomalous" is explained more fully
+below in Between-file analysis. In general, however, this means that "outliers"
+were found in one or more statistics generated for one or more files.
+
+In the second and third cases, a report is optionally generated (as text or HTML)
+summarizing the evidence.
+
 Design goals
 ============
 
@@ -114,7 +133,7 @@ The BDQC framework was developed with several explicit goals in mind:
 
 1. Identify an "anomalous" file among a large collection of *similar* files of *arbitrary* type with as little guidance from the user as possible, ideally none.  In other words, it should be useful "out of the box" with almost no learning curve.
 2. "Simple things should be simple; complex things should be possible" [#]_ Although basic use should involve almost no learning curve, it should be possible to extend it with arbitrarily complex (and possibly domain-specific) analysis capabilities.
-3. Plugins should be simple (for a competent Python programmer) to develop, and the system must be robust to faults in plugins.
+3. Plugins should be simple (for a competent Python programmer) to develop, and the framework must be robust to faults in plugins.
 
 How does it work?
 #################
@@ -124,8 +143,10 @@ This and following sections are required reading for anyone
 wanting to develop their own plugins.
 
 The most important fact to understand about BDQC is that
-**plugins, not the** *framework*, **carry out all analysis of input files.**
-The BDQC framework merely orchestrates the execution of `plugins <Plugins_>`_.
+**plugins, not the** *framework*, **carry out all within-file analysis of input files.**
+The BDQC framework merely orchestrates the execution of `plugins <Plugins_>`_
+and performs the final *across-file* analysis, but only plugins
+examine a files' content.
 (The BDQC *package* includes several "built-in" plugins which insure
 it is useful "out of the box." Though they are built-in, they are
 nonetheless plugins because the follow the plugin architecture.)
@@ -161,12 +182,12 @@ on zero or more other plugins.
 The framework:
 
 1. insures that a plugin's dependencies execute before the plugin itself, and
-2. each plugin is provided with the results of its dependencies' execution.
+2. each plugin is provided with the results of its *declared* dependencies' execution.
 
 By virtue of their declared dependencies, the set of all plugins available
 to BDQC (installed on the user's computer and visible on the PYTHONPATH)
 constitute a directed acyclic graph (DAG), and a plugin that is "upstream"
-in the DAG can determine how (or even whether or not) a downstream plugin is run.
+in the DAG can determine how (or even whether or not) a downstream plugin runs.
 
 The framework minimizes work by only executing a plugin when required.
 The figure above represents the skipping of plugins; plugin *#3*, for example,
@@ -185,7 +206,11 @@ Between-file analysis
 
 1. Summary (\*.bdqc) files are `collected <Collection_>`_.
 2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are `flattened <Flattening_>`_ into a matrix.
-3. `Heuristic analysis is applied <Heuristic analysis_>`_ to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
+3. `Heuristic analysis is applied <Heuristic Analysis_>`_ to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
+
+The framework (bdqc.scan or bdqc.analysis) exits with a status code indicating
+the overall analysis result: no anomalies, incomparable files, anomalies detected
+(or an error occurred).
 
 Collection
 ----------
@@ -194,20 +219,23 @@ Typically bdqc.scan automatically invokes the between-files analysis on
 the results of within-file analysis.
 However, the between-file analysis can also be run independently, and files
 listing and/or directories containing \*.bdqc files to analyze can be
-specified exactly as with bdqc.scan.
+specified exactly as with bdqc.scan. See
+
+.. code-block:: shell
+
+	python3 -m bdqc.analysis --help
 
 Flattening
 ----------
 
 A `plugin's <Plugins_>`_ output can be (almost) anything
 representable as JSON_ data.
+In particular, the "statistic(s)" produced by a plugin need not be scalars
+(numbers and strings); they can be compound data like matrices or sets.
+However, currently only scalar statistics are used in subsequent analysis.
 
-..	In particular, the "statistic(s)" produced by a plugin need not be scalars
-..	(numbers and strings); they can be compound data like matrices or sets,
-..	too .
-
-Moreover, since even simple scalar statistics are typically embedded in
-hierarchical JSON_ data, the individual statistics in plugins' summaries are
+Since JSON_ is inherently hierarchical (because it supports compound types),
+the individual statistics in plugins' summaries are
 necessarily identified by *paths* in the JSON_ data.
 For example, the following excerpt of output from the bdqc.builtin.tabular_
 plugin's analysis of *one file* shows some of the many statistics it produces:
@@ -225,26 +253,26 @@ plugin's analysis of *one file* shows some of the many statistics it produces:
 			"column_count": 170, 
 			"columns": [
 				{
-					"label_set_hash": "E02B9961", 
 					"type": "string", 
-					"class": "categorical"
+					"class": "categorical",
+					"label_set_hash": "E02B9961"
 				}, 
 				{
 					"type": "string", 
 					"class": "unknown"
 				}, 
 				{
+					"type": "float", 
+					"class": "quantitative",
 					"stats": {
 						"stddev": 3.812, 
 						"mean": 47.38
-					}, 
-					"type": "float", 
-					"class": "quantitative"
+					}
 				}, 
 				{
-					"label_set_hash": "8D4D4E1B", 
 					"type": "int", 
-					"class": "categorical"
+					"class": "categorical",
+					"label_set_hash": "8D4D4E1B"
 				}, 
 				...
 			]
@@ -269,10 +297,10 @@ analyzed file; each column in the aggregate matrix contains one statistic
 .. The columns of the matrix are the individual statistics that plugins produce
 .. in their analysis summaries.
 
-Heuristic analysis
+Heuristic Analysis
 ------------------
 
-The BDQC framework is based on a simple core idea:
+Within-file analysis is based on a simple core idea:
 
 	**Files that** *a priori* **are expected to be "similar" should be
 	effectively** *identical* **in specific, measurable ways.**
@@ -313,7 +341,7 @@ Plugins
 #######
 
 To reiterate, the BDQC executable *framework* does not touch files itself.
-All file analysis, both *within* and *between* files, is performed by plugins.
+All *within-file* analysis is performed by plugins.
 Several plugins are included in (but are, nonetheless, distinct from) the
 framework. These plugins are referred to as "`Built-ins`_".
 
@@ -357,7 +385,7 @@ Moreover, while a plugin is free to return multiple statistics,
 the `Unix philosophy`_ of "Do one thing and do it well" suggests that a
 plugin *should* return few statistics (or even only one).
 This promotes reuse, extensibility, and unit-testability of plugins, and is
-the motivation behind the plugin architecture.
+part of the motivation behind the plugin architecture.
 
 There is no provision for passing arguments to plugins from the framework
 itself. Environment variables can be used when a plugin must be
@@ -368,13 +396,14 @@ plugins for examples of how to write their own. The bdqc.builtin.extrinsic_
 is a very simple plugin; bdqc.builtin.tabular_ is much more complex and
 demonstrates how to use C code.
 
-The framework will incorporate the VERSION number into the plugin's output
-automatically. The plugin's code need not and should not include it in the
+The framework will incorporate the VERSION number, if present, into the plugin's output
+automatically. The plugin's code need not (and *should* not) include it in the
 returned value. The version number is used by the framework (along with other factors) to decide
-whether to *re*-run a plugin. (This is useful during plugin development.)
-If a plugin does provide a VERSION, it's return *should* be a dict.
-Otherwise, the framework will simply assign the generic name "value" to the
-plugin's root return.
+whether to *re*-run a plugin.
+
+A plugin *should* return a Python dict with the name(s) of its statistic(s) as keys.
+If a plugin returns any of the other allowed types, the framework will wrap it in
+a dict and its value will be associated with the key "value."
 
 Built-ins
 =========
