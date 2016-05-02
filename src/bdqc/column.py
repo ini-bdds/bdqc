@@ -210,15 +210,18 @@ class Vector(object):
 	def missing_indices( self ):
 		"""
 		Return a list of the indices of elements with missing data (None).
+		Incidentally, this list is guaranteed to be sorted.
+		I'm tuple'ing it so that it can be hashed, and multiple columns'
+		lists easily compared for equality.
 		"""
-		return [ i for i in range(len(self)) if self[i] is None ]
+		return tuple([ i for i in range(len(self)) if self[i] is None ])
 
 	def present_indices( self ):
 		"""
 		Return a list of the indices of elements with NON-MISSING data.
 		This is the complement of the set returned by missing_indices.
 		"""
-		return [ i for i in range(len(self)) if self[i] is not None ]
+		return tuple([ i for i in range(len(self)) if self[i] is not None ])
 
 	def minor_type_indices( self ):
 		"""
@@ -227,7 +230,7 @@ class Vector(object):
 		MINOR_TYPE_COUNT = min( self.types.values() )
 		MINOR_TYPES = frozenset([ k for k in self.types.keys()
 			if self.types[k] == MINOR_TYPE_COUNT ])
-		return [ i for i in range(len(self)) if type(self[i]).__name__[0] in MINOR_TYPES ]
+		return tuple([ i for i in range(len(self)) if type(self[i]).__name__[0] in MINOR_TYPES ])
 
 	def outlier_indices( self ):
 		"""
@@ -259,8 +262,8 @@ class Vector(object):
 			minority_values = frozenset( filter(
 				lambda k:self.value_histogram[k] == min_cardinality,
 				self.value_histogram.keys() ) )
-			self.outlier = [ i for i in range(len(self))
-				if self[i] in minority_values ]
+			self.outlier = tuple([ i for i in range(len(self))
+				if self[i] in minority_values ])
 		return self.outlier
 
 

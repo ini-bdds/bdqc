@@ -393,6 +393,12 @@ class Matrix(object):
 		"""
 		if self.incomparables:
 			self.anom_col = sorted( list( self.incomparables ) )
+			H = hash( self.column[self.anom_col[0]].missing_indices() )
+			if all([hash(c.missing_indices()) == H for c in self.column.values() ]):
+				# all statistics (columns) that are missing value, are
+				# missing those value from the same set of files, so the
+				# columns are collapsable. TODO
+				pass # TODO: 
 			self.anom_row = sorted( list( set().union(*[
 				self.column[k].missing_indices() for k in self.anom_col ]) ) )
 			self.status = STATUS_INCOMPARABLES
