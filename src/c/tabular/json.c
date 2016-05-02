@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#ifndef BUILDING_CMDLINE_SCANNER
+#ifndef EXHAUSTIVE_OUTPUT
 #include <string.h>
 #endif
 
@@ -11,7 +11,7 @@
 #include "strset.h"
 #include "column.h"
 
-#ifndef BUILDING_CMDLINE_SCANNER
+#ifndef EXHAUSTIVE_OUTPUT
 #include "murmur3.h"
 #endif
 
@@ -73,7 +73,7 @@ static void _json_encode_ascii( const char *pc, FILE *fp ) {
 }
 
 
-#ifdef BUILDING_CMDLINE_SCANNER
+#ifdef EXHAUSTIVE_OUTPUT
 
 /**
   * Emit select parts of the table description as JSON.
@@ -126,21 +126,16 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 			"\"lf\":{\"lf\":%ld,\"cr\":%ld,\"oc\":%ld},"
 			"\"cr\":{\"lf\":%ld,\"cr\":%ld,\"oc\":%ld},"
 			"\"oc\":{\"lf\":%ld,\"cr\":%ld,\"oc\":%ld}"
-			"},",
+			"}",
 			C[0], C[1], C[2],
 			C[3], C[4], C[5],
 			C[6], C[7], C[8] ) < 0 )
 			return -1;
 	}
 
-	if( fputs( "\"table\":", fp ) < 0 )
-		return -1;
+	if( a->column != NULL ) {
 
-	if( a->column == NULL ) {
-		fputs( "null", fp );
-	} else {
-
-		if( fputs( "{\"metadata_prefix\":\"", fp ) < 0 )
+		if( fputs( ",\"table\":{\"metadata_prefix\":\"", fp ) < 0 )
 			return -1;
 		_json_encode_ascii( a->table.metadata_line_prefix, fp );
 		if( fputs( "\",", fp ) < 0 )
@@ -225,7 +220,7 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 	return fputc( '}', fp ) < 0 ? -1 : 0;
 }
 
-#else
+#else // ! EXHAUSTIVE_OUTPUT (abridged for BDQC)
 
 static int _cmp_str( const void *pvl, const void *pvr ) {
 	const char *l = *(const char **)pvl;
@@ -322,20 +317,13 @@ int tabular_as_json( const struct table_description *a, FILE *fp ) {
 	  */
 
 	if( fprintf( fp,
-		"\"non_utf8\":%d,",
+		"\"non_utf8\":%d",
 		a->status == E_UTF8_PREFIX || a->status == E_UTF8_SUFFIX ) < 0 )
 		return -1;
 
-	if( fputs( "\"table\":", fp ) < 0 )
-		return -1;
+	if( a->column != NULL ) {
 
-	if( a->column == NULL ) {
-
-		fputs( "null", fp );
-
-	} else {
-
-		if( fputs( "{\"metadata_prefix\":\"", fp ) < 0 )
+		if( fputs( ",\"table\":{\"metadata_prefix\":\"", fp ) < 0 )
 			return 0;
 		_json_encode_ascii( a->table.metadata_line_prefix, fp );
 		if( fputs( "\",", fp ) < 0 )
