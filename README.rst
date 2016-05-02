@@ -212,6 +212,17 @@ The framework (bdqc.scan or bdqc.analysis) exits with a status code indicating
 the overall analysis result: no anomalies, incomparable files, anomalies detected
 (or an error occurred).
 
+**Two or more files are considered incomparable when their summaries do not
+contain the same set of statistics.** This typically only occurs when files
+are so different that different plugins ran, and it is usually the result of
+insufficiently constraining the bdqc.scan run
+(see the --include and --exclude options).
+It can also occur when \*.bdqc files from different bdqc.scan runs are
+inappropriately aggregated in an independent bdqc.analysis run.
+
+When incomparable files are detected it is impossible to determine which, if
+any, are anomalous.
+
 Collection
 ----------
 
@@ -300,14 +311,14 @@ analyzed file; each column in the aggregate matrix contains one statistic
 Heuristic Analysis
 ------------------
 
-Within-file analysis is based on a simple core idea:
+Within-file analysis is based on a simple heuristic:
 
 	**Files that** *a priori* **are expected to be "similar" should be
 	effectively** *identical* **in specific, measurable ways.**
 
 For example, files that are known to contain tabular data typically should
-have identical column counts. This need not *always* be the case, though;
-that is why it is a *heuristic*.
+have identical column counts. This need not *always* be the case, though,
+which is why it is a *heuristic*.
 
 In concrete terms this means that each column in the summary matrix should
 contain *a single value*. (e.g. The bdqc.builtin.tabular/table/column_count
@@ -319,9 +330,9 @@ anomalies.
 
 Clearly, this heuristic cannot be applied to quantitative (especially
 floating-point) data since it is expected to contain noise inherent in
-the phenomena itself or its measurement. However, an analogous heuristic
-applies: quantitative data about a shared property is expected
-to manifest *central tendency* and an *absence* of "outliers."
+the phenomena itself or its measurement. However, a "relaxation" of the
+heuristic still applies: quantitative data about a shared property should
+manifest *central tendency* and an *absence* of "outliers."
 (The *mean* can be thought of as the expected value that *would* be unique
 in the absence of "noise" or other imprecision.)
 
@@ -330,17 +341,19 @@ of the same species (one individual per file), performed on the same
 sequencing platform, called by the same variant-calling algorithm, etc.
 should typically be *approximately* the same size (in bytes).
 
-.. In the context of BDQC wherein the within-file analysis runs a dynamically-
-.. determined set of plugins, one might expect every file (if they're truly
-.. "similar") to have received identical "treatment" by plugins--that is, the
-.. same set of plugins was selected to run on every file. This implies that no
-.. \*.bdqc file is missing any statistic (JSON path) that is present in one or
-.. more other \*.bdqc files.
+Thus, BDQC distinguishes two types of "outliers":
+1. outliers in *quantitative* (typically, but not necessarily, floating-point) univariate statistics (the usual sense of the word)
+2. *non-constant* values non-quantitative data
+
+Obviously, **plugins must support these rationale** by only producing
+statistics that satisfy them (when files are "normal").
+Optionally, heuristic analysis can be selectively applied to plugins'
+results; statistics can be ignored (See heuristic configuration).
 
 Plugins
 #######
 
-To reiterate, the BDQC executable *framework* does not touch files itself.
+The BDQC executable *framework* does not itself examine files' content.
 All *within-file* analysis is performed by plugins.
 Several plugins are included in (but are, nonetheless, distinct from) the
 framework. These plugins are referred to as "`Built-ins`_".
