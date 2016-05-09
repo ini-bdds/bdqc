@@ -1,11 +1,15 @@
 
 import array
+from os import getenv
 
 import bdqc.builtin.compiled
 
-# TODO: Investigate what makes sense for this.
-# It relies on the performance of the median couple.
-MAX_CATEGORICAL_INT_CARDINALITY = 26
+# This controls the inference of statistical class for statistics of
+# integral type. Specifically, if a column.Vector has integer type and
+# *more* than MAX_CATEGORICAL_CARDINALITY distinct values it is treated
+# as quantitative; otherwise it is treated as categorical.
+
+MAX_CATEGORICAL_CARDINALITY = int( getenv('MAX_CATEGORICAL_CARDINALITY','5') )
 
 class Vector(object):
 	"""
@@ -35,7 +39,7 @@ class Vector(object):
 
 	def __str__( self ):
 		types = "b:{b},i:{i},f:{f},s:{s}".format( **self.types )
-		return "len {}, list-len {}, missing {}, types {}".format(
+		return "len {}, len(self.data) {}, missing {}, types {}".format(
 				self.count,
 				len(self.data) if hasattr(self,"data") else 0,
 				self.missing,
@@ -61,16 +65,45 @@ class Vector(object):
 				raise TypeError( "unexpected type: " + type(value).__name__ )
 			self.types[ type(value).__name__[0] ] += 1
 
-	def _non_missing_len( self ):
-		return self.count - self.missing
-
 	def _is_numeric( self ):
 		"""
 		...if int and float items account for all non-missing items.
 		Note that in the context of this code "quantitative" implies
 		"numeric", but "numeric" does NOT imply "quantitative".
 		"""
-		return self._non_missing_len() == (self.types['i'] + self.types['f'])
+		return len(self) - self.missing == (self.types['i'] + self.types['f'])
+
+	def _make_value_histogram( self, max_card=0 ):
+		"""
+		Create dict mapping values to their cardinality in this Vector.
+
+		If min_card is non-zero, caller is only interested in whether or
+		not the cardinality of distinct values is >= min_card. In this
+		case, we may exit before finishing enumeration of the data and,
+		thus, before finishing computation of the histogram.
+
+		If min_card is zero, the histogram is fully computed and left in
+		self.
+		"""
+		# This shouldn't even be invoked on floating-point data.
+		assert self.types['f'] == 0
+		self.value_histogram = dict()
+		for v in iter(self):
+			if v is not None:
+				try:
+					self.value_histogram[ v ] += 1
+				except KeyError:
+					self.value_histogram[ v ]  = 1
+			# Optionally, abandon histogram creation if the data appears
+			# to be quantitative (by virtue of its cardinality exceeding
+			# a supplied threshold).
+			if max_card > 0 and len(self.value_histogram) > max_card:
+				count = len(self.value_histogram)
+				# The histogram is incomplete, so don't leave it around.
+				# If we need it later we'll have to recomputed it. 
+				delattr(self,"value_histogram")
+				return count
+		return len(self.value_histogram)
 
 	def _is_quantitative( self ):
 		"""
@@ -91,34 +124,8 @@ class Vector(object):
 			return False             # ...precludes quantitative,...
 		else: # ...otherwise, we need the cardinality of integral values.
 			assert all([ v is None or isinstance(v,int) for v in iter(self) ])
-			cardinality = self._make_value_histogram( MAX_CATEGORICAL_INT_CARDINALITY+1 )
-			return cardinality > MAX_CATEGORICAL_INT_CARDINALITY
-
-	def _make_value_histogram( self, min_card=0 ):
-		"""
-		Create dict mapping values to their cardinality in this Vector.
-
-		If min_card is non-zero, caller is only interested in whether or
-		not the cardinality of distinct values is >= min_card. In this
-		case, we may exit before finishing enumeration of the data and,
-		thus, before finishing computation of the histogram.
-
-		If min_card is zero, the histogram is fully computed and left in
-		self.
-		"""
-		self.value_histogram = dict()
-		for v in iter(self):
-			if v is not None:
-				try:
-					self.value_histogram[ v ] += 1
-				except KeyError:
-					self.value_histogram[ v ]  = 1
-			if min_card > 0 and len(self.value_histogram) >= min_card:
-				# Since the histogram is incomplete, if we need it later
-				# we'll have to recomputed it. So don't leave it around.
-				delattr(self,"value_histogram")
-				return min_card
-		return len(self.value_histogram)
+			cardinality = self._make_value_histogram( MAX_CATEGORICAL_CARDINALITY )
+			return cardinality > MAX_CATEGORICAL_CARDINALITY
 
 	def push( self, value ):
 		"""
@@ -202,7 +209,7 @@ class Vector(object):
 		else:
 			# If it's *not* quantitative, but a histogram exists, then the
 			# data *was* exhaustively enumerated...
-			assert sum(self.value_histogram.values()) == self._non_missing_len()
+			assert sum(self.value_histogram.values()) == len(self) - self.missing
 			pass
 
 		return len(self.value_histogram) == 1
@@ -281,10 +288,10 @@ if __name__=="__main__":
 		line = sys.stdin.readline()
 	# ...then evaluate in the same way analysis.Matrix will.
 	print( vec )
-	if vec.is_missing_data():
-		print( "missing data" )
-	elif not vec.is_uniquely_typed():
+	if not vec.is_uniquely_typed():
 		print( "ambiguous type" )
+	elif vec.is_missing_data():
+		print( "missing data" )
 	elif vec.is_single_valued():
 		print( "single-valued" )
 	else: # "outliers" exist. Name them!
