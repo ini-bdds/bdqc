@@ -90,9 +90,9 @@ What does it do?
 
 BDQC analyzes a collection of files in two stages.
 First, it analyzes each file individually and produces a summary of the
-file's content (`within-file analysis <Within-file analysis>`_).
+file's content (`Within-file analysis`_).
 Second, the aggregated file summaries are analyzed heuristically
-(`between-file analysis <Between-file analysis_>`_) to identify possible anomalies.
+(`Between-file analysis`_) to identify possible anomalies.
 
 The two stages of operation can be run independently.
 
@@ -144,7 +144,7 @@ wanting to develop their own plugins.
 
 The most important fact to understand about BDQC is that
 **plugins, not the** *framework*, **carry out all within-file analysis of input files.**
-The BDQC framework merely orchestrates the execution of `plugins <Plugins_>`_
+The BDQC framework merely orchestrates the execution of plugins (Plugins_)
 and performs the final *across-file* analysis, but only plugins
 examine a files' content.
 (The BDQC *package* includes several "built-in" plugins which insure
@@ -156,7 +156,7 @@ Plugins provide functions that can read a file and produce one or more summary
 statistics about it.
 The functions are expected to take certain forms, and the plugin is expected to
 export certain symbols used by the BDQC framework (described in detail
-`below <Plugins_>`_).
+in Plugins_).
 
 .. image:: doc/dataflow2.png
 	:align: center
@@ -176,7 +176,7 @@ The framework:
 2. executes a *dynamically-determined* subset of the available plugins on each file path,
 3. merges the plugins' results into one (JSON_-format) summary per analyzed file.
 
-Each `plugin <Plugins_>`_ can declare (as part of its implementation) that it depends
+Each plugin can declare (as part of its implementation) that it depends
 on zero or more other plugins.
 
 The framework:
@@ -204,9 +204,9 @@ handles filenames and paths.
 Between-file analysis
 =====================
 
-1. Summary (\*.bdqc) files are `collected <Collection_>`_.
-2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are `flattened <Flattening_>`_ into a matrix.
-3. `Heuristic analysis is applied <Heuristic Analysis_>`_ to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
+1. Summary (\*.bdqc) files are collected (Collection_).
+2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are flattened (Flattening_) into a matrix.
+3. `Heuristic Analysis`_ is applied to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
 
 The framework (bdqc.scan or bdqc.analysis) exits with a status code indicating
 the overall analysis result: no anomalies, incomparable files, anomalies detected
@@ -239,7 +239,7 @@ specified exactly as with bdqc.scan. See
 Flattening
 ----------
 
-A `plugin's <Plugins_>`_ output can be (almost) anything
+A plugin's output can be (almost) anything
 representable as JSON_ data.
 In particular, the "statistic(s)" produced by a plugin need not be scalars
 (numbers and strings); they can be compound data like matrices or sets.
@@ -248,7 +248,7 @@ However, currently only scalar statistics are used in subsequent analysis.
 Since JSON_ is inherently hierarchical (because it supports compound types),
 the individual statistics in plugins' summaries are
 necessarily identified by *paths* in the JSON_ data.
-For example, the following excerpt of output from the bdqc.builtin.tabular_
+For example, the following excerpt of output from the `bdqc.builtin.tabular`_
 plugin's analysis of *one file* shows some of the many statistics it produces:
 
 .. code-block:: JSON
@@ -417,8 +417,8 @@ itself. Environment variables can be used when a plugin must be
 parameterized.
 
 Developers are advised to look at the source code of any of the built-in
-plugins for examples of how to write their own. The bdqc.builtin.extrinsic_
-is a very simple plugin; bdqc.builtin.tabular_ is much more complex and
+plugins for examples of how to write their own. The `bdqc.builtin.extrinsic`_
+is a very simple plugin; `bdqc.builtin.tabular`_ is much more complex and
 demonstrates how to use C code.
 
 The framework will incorporate the VERSION number, if present, into the plugin's output
