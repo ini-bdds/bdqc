@@ -252,7 +252,15 @@ def main( args ):
 	# 2. Create a random JSON object (hierarchy of data) like that
 	#    which might be produced by BDQC from running an arbitrary
 	#    set of plugins on input files.
-	J = _randomTree_r( 0, (0.5,0.5) )
+	#    The 1st level is plugin-name, and descendent level(s) are
+	#    statistics.
+	J = dict()
+	if args.plugins.isdigit():
+		for i in range(int(args.plugins)):
+			J[_randomAlpha(8)] = _randomTree_r( 0, (0.5,0.5) )
+	else:
+		for p in args.plugins.split(','):
+			J[ p ] = _randomTree_r( 0, (0.5,0.5) )
 	# Walk the tree collecting the ScalarProxies it contains.
 	P = _walk_immutable( J )
 	# Insure there are no multiply-referenced Proxies.
@@ -263,7 +271,8 @@ def main( args ):
 		if   p.sclass == "Qf":
 			data = [ normalvariate(0,1.0) for i in rng ]
 		elif p.sclass == "Qi":
-			data = [ round(normalvariate(32,4)) for i in rng ]
+			v = round(normalvariate(32,4)) 
+			data = [ v for i in rng ]
 		else:
 			if   p.sclass == "Cs":
 				K = _randomAlpha( 10 )
@@ -290,24 +299,39 @@ if __name__ == "__main__":
 		description="Slice one statistic out of (JSON-formatted) analysis output." )
 
 	_parser.add_argument( "--plugins", "-p",
-		default=None,
-		help="""Additional plugins to execute. This argument must be a
-		{} environment variable is set.""" )
-	_parser.add_argument( "--max_stats",
-		default=8,
-		help="Maximum number of statistics any one plugin produces" )
-	_parser.add_argument( "--missing-plugins", "-P",
-		type=int,
-		default=0,
-		help="Number of missing analyses (plugins). (Default: 0)" )
-	_parser.add_argument( "--missing-stats", "-S",
-		type=int,
-		default=0,
-		help="Number of missing statistics. (Default: 0)" )
+		default="2",
+		type=str, # ...to accomodate the "plugin1,plugin2,..." case.
+		help="""Either a count of plugins which will be randomly named
+		or a comma-separated list of names to use for simulated plugins.
+		(default: %(default)s)""" )
+#_parser.add_argument( "--max_stats",
+#		default=8,
+#		help="Maximum number of statistics any one plugin produces" )
+#	_parser.add_argument( "--missing-plugins", "-P",
+#		type=int,
+#		default=0,
+#		help="Number of missing analyses (plugins). (Default: 0)" )
+	_parser.add_argument( "--sim", "-s",
+		type=str,
+		default="",
+		help="""Simulate a particular anomaly in the, otherwise normal,
+		data. The argument should be a string containing digit-prefixed
+		letters specifying the type(s) of anomalies to inject into the
+		data. For example 1q2c
+		(q)uantitative anomaly,
+		(c)ategorical anomaly,
+		(m)issing data anomaly,
+		(i)ncomparable
+		(a)mbiguous types
+
+		The default is no anomalies.""" )
 	_parser.add_argument( "--files", "-f",
 		type=str,
-		default="10",
-		help="Number of missing statistics. (Default: 0)" )
+		default="26",
+		help="""Either a directory name to scan for files the names of
+		which will be used in simulated output, or a count of filenames
+		to generate randomly.
+		(default: %(default)s)""" )
 	#_parser.add_argument( "config",
 		#	nargs=1,
 		#help=""" """ )
