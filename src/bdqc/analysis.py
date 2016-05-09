@@ -469,6 +469,13 @@ class Matrix(object):
 	def status_msg( self ):
 		return STATUS_MSG[ self.status ]
 
+	def dump( self, fp=sys.stdout ):
+		head = list(sorted(self.column.keys()))
+		cols = [ self.column[k] for k in head ]
+		print( "FILE", *head, sep="\t", file=fp )
+		for r in range(len(self.files)):
+			print( self.files[r], *[ c[r] for c in cols ], sep='\t', file=fp )
+
 
 class _Loader(object):
 	"""
@@ -528,9 +535,12 @@ def analyze( args, output ):
 		if args.report:
 			report = args.report.lower()
 			if report.startswith("text"):
-				Plaintext(matrix).render( sys.stdout )
+				Plaintext(m).render( sys.stdout )
 			elif report.startswith("html"):
-				HTML(matrix).render( sys.stdout )
+				HTML(m).render( sys.stdout )
+	if args.dump:
+		with open(args.dump,"w") as fp:
+			m.dump( fp )
 
 if __name__=="__main__":
 	import argparse
@@ -567,6 +577,12 @@ if __name__=="__main__":
 		default=None,
 		help="""Specify the type of analysis report desired. Must be
 		one of {none,text,html}.""")
+
+	_parser.add_argument( "--dump",
+		type=str,
+		default="",
+		help="""Dump the summary matrix as a table of tab-separated values
+		to a file of the given name.""")
 
 	_parser.add_argument( "sources", nargs="+",
 		help="""Files, directories and/or manifests to analyze. All three
