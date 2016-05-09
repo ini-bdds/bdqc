@@ -90,7 +90,7 @@ What does it do?
 
 BDQC analyzes a collection of files in two stages.
 First, it analyzes each file individually and produces a summary of the
-file's content (`within-file analysis <Within-file analysis_>`_).
+file's content (`within-file analysis <Within-file analysis>`_).
 Second, the aggregated file summaries are analyzed heuristically
 (`between-file analysis <Between-file analysis_>`_) to identify possible anomalies.
 
