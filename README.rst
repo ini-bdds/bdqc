@@ -116,12 +116,12 @@ A successful run of bdqc.scan ends with one of 3 general results:
 2. two or more files were found to be *incomparable*
 3. anomalies were detected in specific files
 
-Case #2 can occur when analyzed files are *so* different (e.g.
+Files are considered "incomparable" when they are *so* different (e.g.
 log files and JPEG image files) that comparison is essentially meaningless.
 
-The rationale behind classifying files as "anomalous" is explained more fully
-below in Between-file analysis. In general, however, this means that "outliers"
-were found in one or more statistics generated for one or more files.
+A file is considered "anomalous" when one or more of the statistics that
+plugins compute about it are "outliers," either in the usual sense of the
+word or another sense explained more fully below (in `Between-file analysis`_).
 
 In the second and third cases, a report is optionally generated (as text or HTML)
 summarizing the evidence.
@@ -311,7 +311,7 @@ analyzed file; each column in the aggregate matrix contains one statistic
 Heuristic Analysis
 ------------------
 
-Within-file analysis is based on a simple heuristic:
+Within-file analysis (and BDQC itself) is based on a simple heuristic:
 
 	**Files that** *a priori* **are expected to be "similar" should be
 	effectively** *identical* **in specific, measurable ways.**
@@ -324,31 +324,43 @@ In concrete terms this means that each column in the summary matrix should
 contain *a single value*. (e.g. The bdqc.builtin.tabular/table/column_count
 column in the summary matrix should contain only one value in all rows.)
 
-If the column is not single-valued, by default the rows (corresponding to
-analyzed files) containing the minority value(s) will be reported as
-anomalies.
+If the column is not single-valued, then the analyzed files corresponding to
+rows containing the minority value(s) will be reported as anomalies.
 
-Clearly, this heuristic cannot be applied to quantitative (especially
-floating-point) data since it is expected to contain noise inherent in
-the phenomena itself or its measurement. However, a "relaxation" of the
-heuristic still applies: quantitative data about a shared property should
-manifest *central tendency* and an *absence* of "outliers."
-(The *mean* can be thought of as the expected value that *would* be unique
-in the absence of "noise" or other imprecision.)
+Clearly, this heuristic cannot be applied to quantitative data since it
+usually contains *noise* inherent in the phenomena itself or its measurement.
+However, a "relaxation" of the heuristic still applies:
+a quantitative statistic should manifest *central tendency* and an *absence*
+of outliers ("outliers" in the usual univariate statistical sense of the word).
 
 For example, files containing genetic variant calls of many individuals
 of the same species (one individual per file), performed on the same
 sequencing platform, called by the same variant-calling algorithm, etc.
 should typically be *approximately* the same size (in bytes).
 
-Thus, BDQC distinguishes two types of "outliers":
-1. outliers in *quantitative* (typically, but not necessarily, floating-point) univariate statistics (the usual sense of the word)
-2. *non-constant* values non-quantitative data
+Note that inference of statistical class (quantitative, categorical)
+relies on inference of data *type* (integer, floating-point, or
+string). See `Type inference`_ below.
+
+Finally, missing data is also treated as anomalous. A statistic that
+contains a value of null (None in Python) is *always* considered an
+anomaly.
+
+Thus, BDQC identifies anomalous files by three different indicators:
+
+	1. outliers in *quantitative* data (the usual sense of the word "outlier")
+	2. outliers in categorical data defines as the minority value(s) when a categorical column contains more than one value
+	3. missing values
 
 Obviously, **plugins must support these rationale** by only producing
 statistics that satisfy them (when files are "normal").
-Optionally, heuristic analysis can be selectively applied to plugins'
-results; statistics can be ignored (See heuristic configuration).
+
+Finally, because heuristics are *by definition* not universally applicable,
+plugins' output (the statistics) can be filtered so that the heuristic is
+applied selectively. For example, in a particular context "normal" files
+containing tabular data may actually be expected to contain variable column
+counts, so this should not be reported as an anomaly.
+(See heuristic configuration).
 
 Plugins
 #######
@@ -522,6 +534,11 @@ BDQC interprets the second use of JSON_ Arrays as matrices. For example, in...
 3. foo.bar/woz will be treated as a *set*.
 
 An Array that contains *any* JSON_ Objects is *always* further flattened.
+
+Type inference
+==============
+
+TODO
 
 Terms and Definitions
 #####################
