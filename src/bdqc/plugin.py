@@ -50,6 +50,11 @@ class Manager(object):
 		module_list = Manager._resolve( plugin_names )
 		dd = bdqc.depends.Dependencies(
 			dict([ (m.__name__,set(m.DEPENDENCIES)) for m in module_list]) )
+		# Leaves are those modules on which nothing else depends, i.e. those
+		# not in the union of all dependency lists...
+		self.leaves = frozenset(
+			set([ m.__name__ for m in module_list ])
+			- set().union( *[ frozenset(m.DEPENDENCIES) for m in module_list ] ) )
 		ordered_names = dd.tsort()
 		# Create a TEMPORARY dict so that we can access modules by name...
 		module_dict = dict(zip([m.__name__ for m in module_list],module_list))
@@ -110,4 +115,9 @@ if __name__=="__main__":
 		with open( _args.plugins ) as fp:
 			plugins = [ l.rstrip() for l in fp.readlines() ]
 		m = Manager( plugins )
+		print( "Topological order:" )
 		print( str(m) )
+		print( "Leaves:" )
+		for l in m.leaves:
+			print( l )
+
