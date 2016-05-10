@@ -77,9 +77,10 @@ class _Component(object):
 		if self.is_wild():
 			return '*'
 		elif isinstance( self.spec, list ):
-			return str(self.spec)
+			return "[{}]".format( ','.join(
+				[ "{}-{}".format(*el) if len(el) == 2 else str(el[0]) for el in self.spec]) )
 		else:
-			return '/'+self.spec.pattern+'/'
+			return self.spec.pattern
 
 	def _in_range( self, value ):
 		"""
@@ -126,6 +127,9 @@ class Selector(object):
 	def __init__( self, path ):
 		self.part = [ _Component(p) for p in path.split('/') ]
 
+	def __str__( self ):
+		return '/'.join([ str(part) for part in self.part ])
+
 	def __call__( self, subject ):
 		"""
 		"""
@@ -162,7 +166,11 @@ def selectors( source:"a literal string or a filename" ):
 
 if __name__ == "__main__":
 	import sys
+	if len(sys.argv) < 2:
+		print( sys.argv[0], "<pattern>", "<path1> [ <path2> ... ]" )
+		sys.exit(0)
 	sel = Selector( sys.argv[1] )
+	print( "reconstructed:", sel )
 	for part in sel:
 		print( part )
 	while len(sys.argv) > 2:
