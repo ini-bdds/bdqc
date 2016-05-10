@@ -3,6 +3,7 @@ setup.py
 bdqc/__init__.py
 bdqc/analysis.py
 bdqc/column.py
+bdqc/data.py
 bdqc/depends.py
 bdqc/dir.py
 bdqc/dump.py
@@ -13,6 +14,7 @@ bdqc/report.py
 bdqc/scan.py
 bdqc/statistic.py
 bdqc/statpath.py
+bdqc/strings.py
 bdqc/tsort.py
 bdqc/builtin/__init__.py
 bdqc/builtin/extrinsic/__init__.py

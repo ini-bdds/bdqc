@@ -252,7 +252,7 @@ class Executor(object):
 
 			if not self.dryrun:
 				if matrix:
-					matrix.include_file( s, cache )
+					matrix.add_file_data( s, cache )
 				results = json.dumps( cache, sort_keys=True, indent=4 )
 				assert results is not None
 				if self.adjacent: # store JSON results adjacent to subject

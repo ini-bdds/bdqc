@@ -14,6 +14,7 @@ from bdqc.statistic import Descriptor
 from bdqc.column import Vector
 from bdqc.report import HTML,Plaintext
 from bdqc.statpath import Selector
+from bdqc.data import flatten
 
 # Warning: the values of these constants are used to index function pointer
 # arrays. Don't change these without changing code that uses them!
@@ -31,72 +32,6 @@ STATUS_MSG = [
 	"value outliers detected"
 ]
 
-# Matrices may be traverse:
-# 1. always
-# 2. only if they have scalar component type
-# 3. only if they have object component type
-# 4. or never.
-_ALWAYS_TRAVERSE = True
-_EMPTY_MATRIX_TYPE = ((0,),None)
-
-# These are the only additional constraints we put on plugin-generated JSON.
-_MSG_BAD_ARRAY  = "Arrays must constitute matrices (N complete dimensions with uniform component type)"
-_MSG_BAD_OBJECT = "Objects must not be empty"
-
-if __debug__:
-	_is_scalar = lambda v:\
-		isinstance(v,int) or \
-		isinstance(v,float) or \
-		isinstance(v,str)
-
-def _json_matrix_type( l ):
-	"""
-	Returns a pair (dimensions,element_type) where 
-	1. dimensions is a tuple of integers giving each dimension's size, and
-	2. element_type is an integer type code.
-	For example, if f is a float in...
-
-		[ [[f,f,f,f],[f,f,f,f]],
-		  [[f,f,f,f],[f,f,f,f]],
-		  [[f,f,f,f],[f,f,f,f]] ]
-
-	...then the return is...
-
-	( (3,2,4), Descriptor.TY_FLOAT )
-
-	Note that TY_NONSCALAR is a legitimate element type, so...
-		[ [ {...}, {...}, {...} ],
-		  [ {...}, {...}, {...} ],
-		  [ {...}, {...}, {...} ],
-		  [ {...}, {...}, {...} ] ]
-
-	...is ( (4,3), Descriptor.TY_NONSCALAR )
-
-	Returns None if either:
-	1. the matrix is not complete--there is inconsistency in dimensions, or
-	2. the element type is not identical throughout.
-
-	Warning: this function is recursive; mind your stack!
-	"""
-	if not ( isinstance(l,list) and len(l) > 0 ):
-		return False
-	if all([isinstance(elem,list) for elem in l]):
-		types = [ _json_matrix_type(elem) for elem in l ]
-		# None percolates up...
-		if any([elem is None for elem in types]) or \
-			len(frozenset(types)) > 1:
-			return None
-		else:
-			return ( (len(l),)+types[0][0], types[0][1] )
-	else: # l is a list that contains AT LEAST ONE non-list
-		types = [ Descriptor.scalar_type(elem) for elem in l ]
-		# If there are multiple types it's not a matrix at all (by our
-		# restrictied definition in this code)
-		if len(frozenset(types)) > 1:
-			return None
-		else:
-			return ( (len(types),), types[0] ) 
-
 class Matrix(object):
 	"""
 	Holds the "flattened" results of the "within-file" analysis carried out
@@ -109,6 +44,7 @@ class Matrix(object):
 	2. a row is anomalous if its file is anomalous in any statistic (column)
 	An incidence matrix can be constructed from these.
 	"""
+
 	def __init__( self, **kwargs ):
 		"""
 		"""
@@ -133,43 +69,19 @@ class Matrix(object):
 		# self.anom_col
 		# self.anom_row
 
-	def _accept( self, statname ):
-		"""
-		1. If the include list is non-empty, only create columns for
-		   statistics explicitly listed in it.
-		2. If the include list is empty, it has no effect here.
-		3. Never create columns for statistics listed in the exclude list.
-		   The exclude list overrides the include list.
-		"""
-		return (len(self.include)==0 or any([ s(statname) for s in self.include ])) \
-			and all([ not s(statname) for s in self.exclude ])
-
 	def _addstat( self, statname, value, meta=None ):
 		"""
-		Actually write a datum to the appropriate column.
-		Called by _visit every time it reaches:
-		1. a leaf node (necessarily a scalar) or
-		2. a JSON Array (which might represent an arbitrary dimensional
-		   matrix or a set).
-		The latter case allows:
-		1. emission of matrix metadata 
-		2. emission of potential sets as values
-		...which are mutually exclusive. As long as these possibilities
-		*are* mutually exclusive we don't need any additional path
-		differentiators--that is, we can just use the JSON path.
+		Actually write a datum to the appropriate column, creating
+		the column just-in-time if necessary.
+		Only called by add_file_data.
 
 		Returns:
-			Boolean value for which True means "descend into the matrix."
-		(A True is only meaningful if the node is, in fact, a JSON Array).
+			A list of newly-created column names. (Currently, this will
+		always contain zero or one element, but eventually columns may
+		be created for metadata as well.)
 		"""
-		# Following line is preempting fahncy matrix processing.
-		# Doing it here rather than tampering with the very complicated
-		# _visit method. Let _visit do what it does; we're just not going
-		# to act on it now. TODO: revisit this later.
-		if meta:
-			assert isinstance(value,list)
-			return True # descend WITHOUT adding a column
-		descend = (meta is not None) and (_ALWAYS_TRAVERSE or meta[1] == 0)
+		assert meta is None # ...for now and probably forever.
+		columns_created = []
 		# Insure a column exists for the statistic...
 		try:
 			column = self.column[ statname ]
@@ -178,174 +90,67 @@ class Matrix(object):
 			# 1. hasn't already been rejected, and
 			# 2. passes path-based filters that define stats of interest.
 			if statname in self.rejects:
-				return descend
-			if not self._accept( statname ):
+				return columns_created
+			if any([ s(statname) for s in self.exclude ]):
 				self.rejects.add( statname )
-				return descend # ...without caching anything. 
+				return columns_created
 			# Otherwise, create a new Vector for statname...
 			column = Vector(len(self.files))
 			self.column[ statname ] = column
-			# Only the 1st file in the analysis is allowed to trigger
-			# addition of statistics without them being considered
-			# gross differences. In other words, EVERY FILE AFTER THE
-			# FIRST SHOULD INCLUDE THE SAME SET OF STATS AS THE FIRST.
-			if len(self.files) > 0:
-				self.incomparables.add( statname )
+			columns_created.append( statname )
 		# ...then append the value(s)
-		if meta:
-			assert isinstance(value,list)
-			# If it's a vector (1D matrix) of strings and...
-			if len(meta[0]) == 1 and meta[1] == Descriptor.TY_STR:
-				S = set(value)
-				# ...the cardinality of the set of values equals the count
-				# of values, then encode it as a set.
-				if len(S) == meta[0][0]:
-					column.push( S )
-					descend = False
-					# ...because the list was just treated as a *value*.
-				else:
-					column.push( meta )
-			else:
-				# It's either multi-dimensional or it's element type
-				# is Numeric or non-scalar.
-				column.push( meta )
-		else:
-			assert value is None or _is_scalar( value )
-			column.push( value )
-			descend = False
-		return descend
+		column.push( value )
+		return columns_created
 
-	def _visit( self, data ):
+	def add_file_data( self, filename, data:"within-file analysis results" ):
 		"""
-		Traverse a JSON object, identifying:
-		1. scalars (numeric or strings)
-		2. matrices
-		Matrices are DEFINED as nested Arrays of a single-type (which may itself
-		be an Object). Scalar matrices are nested Arrays of a scalar type.
-		Nested arrays in which the leaves are not of uniform type are not
-		considered matrices.
+		Conditionally include the given file's within-file analysis in the
+		across-file analysis.
 
-		Traversal of matrices may be made conditional on the component type.
+		Upon exit from this method, the matrix is one row longer--that is,
+		each of self.column should be exactly one datum longer.
 
-		One-dimensional matrices are, of course, vectors, and when their content
-		is String they may be interpreted as sets.
+		An important side effect of this method is that this is the only
+		place that incomparable files can be detected. Files' results are
+		allowed to contain null for statistics--a null value is not the
+		same as a missing statistic, but every file should have some value
+		for every statistic. Concretely, this means:
+		1. The very first file added establishes the matrix' columns.
+		2. If columns are added subsequently (to preserve the matrix'
+		   dimensions), then files are incomparable.
+		3.  If column padding is ever required (again, to preserve the 
+		   matrix' dimensions because a file was missing statistics
+		   presenct in the others), then files are incomparable.
 
-		The root element (data) is always going to be a JSON Object (Python
-		dict) mapping plugin names to the data each plugin produced.
+		Returns a boolean indicating whether or not the file was actually
+		included.
 		"""
-		assert data and isinstance( data, dict ) # a non-empty dict
-		# Using iteration rather than recursion.
-		path = []
-		stack = []
-		node = data
-		i = iter(node.items())
-		while node:
-			push = None
-			# Move forward in the current compound value (object or array)
-			if isinstance(node,dict): # representing a JSON Object
-				try:
-					k,v = next(i)
-					if isinstance(v,dict):
-						if not len(v) > 0:
-							raise RuntimeError(_MSG_BAD_OBJECT)
-						push = ( k, i )   # NO callback.
-					else: # It's a scalar or list, each of which *always*
-						# ...trigger a callback.
-						pa = '/'.join( path+[k,] )
-						if isinstance(v,list):
-							# Matrices MAY be empty, but the element type
-							# of an empty matrix cannot be determined.
-							mt = _json_matrix_type(v) if len(v) > 0 else _EMPTY_MATRIX_TYPE
-							if mt is None:
-								raise RuntimeError(_MSG_BAD_ARRAY)
-							
-							# If there are nested Objects (or we're traversing
-							# all), descend...
-							if self._addstat( pa, v, mt ) and len(v) > 0:
-								push = ( k, i )
-						else:
-							assert v is None or _is_scalar(v)
-							self._addstat( pa, v )
-				except StopIteration:
-					node = None
-			else: # node represents a JSON Array
-				assert isinstance(node,list) and isinstance(i,int)
-				if i < len(node):
-					v = node[i]
-					if isinstance(v,dict):
-						if not len(v) > 0:
-							raise RuntimeError(_MSG_BAD_OBJECT)
-						push = ( str(i), i+1 ) # NO callback.
-					else: # It's a scalar or list, each of which *always*
-						# ...trigger a callback.
-						pa = '/'.join( path+[str(i),] )
-						if isinstance(v,list):
-							# Matrices MAY be empty, but the element type
-							# of an empty matrix cannot be determined.
-							mt = _json_matrix_type(v) if len(v) > 0 else _EMPTY_MATRIX_TYPE
-							if mt is None:
-								raise RuntimeError(_MSG_BAD_ARRAY)
-							
-							# If there are nested Objects (or we're traversing
-							# all), descend...
-							if self._addstat( pa, v, mt ) and len(v) > 0:
-								push = ( str(i), i+1 )
-							else:
-								i += 1
-						else:
-							assert v is None or _is_scalar(v)
-							self._addstat( pa, v )
-							i += 1
-				else:
-					node = None
-			# If v is not an empty compound value, a scalar, or a matrix--in
-			# other words, if v is further traversable, push the current node
-			# onto the stack and start traversing v. (Depth-first traversal.)
-			if push:
-				assert (isinstance(v,list) or isinstance(v,dict)) and len(v) > 0
-				path.append( push[0] )
-				stack.append( (node,push[1]) )
-				i = iter(v.items()) if isinstance(v,dict) else 0
-				node = v
-			# If we've exhausted the current node, pop something off the stack
-			# to resume traversing. (Clearly, exhaustion is mutually-exclusive
-			# of encountering a new tranversable. Thus, the elif...)
-			elif (node is None) and stack:
-				path.pop(-1)
-				node,i = stack.pop(-1)
-		# end _visit
-
-	def include_file( self, filename, analysis:"JSON data represented as Python objects" ):
-		"""
-		Include the given file's within-file analysis in the across-file
-		analysis.
-
-		Upon exit from this method, each of self.column should be exactly
-		one datum longer.
-
-		Returns a boolean indicating whether or not the inclusion of
-		filename's resulted in missing values anywhere. (The latest addition
-		might have had statistics earlier files didn't, or vica versa.)
-		"""
-		columns_on_entry = len(self.column)
-		# _visit calls self._addstat for each non-traversable element in
-		# JSON content. (See elsewhere for what "non-traversable" means.)
-		# This will increase the lengths of *some* of self.column by 1.
-		self._visit( analysis )
-		# self._addstat will modify self.incomparables as a side effect if
-		# and only if len(self.files) > 0, so self._visit MUST PRECEDE...
+		data = flatten( data ) # ...the hierarchy is needed no more
+		assert all([ isinstance(elem,tuple) and len(elem) >= 2 for elem in data ])
+		# Each elem is ( name, value [, descriptor ] )
+		# If inclusion Selectors have been specified then a file is included
+		# iff its analysis contains data matching at least one of them.
+		if self.include:
+			data = list( filter( lambda nvd:any([ sel(nvd[0]) for sel in self.include ]), data ) )
+		# If none of the include Selectors matched any of the data, the
+		# filter entirely decimates data...
+		if len(data) == 0:
+			return False # file was not included
+		for nvd in data:
+			columns_created = self._addstat( *nvd )
+			# If this is NOT the 1st file we shouldn't be adding columns!
+			if len(self.files) > 0 and columns_created:
+				self.incomparables.update( columns_created )
 		self.files.append( filename )
 		# Insure all columns have the same length (by inserting missing data
 		# placeholders where necessary) before exiting.
-		missing_added = 0
+		columns_padded = 0
 		for k,c in self.column.items():
 			if c.pad_to_count( len(self.files) ):
-				missing_added += 1
-				self.incomparables.add(k)
+				columns_padded += 1
+				self.incomparables.add( k )
 		assert all([ len(c)==len(self.files) for c in self.column.values() ])
-		return missing_added > 0 or (
-			columns_on_entry > 0 and len(self.column) > columns_on_entry )
- 
+		return True
 
 	def analyze( self ):
 		"""
@@ -490,7 +295,7 @@ class _Loader(object):
 		with open( filename ) as fp:
 			analysis = json.loads( fp )
 		basename = os.path.splitext(filename)[0] # snip off the suffix.
-		self.target.include_file( basename, analysis )
+		self.target.add_file_data( basename, analysis )
 
 
 def _main( args, output ):
@@ -521,7 +326,7 @@ def _main( args, output ):
 			# of multiple files.
 			with open(s) as fp:
 				for filename,content in json.load( fp ).items():
-					m.include_file( filename, content )
+					m.add_file_data( filename, content )
 		else:
 			raise RuntimeError( "{} is neither file nor directory".format(s) )
 	m.analyze()

@@ -90,9 +90,9 @@ What does it do?
 
 BDQC analyzes a collection of files in two stages.
 First, it analyzes each file individually and produces a summary of the
-file's content (`Within-file analysis`_).
+file's content (`Within-file Analysis`_).
 Second, the aggregated file summaries are analyzed heuristically
-(`Between-file analysis`_) to identify possible anomalies.
+(`Between-file Analysis`_) to identify possible anomalies.
 
 The two stages of operation can be run independently.
 
@@ -118,10 +118,11 @@ A successful run of bdqc.scan ends with one of 3 general results:
 
 Files are considered "incomparable" when they are *so* different (e.g.
 log files and JPEG image files) that comparison is essentially meaningless.
+This rarely occurs because of the way `Between-file Analysis`_ works.
 
-A file is considered "anomalous" when one or more of the statistics that
-plugins compute about it are "outliers," either in the usual sense of the
-word or another sense explained more fully below (in `Between-file analysis`_).
+A file is considered "anomalous" when one or more of the statistics computed
+on its content (`Within-file Analysis`_) are "outliers," either in the usual
+sense of the word or another sense explained in `Between-file Analysis`_.
 
 In the second and third cases, a report is optionally generated (as text or HTML)
 summarizing the evidence.
@@ -144,7 +145,7 @@ wanting to develop their own plugins.
 
 The most important fact to understand about BDQC is that
 **plugins, not the** *framework*, **carry out all within-file analysis of input files.**
-The BDQC framework merely orchestrates the execution of plugins (Plugins_)
+The BDQC framework merely orchestrates the execution of plugins
 and performs the final *across-file* analysis, but only plugins
 examine a files' content.
 (The BDQC *package* includes several "built-in" plugins which insure
@@ -155,14 +156,13 @@ A plugin is simply a Python module that is installable like any Python module.
 Plugins provide functions that can read a file and produce one or more summary
 statistics about it.
 The functions are expected to take certain forms, and the plugin is expected to
-export certain symbols used by the BDQC framework (described in detail
-in Plugins_).
+export certain symbols used by the BDQC framework (see Plugins_).
 
 .. image:: doc/dataflow2.png
 	:align: center
 
 
-Within-file analysis
+Within-file Analysis
 ====================
 
 The plugins that are executed on a file entirely determine
@@ -201,12 +201,13 @@ foo.txt.bdqc.
 Again, the BDQC *framework* does not touch files' content; it only
 handles filenames and paths.
 
-Between-file analysis
+Between-file Analysis
 =====================
 
 1. Summary (\*.bdqc) files are collected (Collection_).
-2. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are flattened (Flattening_) into a matrix.
-3. `Heuristic Analysis`_ is applied to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
+2. The statistics in \*.bdqc files are filtered (Filtering_) so that they only include the "leaves" in the dependency chain.
+3. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are flattened (Flattening_) into a matrix.
+4. `Heuristic Analysis`_ is applied to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
 
 The framework (bdqc.scan or bdqc.analysis) exits with a status code indicating
 the overall analysis result: no anomalies, incomparable files, anomalies detected
@@ -226,7 +227,7 @@ any, are anomalous.
 Collection
 ----------
 
-Typically bdqc.scan automatically invokes the between-files analysis on
+Typically bdqc.scan automatically invokes the `Between-file Analysis`_ on
 the results of within-file analysis.
 However, the between-file analysis can also be run independently, and files
 listing and/or directories containing \*.bdqc files to analyze can be
@@ -235,6 +236,28 @@ specified exactly as with bdqc.scan. See
 .. code-block:: shell
 
 	python3 -m bdqc.analysis --help
+
+Filtering
+---------
+
+Recall that plugins exist in DAGs ("trees") defined by their dependencies.
+This arrangement facilitates reuse by allowing capabilities to be
+modularized and dynamically chained together at runtime.
+Typically, upstream plugins are the most domain agnositic, and, conversely,
+downstream plugins are the most domain-aware. Thus, the leaves of the
+plugin DAG are the most authoritative with respect to what constitutes an
+anomalous file. **For this reason, only the results of "terminal plugins",
+those in the "leaves" of the DAG, are included by default in**
+`Between-file Analysis`_. (This does not apply when
+`Between-file Analysis`_ is launched independently of the bdqc.scan module.)
+
+For example, one might launch BDQC on a directory tree, specifying a single
+image-processing plugin to analyze image files. The image-processing plugin
+might depend on a filetype plugin to identify files that it should process.)
+The results of the filetype plugin are not of ultimate interest; it is being
+used as a *filter* by the image-processing plugin.
+Only the results of the image-processing plugin are relevant to anomaly
+detection.
 
 Flattening
 ----------
@@ -311,7 +334,7 @@ analyzed file; each column in the aggregate matrix contains one statistic
 Heuristic Analysis
 ------------------
 
-Within-file analysis (and BDQC itself) is based on a simple heuristic:
+`Within-file Analysis`_ (and BDQC itself) is based on a simple heuristic:
 
 	**Files that** *a priori* **are expected to be "similar" should be
 	effectively** *identical* **in specific, measurable ways.**
