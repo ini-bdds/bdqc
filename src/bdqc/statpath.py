@@ -23,6 +23,7 @@ Examples:
 	foo/[3-9,5]/baz/[3]/*
 """
 
+from os.path import isfile
 import re
 
 class _Component(object):
@@ -140,6 +141,23 @@ class Selector(object):
 	def __getitem__( self, index ):
 		assert isinstance(index,int)
 		return self.part[index]
+
+
+def selectors( source:"a literal string or a filename" ):
+	"""
+	Create a list of Selector from a source. The source is assumed to
+	be either:
+	1. a literal string containing a semi-colon-separated list of selector
+	   specs, or
+	2. the name of a file containing a list of selectors, one per line.
+	"""
+	slist = None
+	if isfile( source ):
+		with open( source ) as fp:
+			slist = [ Selector(line.rstrip()) for line in fp.readlines() ]
+	else:
+		slist = [ Selector(substring) for substring in source.split(';') ]
+	return slist
 
 
 if __name__ == "__main__":

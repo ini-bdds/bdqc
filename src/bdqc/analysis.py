@@ -97,22 +97,6 @@ def _json_matrix_type( l ):
 		else:
 			return ( (len(types),), types[0] ) 
 
-def selectors( source ):
-	"""
-	Create a list of Selector from a source. The source is assumed to
-	be either:
-	1. a literal string containing a semi-colon-separated list of selector
-	   specs, or
-	2. the name of a file containing a list of selectors, one per line.
-	"""
-	slist = None
-	if isfile( source ):
-		with open( source ) as fp:
-			slist = [ Selector(line.rstrip()) for line in fp.readlines() ]
-	else:
-		slist = [ Selector(substring) for substring in source.split(';') ]
-	return slist
-
 class Matrix(object):
 	"""
 	Holds the "flattened" results of the "within-file" analysis carried out
@@ -125,12 +109,14 @@ class Matrix(object):
 	2. a row is anomalous if its file is anomalous in any statistic (column)
 	An incidence matrix can be constructed from these.
 	"""
-	def __init__( self, ignore:"a list of plugin statistics to ignore"=[] ):
+	def __init__( self, **kwargs ):
 		"""
 		"""
-		assert ignore is None or (
-			isinstance(ignore,list) and all([ isinstance(s,Selector) for s in ignore ]) )
-		self.ignore = ignore if ignore is not None else []
+		self.include = list(kwargs.get("include", []))
+		self.exclude = list(kwargs.get("exclude", []))
+		# Matrix expects Selectors...
+		assert all([ isinstance(s,Selector) for s in self.include ])
+		assert all([ isinstance(s,Selector) for s in self.exclude ])
 		# Initialize the column map
 		self.column = {}
 		self.files  = []
@@ -149,12 +135,14 @@ class Matrix(object):
 
 	def _accept( self, statname ):
 		"""
-		We only create columns for statistics that do not match any Selector
-		in the ignore list.
+		1. If the include list is non-empty, only create columns for
+		   statistics explicitly listed in it.
+		2. If the include list is empty, it has no effect here.
+		3. Never create columns for statistics listed in the exclude list.
+		   The exclude list overrides the include list.
 		"""
-		return all([ not s(statname) for s in self.ignore ])
-		# ...trusting that constructor has insured self.ignore *is* a
-		# list, though possibly empty.
+		return (len(self.include)==0 or any([ s(statname) for s in self.include ])) \
+			and all([ not s(statname) for s in self.exclude ])
 
 	def _addstat( self, statname, value, meta=None ):
 		"""
@@ -327,7 +315,7 @@ class Matrix(object):
 				node,i = stack.pop(-1)
 		# end _visit
 
-	def include( self, filename, analysis:"JSON data represented as Python objects" ):
+	def include_file( self, filename, analysis:"JSON data represented as Python objects" ):
 		"""
 		Include the given file's within-file analysis in the across-file
 		analysis.
@@ -502,19 +490,25 @@ class _Loader(object):
 		with open( filename ) as fp:
 			analysis = json.loads( fp )
 		basename = os.path.splitext(filename)[0] # snip off the suffix.
-		self.target.include( basename, analysis )
+		self.target.include_file( basename, analysis )
 
 
-def analyze( args, output ):
+def _main( args, output ):
 	"""
 	Aggregate JSON into a Matrix then call the Matrix' analyze method.
 	This function allows 
 	"""
-	import bdqc.dir
 	import os.path
 	import json
+	import bdqc.dir
+	from bdqc.statpath import selectors
 
-	m = Matrix( ignore = selectors(args.ignore) if args.ignore else None )
+	statistic_filters = {}
+	if args.use:
+		statistic_filters["include"] = selectors(args.use )
+	if args.ignore:
+		statistic_filters["exclude"] = selectors(args.ignore)
+	m = Matrix( **statistic_filters )
 	for s in args.sources:
 		if os.path.isdir( s ):
 			# Look for "*.bdqc" files under "s/" each of which contains
@@ -522,12 +516,12 @@ def analyze( args, output ):
 			# dir.walk calls a visitor with the filename
 			bdqc.dir.walk( s, args.depth, args.include, args.exclude, 
 				_Loader( m ) )
-		elif os.path.isfile( s ):
+		elif isfile( s ):
 			# s is assumed to contain a ("pre") aggregated collection of analyses
 			# of multiple files.
 			with open(s) as fp:
 				for filename,content in json.load( fp ).items():
-					m.include( filename, content )
+					m.include_file( filename, content )
 		else:
 			raise RuntimeError( "{} is neither file nor directory".format(s) )
 	m.analyze()
@@ -556,6 +550,9 @@ if __name__=="__main__":
 	_parser.add_argument( "--depth", "-d",
 		default=None, type=int,
 		help="Maximum depth of recursion when scanning directories.")
+
+	# File filtering
+
 	_parser.add_argument( "--include", "-I",
 		default=None,
 		help="""When recursing through directories, only files matching the
@@ -568,21 +565,32 @@ if __name__=="__main__":
 		<exclude> pattern are excluded from the analysis. The comments
 		regarding the <include> pattern also apply here.""")
 
+	# Statistic filtering
+
+	_parser.add_argument( "--use",
+		default=None,
+		help="""Specify a list of statistics to use in heuristic
+		analysis. This may either be a file containing one statistic
+		per line, or a literal semi-colon-separated list of statistics.
+		If this option is not given, all statistics (not listed in the
+		ignore option) are candidates.""")
 	_parser.add_argument( "--ignore",
 		default=None,
 		help="""Specify a list of statistics to ignore in heuristic
 		analysis. This may either be a file containing one statistic
 		per line, or a literal semi-colon-separated list of statistics.""")
-	_parser.add_argument( "--report",
-		default=None,
-		help="""Specify the type of analysis report desired. Must be
-		one of {none,text,html}.""")
+
+	# Output options
 
 	_parser.add_argument( "--dump",
 		type=str,
 		default="",
 		help="""Dump the summary matrix as a table of tab-separated values
 		to a file of the given name.""")
+	_parser.add_argument( "--report",
+		default=None,
+		help="""Specify the type of analysis report desired. Must be
+		one of {none,text,html}.""")
 
 	_parser.add_argument( "sources", nargs="+",
 		help="""Files, directories and/or manifests to analyze. All three
@@ -602,5 +610,5 @@ if __name__=="__main__":
 	if _args.exclude:
 		re.compile( _args.exclude )
 
-	analyze( _args, sys.stdout )
+	_main( _args, sys.stdout )
 

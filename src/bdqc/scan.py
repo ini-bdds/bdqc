@@ -30,7 +30,8 @@ import io
 import bdqc.plugin
 import bdqc.dir
 from bdqc.report import HTML,Plaintext
-from bdqc.analysis import Matrix,selectors
+from bdqc.analysis import Matrix
+from bdqc.statpath import selectors
 
 ANALYSIS_EXTENSION = ".bdqc"
 DEFAULT_PLUGIN_RCFILE = os.path.join(os.environ['HOME'],'.bdqc','plugins.txt')
@@ -251,7 +252,7 @@ class Executor(object):
 
 			if not self.dryrun:
 				if matrix:
-					matrix.include( s, cache )
+					matrix.include_file( s, cache )
 				results = json.dumps( cache, sort_keys=True, indent=4 )
 				assert results is not None
 				if self.adjacent: # store JSON results adjacent to subject
@@ -331,25 +332,33 @@ def main( args ):
 		accum_fp = _open_output_file( args.accum ) \
 			if args.accum else None
 
-		matrix = Matrix(
-			ignore = selectors(args.ignore) if args.ignore else None ) \
-			if not args.skip_analysis else None
-		missing = _exec.run( matrix, accumulator=accum_fp, progress_output=prog_fp )
+		if args.skip_analysis:
+			m = None
+		else:
+			statistic_filters = {
+				# Need wildcard suffixes to turn plugin names into path selectors...
+				"include": selectors( [ "{}/*".format(name) for name in mgr.leaves ] ),
+			}
+			if args.ignore:
+				statistic_filters["exclude"] = selectors(args.ignore)
+			m = Matrix( **statistic_filters )
+
+		missing = _exec.run( m, accumulator=accum_fp, progress_output=prog_fp )
 
 		if accum_fp:
 			accum_fp.close()
 		if prog_fp:
 			prog_fp.close()
 
-		if matrix:
-			status = matrix.analyze()
+		if m:
+			status = m.analyze()
 			if status: # ...is other than STATUS_NO_OUTLIERS
 				if args.report:
 					report = args.report.lower()
 					if report.startswith("text"):
-						Plaintext(matrix).render( sys.stdout )
+						Plaintext(m).render( sys.stdout )
 					elif report.startswith("html"):
-						HTML(matrix).render( sys.stdout )
+						HTML(m).render( sys.stdout )
 
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
