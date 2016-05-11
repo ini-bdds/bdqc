@@ -119,20 +119,47 @@ class Executor(object):
 		Determines whether or not a specific plugin should be run based on
 		global state and the status (existence and version) of earlier
 		results from the same plugin in the cache.
+
+		Note this does NOT check self.dryrun because the whole point of
+		dry runs is simulation of what would happen in a real run.
+		The dryrun flag must be handled by caller!
+
+		Returns a pair:
+
+			( dependencies, reason )
+
+		...with dependencies == None indicating it can't run for the reason
+		given. (A plugin with no dependencies will have an empty dict
+		instead of None.)
 		"""
 		assert isinstance( ran, set )
-		# Note that does NOT check self.dryrun because the whole point of
-		# dry runs is simulation of what would happen in a real run.
-		# The dryrun flag must be handled by caller!
+
+		# First insure that all plugin's declared dependencies ran (and
+		# yielded results). Absence of any dependency precludes running
+		# of plugin.
+
+		# Plugins may only access DECLARED dependencies, not all upstream
+		# dependencies.
+		DEPENDENCIES = getattr(plugin,"DEPENDENCIES",[])
+		upstream_results = [ cache.get(dep,None) for dep in DEPENDENCIES ]
+		if any([ ur is None for ur in upstream_results ]):
+			name = DEPENDENCIES[ upstream_results.index( None ) ]
+			return ( None, "missing dependency " + name )
+
+		# We *can* run. Now should we?...
+
+		upstream_results = dict( zip( DEPENDENCIES, upstream_results ) )
+		# ...dict(zip([],[])) == {}, as we require.
+
 		if self.clobber:
-			return (True, "clobbering")
+			return (upstream_results, "clobbering")
 		elif len(cache) == 0:
-			return (True, "no earlier results exist" )
+			return (upstream_results, "no earlier results exist" )
 		elif plugin.__name__ not in cache:
-			return (True, "no earlier results for {} exist".format( plugin.__name__ ))
-		elif len(frozenset(plugin.DEPENDENCIES).intersection(ran)) > 0:
-			deps = ','.join( frozenset(plugin.DEPENDENCIES).intersection(ran) )
-			return (True, "one or more of this plugin's dependencies ({}) were run".format(deps) )
+			return (upstream_results, "no earlier results for {} exist".format( plugin.__name__ ))
+		elif len(frozenset(DEPENDENCIES).intersection(ran)) > 0:
+			deps = ','.join( frozenset(DEPENDENCIES).intersection(ran) )
+			return (upstream_results, "one or more of this plugin's dependencies ({}) were run".format(deps) )
 		else:
 			# This plugin has been run earlier on this subject, but the
 			# plugin itself might have been updated. Check for a version.
@@ -147,7 +174,7 @@ class Executor(object):
 			run = plugin_version > oldres_version
 			why = "plugin version ({}) is {}greater than earlier results' version ({})".format(
 				plugin_version, "" if run else "not ", oldres_version )
-			return ( run, why )
+			return ( upstream_results if run else None, why )
 
 	def run( self, matrix:"bdqc.analysis.Matrix"=None, **args ):
 		"""
@@ -203,44 +230,42 @@ class Executor(object):
 
 				for p in iter(self.plugin_mgr):
 
-					do_run = self._should_run( p, cache, ran )
+					USR,REASON = self._should_run( p, cache, ran )
+					RUN = USR is not None # UpStream Results not None
 
 					if self.dryrun:
+
 						# ALWAYS print on stdout; that's the point of dry run!
 						print( "{}({}): {} because {}".format( p.__name__, s,
-							"run" if do_run[0] else "skip",
-							do_run[1] ) )
-						if do_run[0]:
+							"run" if RUN else "skip",
+							REASON ) )
+						if RUN:
 							ran.add( p.__name__ ) # *would* have been run!
 
-					elif do_run[0]:
+					elif RUN:
 
-						# Plugins may only access DECLARED dependencies.
-						# Currently this excludes implicit dependencies.
-						# TODO: This strictness could be optionally relaxed.
-						declared_reqs = dict( zip(
-								p.DEPENDENCIES,
-								[ cache[d] for d in p.DEPENDENCIES ] ) )
 						try:
-							d = p.process( s, declared_reqs )
+							d = p.process( s, USR )
 
-							# Insure plugin's result is wrapped in a dict.
-							if not isinstance(d,dict):
-								d = {"value":d,}
-							# Automatically append plugin's version to results.
-							if hasattr( p, _PLUGIN_VERSION ):
-								d[_CACHE_VERSION] = int( getattr( p, _PLUGIN_VERSION ) )
+							if d is not None:
 
-							# Add this plugin's results to subject's cache.
-							cache[ p.__name__ ] = d
-							ran.add( p.__name__ )
+								# Insure plugin's result is wrapped in a dict.
+								if not isinstance(d,dict):
+									d = {"value":d,}
+								# Automatically append plugin's version to results.
+								if hasattr( p, _PLUGIN_VERSION ):
+									d[_CACHE_VERSION] = int( getattr( p, _PLUGIN_VERSION ) )
+
+								# Add this plugin's results to subject's cache.
+								cache[ p.__name__ ] = d
+								ran.add( p.__name__ )
 
 						except Exception as X:
 							logging.error( "{} while processing {} with {}".format( X, s, p.__name__ ) )
 							if not getattr(self,"ignore_exceptions",False):
 								raise
 					else:
-						logging.info( "skipping {}({}): {}".format( p.__name__, s, do_run[1] ) )
+						logging.info( "skipping {}({}): {}".format( p.__name__, s, REASON ) )
 				else:
 					pass # just tagging the end of the for loop.
 			else: # not SUBJECT_EXISTS

@@ -20,8 +20,6 @@ bdqc/builtin/__init__.py
 bdqc/builtin/extrinsic/__init__.py
 bdqc/builtin/filetype/__init__.py
 bdqc/builtin/tabular/__init__.py
-bdqc/builtin/dummy/template.py
-bdqc/builtin/dummy/__init__.py
 data/plugins.txt
 
 c/fopenx.h

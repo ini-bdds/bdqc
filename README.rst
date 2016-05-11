@@ -121,8 +121,8 @@ log files and JPEG image files) that comparison is essentially meaningless.
 This rarely occurs because of the way `Between-file Analysis`_ works.
 
 A file is considered "anomalous" when one or more of the statistics computed
-on its content (`Within-file Analysis`_) are "outliers," either in the usual
-sense of the word or another sense explained in `Between-file Analysis`_.
+on its content (`Within-file Analysis`_) are *outliers*, either in the usual
+sense of the word or as explained in `Between-file Analysis`_.
 
 In the second and third cases, a report is optionally generated (as text or HTML)
 summarizing the evidence.
@@ -146,17 +146,17 @@ wanting to develop their own plugins.
 The most important fact to understand about BDQC is that
 **plugins, not the** *framework*, **carry out all within-file analysis of input files.**
 The BDQC framework merely orchestrates the execution of plugins
-and performs the final *across-file* analysis, but only plugins
+and performs the final `Between-file Analysis`_, but only plugins
 examine a files' content.
 (The BDQC *package* includes several "built-in" plugins which insure
 it is useful "out of the box." Though they are built-in, they are
 nonetheless plugins because the follow the plugin architecture.)
 
-A plugin is simply a Python module that is installable like any Python module.
-Plugins provide functions that can read a file and produce one or more summary
-statistics about it.
-The functions are expected to take certain forms, and the plugin is expected to
-export certain symbols used by the BDQC framework (see Plugins_).
+Plugins_ are simply Python modules installable like any Python module.
+Plugins_ provide functions that can read a file and produce one or more
+summary statistics about it.
+The functions are expected to take certain forms, and the plugin is expected
+to export certain symbols used by the BDQC framework.
 
 .. image:: doc/dataflow2.png
 	:align: center
@@ -198,15 +198,15 @@ was not run on file *#N*.
 By default, the summary for file foo.txt is left in an adjacent file named
 foo.txt.bdqc.
 
-Again, the BDQC *framework* does not touch files' content; it only
+Again, the BDQC *framework* does not read files' content; it only
 handles filenames and paths.
 
 Between-file Analysis
 =====================
 
-1. Summary (\*.bdqc) files are collected (Collection_).
-2. The statistics in \*.bdqc files are filtered (Filtering_) so that they only include the "leaves" in the dependency chain.
-3. All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are flattened (Flattening_) into a matrix.
+1. Collection_ - Summary (\*.bdqc) files are collected.
+2. Filtering_ - The statistics in \*.bdqc files are filtered so that they only include the "leaves" in the dependency tree.
+3. Flattening_ - All files' summaries (the JSON_-formatted content of all corresponding \*.bdqc files) are flattened into a matrix.
 4. `Heuristic Analysis`_ is applied to the columns of the matrix to identify rows (corresponding to the original files) that might be anomalies.
 
 The framework (bdqc.scan or bdqc.analysis) exits with a status code indicating
@@ -228,8 +228,8 @@ Collection
 ----------
 
 Typically bdqc.scan automatically invokes the `Between-file Analysis`_ on
-the results of within-file analysis.
-However, the between-file analysis can also be run independently, and files
+the results of `Within-file Analysis`_.
+However, `Between-file Analysis`_ can also be run independently, and files
 listing and/or directories containing \*.bdqc files to analyze can be
 specified exactly as with bdqc.scan. See
 
@@ -243,12 +243,13 @@ Filtering
 Recall that plugins exist in DAGs ("trees") defined by their dependencies.
 This arrangement facilitates reuse by allowing capabilities to be
 modularized and dynamically chained together at runtime.
-Typically, upstream plugins are the most domain agnositic, and, conversely,
-downstream plugins are the most domain-aware. Thus, the leaves of the
-plugin DAG are the most authoritative with respect to what constitutes an
-anomalous file. **For this reason, only the results of "terminal plugins",
+Typically, upstream plugins are the most general-purpose (domain-blind),
+and, conversely, downstream plugins are the most specialized (domain-aware).
+Thus, the leaves of the plugin DAG are the most authoritative with respect
+to what constitutes an anomalous file.
+**For this reason, only the results of "terminal plugins",
 those in the "leaves" of the DAG, are included by default in**
-`Between-file Analysis`_. (This does not apply when
+`Between-file Analysis`_. (However, this does not apply when
 `Between-file Analysis`_ is launched independently of the bdqc.scan module.)
 
 For example, one might launch BDQC on a directory tree, specifying a single
@@ -259,17 +260,20 @@ used as a *filter* by the image-processing plugin.
 Only the results of the image-processing plugin are relevant to anomaly
 detection.
 
+Thus, the statistics analyzed during `Between-file Analysis`_ typically
+come from a subset of all the plugins run during `Within-file Analysis`_.
+
 Flattening
 ----------
 
-A plugin's output can be (almost) anything
-representable as JSON_ data.
+A plugin's output can be (almost) anything representable as JSON_ data.
 In particular, the "statistic(s)" produced by a plugin need not be scalars
 (numbers and strings); they can be compound data like matrices or sets.
-However, currently only scalar statistics are used in subsequent analysis.
+However, only scalar statistics are (currently) used in subsequent analysis.
 
-Since JSON_ is inherently hierarchical (because it supports compound types),
-the individual statistics in plugins' summaries are
+Since JSON_ includes compound types (Object and Array), it supports the
+creation of hierarchical data representations.
+Thus, the individual (scalar) statistics in plugins' summaries are
 necessarily identified by *paths* in the JSON_ data.
 For example, the following excerpt of output from the `bdqc.builtin.tabular`_
 plugin's analysis of *one file* shows some of the many statistics it produces:
