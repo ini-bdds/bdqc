@@ -164,7 +164,7 @@ def selectors( source:"a literal string, filename, or list of strings" ):
 		with open( source ) as fp:
 			slist = [ Selector(line.rstrip()) for line in fp.readlines() ]
 	else:
-	  	assert isinstance(source,str)
+		assert isinstance(source,str)
 		slist = [ Selector(substring) for substring in source.split(';') ]
 	return slist
 
