@@ -147,19 +147,24 @@ class Selector(object):
 		return self.part[index]
 
 
-def selectors( source:"a literal string or a filename" ):
+def selectors( source:"a literal string, filename, or list of strings" ):
 	"""
 	Create a list of Selector from a source. The source is assumed to
 	be either:
-	1. a literal string containing a semi-colon-separated list of selector
-	   specs, or
+	1. a list of strings each specifying a Selector
 	2. the name of a file containing a list of selectors, one per line.
+	3. a literal string containing a semi-colon-separated list of selector
+	   specs
+	This is just a convenience function.
 	"""
 	slist = None
-	if isfile( source ):
+	if isinstance(source,list):
+		slist = [ Selector(s) for s in source ]
+	elif isfile( source ):
 		with open( source ) as fp:
 			slist = [ Selector(line.rstrip()) for line in fp.readlines() ]
 	else:
+	  	assert isinstance(source,str)
 		slist = [ Selector(substring) for substring in source.split(';') ]
 	return slist
 
