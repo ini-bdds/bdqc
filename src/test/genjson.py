@@ -65,7 +65,7 @@ per plugin:
 import sys
 import json
 
-from random import random,randrange,choice,randint,normalvariate
+from random import random,randrange,choice,randint,uniform
 from os import walk
 from os.path import join,isdir
 from copy import deepcopy
@@ -112,6 +112,16 @@ class ScalarProxy(object):
 
 	def __str__( self ):
 		return self.sclass
+
+	def __getitem__( self, index ):
+		if not hasattr(self,'queue'):
+			raise RuntimeError( "must call initQueue first" )
+		self.queue[ index ]
+
+	def __setitem__( self, index, value ):
+		if not hasattr(self,'queue'):
+			raise RuntimeError( "must call initQueue first" )
+		self.queue[ index ] = value
 
 	def initQueue( self, q ):
 		self.queue = q
@@ -269,9 +279,9 @@ def main( args ):
 	for p in P:
 		rng = range(N)
 		if   p.sclass == "Qf":
-			data = [ normalvariate(0,1.0) for i in rng ]
+			data = [ uniform(0.0,10.0) for i in rng ]
 		elif p.sclass == "Qi":
-			v = round(normalvariate(32,4)) 
+			v = round(uniform(0,100)) 
 			data = [ v for i in rng ]
 		else:
 			if   p.sclass == "Cs":
@@ -284,6 +294,10 @@ def main( args ):
 			data = [ K for i in rng ]
 		p.initQueue( data )
 	# 4. TODO: Muck it up in the way specified by cmdline args.
+	for p in P:
+		if p.sclass == "Qf":
+			p[ randint(0,N-1) ] = 30
+			break
 	# 5. Emit it...either as a single JSON file or as lots of *.bdqc files.
 	print("{")
 	for i in range(N):
