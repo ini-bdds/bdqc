@@ -1,49 +1,17 @@
 
 import pkgutil
 
-class HTML(object):
-	"""
-	TODO: lots
-	"""
-	def __init__( self, source ):
-		self.source = source
+class Summary(object):
 
-	def _render_incidence_matrix( self, fp ):
-		"""
-		Emit HTML5 markup representing an incidence matrix.
-		"""
-		assert hasattr(self.source,"anom_col") \
-			and isinstance(self.source.anom_col,list) \
-			and all([ isinstance(i,str) for i in self.source.anom_col])
+	def __init__( self, status, msg, body, rows, cols ):
+		self.status = status
+		self.msg  = msg
+		self.body = body
+		self.rows = rows
+		self.cols = cols
 
-		body = [ [ "c{}_{}".format(r,c)
-			for c in range(len(self.source.anom_col)) ]
-			for r in range(len(self.source.anom_row)) ]
-		hl   = [ [ fi in self.source.column[k].outlier_indices()
-			for k  in self.source.anom_col ]
-			for fi in self.source.anom_row ]
-		row_labels = [ self.source.files[fi] for fi in self.source.anom_row ]
-		# The prelude
-		print( '<table id="incidence_matrix">\n<caption></caption>\n', file=fp )
-		# The header
-		print( '<thead class="im">\n<tr>\n<th></th>\n', file=fp )
-		for label in self.source.anom_col:
-			print( '<th scope="col" class="im">{}</th>\n'.format(label), file=fp )
-		print( '</tr>\n</thead>\n', file=fp )
-		# The body
-		print( '<tbody class="im">\n', file=fp)
-		for ro in range(len(body)):
-			print( '<tr>\n<th scope="row" class="im">{}</th>\n'.format( row_labels[ro] ), file=fp )
-			row = body[ro]
-			for co in range(len(row)):
-				color = "red" if hl[ro][co] else "white"
-				print( '<td class="im" id="{}" style="background:{}"></td>'.format( body[ro][co], color ), file=fp )
-			print( '</tr>\n', file=fp)
-		# The trailer
-		print( ' </tbody>\n<tfoot class="im">\n</tfoot>\n</table>', file=fp )
 
-	def render( self, fp ):
-		assert hasattr(self.source,"status")
+	def render_html( self, fp ):
 		print( """<!DOCTYPE html>
 		<html>
 		<head>
@@ -108,8 +76,6 @@ class HTML(object):
 		<body onload="initDocument()">
 		""" )
 
-		self._render_incidence_matrix( fp )
-
 		####################################################################
 		# ...allowing mouse hover to select plots for display
 		####################################################################
@@ -147,41 +113,43 @@ class HTML(object):
 		</html>
 		""" )
 
-
-class Plaintext(object):
-	"""
-	TODO: lots
-	"""
-
-	def __init__( self, source ):
-		self.source = source
-
-	@staticmethod
-	def _render_im( im, fp ):
+	def render_text( self, fp ):
+		"""
+		Render summary, including an incidence matrix, as ASCII.
+		"""
+		print( "Status:", self.msg, file=fp )
 		print( "Incidence matrix:", file=fp )
-		NR = len(im['body'])
-		NC = len(im['cols'])
-		assert NR == len(im['rows'])
-		wid = max([len(r) for r in im['rows']])
+		NR = len(self.body)
+		NC = len(self.cols)
+		assert NR == len(self.rows)
+		wid = max([len(r) for r in self.rows])
 		FMT = "{{0:>{}s}} {{1}}".format(wid)
 		# Print headers
 		# This will handle up to 9999 columns but only the 10's and 1's
 		# values will be printed as column headers.
 		CIX = [ "{:04d}".format(i+1) for i in range(0,NC) ]
-		print( ' '*wid, ''.join([s[2] for s in CIX]) )
-		print( ' '*wid, ''.join([s[3] for s in CIX]) )
+		print( ' '*wid, ''.join([s[2] for s in CIX]), file=fp )
+		print( ' '*wid, ''.join([s[3] for s in CIX]), file=fp )
 		for rn in range(NR):
 			print( FMT.format(
-				im['rows'][rn],
-				''.join([ '+' if f else '-' for f in im['body'][rn] ]) ),
+				self.rows[rn],
+				''.join([ '+' if f else '-' for f in self.body[rn] ]) ),
 				file=fp )
 		print( "Column legend:", file=fp )
 		for cn in range(NC):
-			print( cn+1, im['cols'][cn], sep="\t", file=fp )
+			print( cn+1, self.cols[cn], sep="\t", file=fp )
 
-	def render( self, fp ):
-		print( "Status:", self.source.status_msg() )
-		if self.source.status:
-			im = self.source.incidence_matrix()
-			Plaintext._render_im( im, fp )
+if __name__=="__main__":
+	import sys
+	import bdqc.analysis
+	s = Summary(
+		bdqc.analysis.STATUS_VALUE_OUTLIERS,
+		"whatever",
+		[ [ 0, 1, 0 ],
+		  [ 0, 0, 1 ],
+		  [ 1, 0, 0 ],
+		  [ 0, 1, 1 ] ],
+		["r1","r2","r3","r4"],
+		["c1","c2","c3"] )
+	s.render_text( sys.stdout )	
 

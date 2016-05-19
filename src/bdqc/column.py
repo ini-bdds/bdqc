@@ -214,7 +214,7 @@ class Vector(object):
 
 		return len(self.value_histogram) == 1
 
-	def missing_indices( self ):
+	def indices_with_null( self ):
 		"""
 		Return a list of the indices of elements with missing data (None).
 		Incidentally, this list is guaranteed to be sorted.
@@ -223,14 +223,14 @@ class Vector(object):
 		"""
 		return tuple([ i for i in range(len(self)) if self[i] is None ])
 
-	def present_indices( self ):
+	def indices_with_values( self ):
 		"""
 		Return a list of the indices of elements with NON-MISSING data.
-		This is the complement of the set returned by missing_indices.
+		This is the complement of the set returned by indices_with_null.
 		"""
 		return tuple([ i for i in range(len(self)) if self[i] is not None ])
 
-	def minor_type_indices( self ):
+	def indices_with_minority_types( self ):
 		"""
 		Return a list of the indices of elements with types in the minority.
 		"""
@@ -239,7 +239,7 @@ class Vector(object):
 			if self.types[k] == MINOR_TYPE_COUNT ])
 		return tuple([ i for i in range(len(self)) if type(self[i]).__name__[0] in MINOR_TYPES ])
 
-	def outlier_indices( self ):
+	def indices_with_outliers( self ):
 		"""
 		Return a list of the indices of outlier elements.
 
@@ -295,6 +295,6 @@ if __name__=="__main__":
 	elif vec.is_single_valued():
 		print( "single-valued" )
 	else: # "outliers" exist. Name them!
-		for i in vec.outlier_indices():
+		for i in vec.indices_with_outliers():
 			print( i, vec[i] )
 

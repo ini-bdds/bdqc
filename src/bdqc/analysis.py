@@ -12,17 +12,17 @@ from os.path import isfile
 
 from bdqc.statistic import Descriptor
 from bdqc.column import Vector
-from bdqc.report import HTML,Plaintext
 from bdqc.statpath import Selector
+from bdqc.summary import Summary
 from bdqc.data import flatten
 
 # Warning: the values of these constants are used to index function pointer
 # arrays. Don't change these without changing code that uses them!
 STATUS_NO_OUTLIERS     = 0
-STATUS_INCOMPARABLES   = 1
+STATUS_INCOMPARABLES   = 1 # different statistics present for diff files
 STATUS_AMBIGUOUS_STATS = 2
-STATUS_NULL_OUTLIERS   = 3
-STATUS_VALUE_OUTLIERS  = 4
+STATUS_NULL_OUTLIERS   = 3 # missing values for *present* statistics
+STATUS_VALUE_OUTLIERS  = 4 # quantitative or categorical
 
 STATUS_MSG = [
 	"no anomalies detected",
@@ -107,20 +107,26 @@ class Matrix(object):
 		Conditionally include the given file's within-file analysis in the
 		across-file analysis.
 
+		This method "flattens" the JSON data associated with filename and
+		appends it as the last row of the matrix (self), adding and padding
+		columns if necessary to preserve a matrix structure.
+
 		Upon exit from this method, the matrix is one row longer--that is,
 		each of self.column should be exactly one datum longer.
 
-		An important side effect of this method is that this is the only
-		place that incomparable files can be detected. Files' results are
-		allowed to contain null for statistics--a null value is not the
-		same as a missing statistic, but every file should have some value
-		for every statistic. Concretely, this means:
+		Detection of incomparable files is an important side effect of this
+		method. This is the ONLY PLACE that incomparable files are detected.
+		"Incomparable" files are files for which the within-file analyses
+		don't contain exactly the same set of statistics--that is, the same
+		set of *keys*. A statistic is allowed to contain null--a null value
+		represents a missing *value* which is not the same as a missing
+		* statistic*. Concretely, this means:
 		1. The very first file added establishes the matrix' columns.
 		2. If columns are added subsequently (to preserve the matrix'
 		   dimensions), then files are incomparable.
 		3.  If column padding is ever required (again, to preserve the 
 		   matrix' dimensions because a file was missing statistics
-		   presenct in the others), then files are incomparable.
+		   present in the others), then files are incomparable.
 
 		Returns a boolean indicating whether or not the file was actually
 		included.
@@ -186,14 +192,14 @@ class Matrix(object):
 		"""
 		if self.incomparables:
 			self.anom_col = sorted( list( self.incomparables ) )
-			H = hash( self.column[self.anom_col[0]].missing_indices() )
-			if all([hash(c.missing_indices()) == H for c in self.column.values() ]):
+			H = hash( self.column[self.anom_col[0]].indices_with_null() )
+			if all([hash(c.indices_with_null()) == H for c in self.column.values() ]):
 				# all statistics (columns) that are missing value, are
 				# missing those value from the same set of files, so the
 				# columns are collapsable. TODO
 				pass # TODO: 
 			self.anom_row = sorted( list( set().union(*[
-				self.column[k].missing_indices() for k in self.anom_col ]) ) )
+				self.column[k].indices_with_null() for k in self.anom_col ]) ) )
 			self.status = STATUS_INCOMPARABLES
 			return self.status
 
@@ -202,7 +208,7 @@ class Matrix(object):
 			self.column.keys() ) ) )
 		if len(self.anom_col) > 0:
 			self.anom_row = sorted( list( set().union(*[
-				self.column[k].minor_type_indices() for k in self.anom_col ]) ) )
+				self.column[k].indices_with_minority_types() for k in self.anom_col ]) ) )
 			self.status = STATUS_AMBIGUOUS_STATS
 			return self.status
 
@@ -213,7 +219,7 @@ class Matrix(object):
 			self.column.keys() ) ) )
 		if len(self.anom_col) > 0:
 			self.anom_row = sorted( list( set().union(*[
-				self.column[k].missing_indices() for k in self.anom_col ]) ) )
+				self.column[k].indices_with_null() for k in self.anom_col ]) ) )
 			self.status = STATUS_NULL_OUTLIERS
 			return self.status
 
@@ -228,7 +234,7 @@ class Matrix(object):
 			# contain anomalies (by virtue of being included in any
 			# column's anomaly list).
 			self.anom_row = sorted( list( set().union(*[
-				self.column[k].outlier_indices() for k in self.anom_col ]) ) )
+				self.column[k].indices_with_outliers() for k in self.anom_col ]) ) )
 			self.status = STATUS_VALUE_OUTLIERS
 		else:
 			self.status = STATUS_NO_OUTLIERS
@@ -240,19 +246,31 @@ class Matrix(object):
 		Return an incidence matrix the content of which depends on the
 		nature of the anomalies (missing data, ambiguous types, or
 		value discrepancies).
+		Matrix content depends on exit status:
+		1. incomparables
+		2. ambiguous stats
+		3. outliers (NULL,quantitative, or categorical)
+
+		Matrix content is constrained to the union of rows mentioned
+		in self.anom_row and columns mentioned in self.anom_col...so
+		it is implicitly minified.
 		"""
 		body = []
 		rows = []
 		cols = []
 		if self.status != STATUS_NO_OUTLIERS:
-			rows_of_interest = ( # depend on analysis status
+			# The method chosen for "row_selector" determines whether
+			# the cell in the rendition of the incidence matrix is
+			# positive/negative or foreground/background--the meaning
+			# depends on the analysis result.
+			row_selector = (
 				None,
-				Vector.present_indices,
-				Vector.minor_type_indices,
-				Vector.present_indices,
-				Vector.outlier_indices)[ self.status ]
-			is_row_of_interest = lambda rnum,cobj:rnum in rows_of_interest(cobj)
-			body = [ [ is_row_of_interest(r, self.column[c] )
+				Vector.indices_with_values,
+				Vector.indices_with_minority_types,
+				Vector.indices_with_values,
+				Vector.indices_with_outliers)[ self.status ]
+			is_cell_positive = lambda rnum,cobj:rnum in row_selector(cobj)
+			body = [ [ is_cell_positive(r, self.column[c] )
 				for c in self.anom_col ]
 				for r in self.anom_row ]
 			rows = [ self.files[ r ] for r in self.anom_row ]
@@ -261,6 +279,13 @@ class Matrix(object):
 
 	def status_msg( self ):
 		return STATUS_MSG[ self.status ]
+
+	def summary( self ):
+		"""
+		Returns a summary consisting of a variety of supporting evidence
+		for the aggregate result, including an incidence matrix.
+		"""
+		return Summary( self.status, STATUS_MSG[ self.status ], **self.incidence_matrix() )
 
 	def dump( self, fp=sys.stdout ):
 		head = list(sorted(self.column.keys()))
@@ -298,7 +323,7 @@ class _Loader(object):
 		self.target.add_file_data( basename, analysis )
 
 
-def _main( args, output ):
+def _main( args ):
 	"""
 	Aggregate JSON into a Matrix then call the Matrix' analyze method.
 	This function allows 
@@ -329,14 +354,16 @@ def _main( args, output ):
 					m.add_file_data( filename, content )
 		else:
 			raise RuntimeError( "{} is neither file nor directory".format(s) )
+
 	m.analyze()
+
 	if m.status: # ...is other than STATUS_NO_OUTLIERS
 		if args.report:
-			report = args.report.lower()
-			if report.startswith("text"):
-				Plaintext(m).render( sys.stdout )
-			elif report.startswith("html"):
-				HTML(m).render( sys.stdout )
+			with open(args.report,"w") as fp:
+				if args.report.lower().endswith("html"):
+					m.summary().render_html( fp )
+				else:
+					m.summary().render_text( fp )
 	if args.dump:
 		with open(args.dump,"w") as fp:
 			m.dump( fp )
@@ -415,5 +442,5 @@ if __name__=="__main__":
 	if _args.exclude:
 		re.compile( _args.exclude )
 
-	_main( _args, sys.stdout )
+	sys.exit( _main( _args ) )
 

@@ -1,7 +1,7 @@
 from distutils.core import setup,Extension
 
 setup(name="bdqc",
-	version="0.45.1",
+	version="0.45.2",
 	description="Framework for QC of \"Big Data\"",
 	long_description="""\
 	Framework for QC of \"Big Data\"

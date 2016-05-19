@@ -29,7 +29,6 @@ import io
 
 import bdqc.plugin
 import bdqc.dir
-from bdqc.report import HTML,Plaintext
 from bdqc.analysis import Matrix
 from bdqc.statpath import selectors
 
@@ -308,7 +307,7 @@ class Executor(object):
 		return missing
 
 
-def main( args ):
+def _main( args ):
 
 	# Build lists of plugins...
 
@@ -376,14 +375,16 @@ def main( args ):
 			prog_fp.close()
 
 		if m:
+
 			status = m.analyze()
+
 			if status: # ...is other than STATUS_NO_OUTLIERS
 				if args.report:
-					report = args.report.lower()
-					if report.startswith("text"):
-						Plaintext(m).render( sys.stdout )
-					elif report.startswith("html"):
-						HTML(m).render( sys.stdout )
+					with open(args.report,"w") as fp:
+						if args.report.lower().endswith("html"):
+							m.summary().render_html( fp )
+						else:
+							m.summary().render_text( fp )
 
 	if missing > 0:
 		logging.warning( "{} file(s) were missing".format( missing ) )
@@ -527,6 +528,6 @@ if __name__=="__main__":
 		re.compile( _args.include )
 	if _args.exclude:
 		re.compile( _args.exclude )
-	
-	main( _args )
+
+	sys.exit( _main( _args ) )
 
