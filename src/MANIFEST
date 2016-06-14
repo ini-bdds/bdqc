@@ -8,8 +8,9 @@ bdqc/depends.py
 bdqc/dir.py
 bdqc/dump.py
 bdqc/plugin.py
-bdqc/report-d3.js
-bdqc/report.css
+bdqc/render.js
+bdqc/template.css
+bdqc/template.html
 bdqc/scan.py
 bdqc/statistic.py
 bdqc/statpath.py

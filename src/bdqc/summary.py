@@ -10,8 +10,32 @@ class Summary(object):
 		self.rows = rows
 		self.cols = cols
 
-
 	def render_html( self, fp ):
+		"""
+		Merge the 3 parts of the HTML page, 
+		1. the template HTML
+		2. CSS stylesheet
+		3. D3-based Javascript rendering code
+	   	...along with the data to be rendered.
+	 	The parts are kept separate to facilitate development--it's usually
+	 	easier to edit the 3 file types independently, but we're aiming to
+	 	provide the user with a *single* (nearly) self-contained HTML file
+	 	for the report. If they want to copy the report elsewhere they 
+	 	should not have to copy multiple files.
+	 	D3 will remain an external dependency, invisible to the user as
+	 	long as they have a network connection.
+		"""
+		temp_html = pkgutil.get_data("bdqc","template.html").decode("utf-8")
+		style_css = pkgutil.get_data("bdqc","template.css").decode("utf-8")
+		render_js = '<script>' + pkgutil.get_data("bdqc","render.js").decode("utf-8") + '</script>'
+		data = '<script src="testdata.js" charset="utf-8"></script>'
+		report = temp_html.replace(
+				'@import url(template.css);\n',style_css).replace(
+				'<script src="render.js" charset="utf-8"></script>\n',render_js).replace(
+				'<script src="testdata.js" charset="utf-8"></script>\n',data )
+		print( report, file=fp )
+
+	def render_html_old( self, fp ):
 		print( """<!DOCTYPE html>
 		<html>
 		<head>
@@ -151,5 +175,8 @@ if __name__=="__main__":
 		  [ 0, 1, 1 ] ],
 		["r1","r2","r3","r4"],
 		["c1","c2","c3"] )
-	s.render_text( sys.stdout )	
+	if len(sys.argv) > 1 and sys.argv[1] == "html":
+		s.render_html( sys.stdout )
+	else:
+		s.render_text( sys.stdout )	
 

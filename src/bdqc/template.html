@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html class="bdqc">
+<meta charset="utf-8">
+<title>Summary</title>
+<style>
+@import url(template.css);
+</style>
+<!-- script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.16/d3.min.js" charset="utf-8"></script>
+<header>
+</header>
+<h1>Summary</h1>
+<body>
+<aside style="margin-top:80px;">
+<p>Row order: <select id="rorder">
+  <option value="dir">by Directory</option>
+  <option value="nanoms">by Anomaly Count</option>
+</select>
+<p>Column order: <select id="corder">
+  <option value="plugin" selected>by Plugin Name</option>
+  <option value="nanoms">by Anomaly Count</option>
+</select>
+<p>This matrix diagram visualizes <span id="datatype"></span>.
+<p>Use the drop-down menu to reorder the matrix and explore the data.
+</aside>
+<svg>
+<defs>
+	<path id="crossout" p=""/>
+</defs>
+</svg>
+<script src="testdata.js" charset="utf-8"></script>
+<script src="render.js" charset="utf-8"></script>
+<footer>
+This page derived from
+<a href="https://bost.ocks.org/mike/miserables/">Mike Bostock's Les Miserables visualization</a>
+<br>
+using
+<a href="https://github.com/ini-bdds/bdqc">BDQC</a>
+<a href="http://d3js.org/" title="version 3.5.16">d3.js</a>
+<a href="https://www.w3.org/standards/webdesign/htmlcss">HTML+CSS</a>
+<a href="https://www.w3.org/TR/2014/REC-html5-20141028">HTML5</a>
+<a href="https://www.w3.org/TR/CSS22">CSS2</a>
+<a href="https://www.w3.org/TR/2011/REC-SVG11-20110816">SVG11</a>
+<a href="https://developer.mozilla.org/en-US/docs/Web">Mozilla Web Tech</a>
+</footer>
+</body>
+</html>
+
