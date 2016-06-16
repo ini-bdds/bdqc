@@ -36,7 +36,6 @@
   *    enclosing svg:g's transform; cells' transforms need not be touched.
   *    However, this simplicity is only available to one dimension. To
   *    reorder the other dimension, ALL cells' transforms must be changed.
-  * 3. 
   */
 
 const CELLSIZE = 16;

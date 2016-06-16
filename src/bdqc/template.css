@@ -71,6 +71,7 @@ svg {
 
 .background { fill: #eee; }
 line { stroke: #fff; }
+
 /* Marks column labels when clicked to establish visual connection
  * between column and the density plot. */
 text.active { fill: orange; }
@@ -78,5 +79,3 @@ text.active { fill: orange; }
 /* Highlights row and column labels during hover over cell as cue to
  * what a click will affect. */
 text.hover  { text-decoration:underline;}
-
-
