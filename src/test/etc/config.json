@@ -1,0 +1,23 @@
+
+{
+	"dir": {
+
+		"leaves":[2,5],
+		"depth":3,
+		"branching":2,
+		"strat":"complete",
+
+		"names": {
+			"template":""
+		}
+	},
+	"filenames": {
+		"template":"foo[-3]bar[0]",
+		"params":[
+			["boz","mup"]
+		]
+	},
+	"content":{
+	}
+}
+

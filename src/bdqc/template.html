@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html class="bdqc">
+<meta charset="utf-8">
+<title>Summary</title>
+<style>
+/* Warning: before changing *anything* in next line, see summary.py! */
+@import url(template.css);
+</style>
+<!-- script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.16/d3.min.js" charset="utf-8"></script>
+<header>
+</header>
+<body>
+<h1 id="datatype">Summary</h1>
+<aside style="margin-top:80px;">
+<h2 id="dplot">Foo</h2>
+<div style="width:272px;height:160px;border:solid;border-color:black;border-width:1px">
+<svg id="dplots">
+</svg>
+</div>
+<p>Row order: <select id="rowopt">
+  <option value="path">by file path</option>
+  <option value="nanoms" selected>by anomaly count</option>
+</select>
+<p>Column order: <select id="colopt">
+  <option value="plugin">by statistic</option>
+  <option value="nanoms" selected>by anomaly count</option>
+</select>
+</aside>
+<svg id="matrix">
+<defs>
+	<path id="crossout" p=""/>
+</defs>
+</svg>
+<!-- Warning: before changing *anything* in next two lines, see summary.py! -->
+<script src="testdata.js" charset="utf-8"></script>
+<script src="render.js" charset="utf-8"></script>
+<footer>
+Built with <a href="https://github.com/ini-bdds/bdqc">BDQC</a>
+<a href="http://d3js.org/" title="version 3.5.16">d3.js</a>
+<a href="https://www.w3.org/standards/webdesign/htmlcss">HTML+CSS</a>
+<a href="https://www.w3.org/TR/2014/REC-html5-20141028">HTML5</a>
+<a href="https://www.w3.org/TR/CSS22">CSS2</a>
+<a href="https://www.w3.org/TR/2011/REC-SVG11-20110816">SVG11</a>
+<a href="https://developer.mozilla.org/en-US/docs/Web">Mozilla Web Tech</a>
+</footer>
+</body>
+</html>
+
