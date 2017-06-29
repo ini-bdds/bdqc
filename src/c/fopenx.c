@@ -145,7 +145,7 @@ FILE *fopenx( const char *fname, const char *mode ) {
 		assert( CODEC < CODEC_COUNT );
 		cmd = malloc( FILENAME_MAX+32 );
 		if( cmd ) {
-			sprintf( cmd, "%s %s", _decompress_cmd[CODEC], fname );
+			sprintf( cmd, "%s \"%s\"", _decompress_cmd[CODEC], fname );
 			fp = popen( cmd, "r" );
 			if( NULL == fp ) {
 				fprintf( stderr, "popen( \"%s\", \"r\" ): %s", cmd, strerror(errno) );
