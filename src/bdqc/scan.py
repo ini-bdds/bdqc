@@ -26,6 +26,7 @@ import json
 import time
 import logging
 import io
+import pkg_resources
 
 import bdqc.plugin
 import bdqc.dir
@@ -33,7 +34,8 @@ from bdqc.analysis import Matrix
 from bdqc.statpath import selectors
 
 ANALYSIS_EXTENSION = ".bdqc"
-DEFAULT_PLUGIN_RCFILE = os.path.join(os.environ['HOME'],'.bdqc','plugins.txt')
+DATA_PATH = pkg_resources.resource_filename('bdqc', '')
+DEFAULT_PLUGIN_RCFILE = pkg_resources.resource_filename('bdqc', '/plugins.txt')
 _PLUGIN_VERSION = "VERSION"
 _CACHE_VERSION  = "version"
 

@@ -17,7 +17,7 @@ setup(name="bdqc",
 		'bdqc.builtin.filetype',
 		'bdqc.builtin.tabular' ],
 #	package_dir=
-	package_data={'bdqc':['template.html','template.css','render.js']},
+	package_data={'bdqc':['template.html','template.css','render.js', '../data/*.txt']},
 	ext_package='bdqc.builtin', # ...scopes all extensions
 	ext_modules=[
 		Extension('compiled',
@@ -47,7 +47,6 @@ setup(name="bdqc",
 				'c/stats/quicksel.c'
 			 ],
 			 extra_compile_args=['-std=c99'],
-			 define_macros=[("_POSIX_C_SOURCE","200809L"),])],
-	data_files=[('.bdqc',['data/plugins.txt',]),]
+			 define_macros=[("_POSIX_C_SOURCE","200809L"),])]
 	)
 
