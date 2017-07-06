@@ -27,6 +27,7 @@ import time
 import logging
 import io
 import pkg_resources
+import warnings
 
 import bdqc.plugin
 import bdqc.dir
@@ -315,10 +316,16 @@ def _main( args ):
 
 	plugins = []
 	# ...maybe including defaults...
-	if ( args.plugins == None or args.plugins[0] == '+' ) and \
-			os.path.isfile( DEFAULT_PLUGIN_RCFILE ):
-		with open( DEFAULT_PLUGIN_RCFILE ) as fp:
-			plugins.extend( [ l.rstrip() for l in fp.readlines() ] )
+
+	# check if plugins.txt exists in expected path and handle if not
+	plugins_textfile_message= "plugins.txt is missing! Please report and add to {0} manually".format(DEFAULT_PLUGIN_RCFILE)
+	assert(os.path.isfile(DEFAULT_PLUGIN_RCFILE)),  plugins_textfile_message
+
+	if (args.plugins == None or args.plugins[0] == '+') and \
+			os.path.isfile(DEFAULT_PLUGIN_RCFILE):
+		with open(DEFAULT_PLUGIN_RCFILE) as fp:
+			plugins.extend([l.rstrip() for l in fp.readlines()])
+
 	# ...and maybe including additional.
 	if args.plugins:
 		for plugname in args.plugins.split(','):
