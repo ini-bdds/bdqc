@@ -23,8 +23,8 @@ def process(name, state):
     readable { 'absent','notfile','perm','yes' }
     """    
     
-    #if not state.get('bdqc.builtin.extrinsic',False):
-     #   return None
+    if not state.get('bdqc.builtin.extrinsic',False):
+        return None
         
     if state['bdqc.builtin.extrinsic']['readable'] == "yes":
         
