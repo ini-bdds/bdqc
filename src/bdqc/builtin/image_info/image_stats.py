@@ -35,9 +35,16 @@ def process(name, state):
             # collect remaining attributes
             try:
                 
-                # stats for each channel
+                # read image and instantiate ImageStat.Stat class
                 img= Image.open(name)
                 img_stats= ImageStat.Stat(img)
+                
+                # height, width, depth, matrix size (h * w * d)
+                height, width= img.size
+                channel_count= len(img.mode) # this is depth (d)
+                size= height * width * channel_count
+                
+                # stats for each channel
                 img_extrema = img_stats.extrema
                 img_count = img_stats.count
                 img_sum = img_stats.sum
@@ -48,10 +55,25 @@ def process(name, state):
                 img_var = img_stats.var
                 img_stdev = img_stats.stddev
                 
-                # height, width, depth, matrix size (h * w * d)
-                height, width= img.size
-                depth= len(img.mode)
-                size= height * width * depth
+                # map channels to dictionary values                            
+                chans= ['r', 'g', 'b']                
+                
+                channel_list= []
+                channel_dict= {}
+                
+                for count, chan in enumerate(chans):
+                    try:
+                        channel_dict[chan]= dict(extrema= img_extrema[count], count= img_count[count], chan_sum= img_sum[count],
+                                            chan_sum2= img_sum2[count], mean= img_mean[count], rms= img_rms[count],
+                                            median= img_median[count], var= img_var[count], stdev= img_stdev[count])
+                    except: # if channel does not exist, example black and whit photo
+                        channel_dict[chan]= {}
+                
+                channel_list.append(channel_dict) # create a list of dicts, one dict for each channel
+                
+                channel_stats= {}
+                channel_stats.update({'channels': channel_list}) # nest into a channels dict                      
+                
             except:
                 return None
             
@@ -59,12 +81,18 @@ def process(name, state):
             return None
             warnings.warn(EXTENSION_WARNING)
             
-               
-        attributes= dict(extension= ext, extrema= img_extrema, count= img_count, img_sum= img_sum, 
-                        sum2= img_sum2, mean= img_mean, rms= img_rms, median= img_median, var= img_var,
-                        stdev= img_stdev, height= height, width= width, depth= depth, size= size)
+        # add image attributes to inner dict
+        channel_stats['height']= height
+        channel_stats['width']= width
+        channel_stats['depth']= channel_count
+        channel_stats['size']= size
+        
+        image_data= {}
+        image_data.update({'image': channel_stats}) # add everything to outer dict containing all image information
+        
+    
 
-    return attributes
+    return image_data
 
 # Unit test
 if __name__=="__main__":
