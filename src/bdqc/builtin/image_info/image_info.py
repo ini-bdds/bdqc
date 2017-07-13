@@ -1,22 +1,23 @@
 """
-This plugin examines and records attributes of image files
+This plugin examines and records height, width, depth, and matrix size of supported image files.
 """
 
 import os
 import os.path
 import cv2 # TODO change to specific function set
 import numpy as np
-import pandas as pd # TODO probably won't use, re-eval
+import warnings
 
 TARGET  = "file"
-VERSION = 0x00010100 # TODO check on this version number, align with project convention
+VERSION = 0x00010100
 DEPENDENCIES = ['bdqc.builtin.extrinsic',]
 PERMITTED_EXTENSIONS = ['jpg', 'bmp', 'tiff', 'png', 'sr', 'ras', 'dib', 'jp2', 'pbm', 'pgm', 
              'ppm', 'tif', 'jpeg', 'jpe']
+EXTENSION_WARNING = "Extension Not Supported Return = None"
 
 def process(name, state):    
     
-    # TODO update to reflect reality
+
     """
     This plugin only examines attributes of the file visible "from the
     outside"--that is, without opening and reading any of its contents.
@@ -37,11 +38,13 @@ def process(name, state):
                 img= cv2.imread(name)
                 height, width, depth= img.shape
                 size= np.size(img)
-            except: # TODO issue warning or raise, possibly log 
+            except:
                 return None
             
         else:  # extension not supported
-            return None # TODO issue warning and possibly log
+            return None
+            warnings.warn(EXTENSION_WARNING)
+            
                
         attributes= dict(extension= ext, height= height, width= width, depth= depth, size= size)
 
