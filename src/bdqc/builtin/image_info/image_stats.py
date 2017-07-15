@@ -56,19 +56,19 @@ def process(name, state):
                 img_stdev = img_stats.stddev
                 
                 # map channels to dictionary values                            
-                chans= ['r', 'g', 'b']                
+                chans= list(img.mode) # create list of channels               
                 
                 channel_list= []
                 channel_dict= {}
-
+                
                 for count, chan in enumerate(chans):
                     try:
                         channel_dict[chan]= dict(extrema_min= img_extrema[count][0], extrema_max= img_extrema[count][1], 
                                                  count= img_count[count], chan_sum= img_sum[count], chan_sum2= img_sum2[count], 
                                                  mean= img_mean[count], rms= img_rms[count], median= img_median[count], 
                                                  var= img_var[count], stdev= img_stdev[count])
-                    except: # if channel does not exist, example black and whit photo
-                        channel_dict[chan]= {}
+                    except:
+                        return None
                 
                 channel_list.append(channel_dict) # create a list of dicts, one dict for each channel
                 
