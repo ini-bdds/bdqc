@@ -1,2 +1,13 @@
 bdqc.builtin.extrinsic
-bdqc.builtin.tabular
+
+# most plugins are dependent on extrinsic
+# uncomment or comment plugin lines to activate or deactivate
+
+# tabular data
+#bdqc.builtin.tabular
+
+# image data
+#bdqc.builtin.image_info.image_stats
+
+# determine and record filetypes
+#bdqc.filetype
