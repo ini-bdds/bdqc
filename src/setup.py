@@ -15,7 +15,8 @@ setup(name="bdqc",
 		'bdqc.builtin',
 		'bdqc.builtin.extrinsic',
 		'bdqc.builtin.filetype',
-		'bdqc.builtin.tabular' ],
+		'bdqc.builtin.tabular',
+		'bdqc.builtin.image_info'],
 #	package_dir=
 	package_data={'bdqc':['template.html','template.css','render.js', '../data/*.txt']},
 	ext_package='bdqc.builtin', # ...scopes all extensions
