@@ -1,63 +1,73 @@
 
-Notes testing BDQC
+Notes testing BDQC with the sample datasets
 
 ====================================
 
-Run the code:
+The following tests can be run using files that are currently in this repo:
 
-cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+set BDQC=/net/db/projects/BDDS/BDQC/bdqc/analysis
+cd $BDQC
 
 cd testdata
 unzip test1_UniformQlogFiles.zip
 unzip test2_UniformQlogFiles_1outlier.zip
 
-perl ../bin/bdqc.pl --help
+../bin/bdqc.pl --help
 
 #### Run a test of a set of 40 highly similar very small qlog files
 rm  test1_UniformQlogFiles.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --dataDirectory test1_UniformQlogFiles
-perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --calcSig --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --showOutliers
+../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --dataDirectory test1_UniformQlogFiles
+../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --showOutliers
 
 #### A second test of the same set as above with one file manually edited to simulate a difference
 rm  test2_UniformQlogFiles_1outlier.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --dataDirectory test2_UniformQlogFiles_1outlier
-perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --calcSig --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers --skip "extrinsic.mtime"
+../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --dataDirectory test2_UniformQlogFiles_1outlier
+../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers --skip "extrinsic.mtime"
 
-#### A third test of reading some Perl pm files
+#### A third test of reading some pm files
 rm test3_pmlib.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory C:\Users\edeutsch\Documents\SVN\Proteomics\lib
-perl ../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
+../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory ../lib
+../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
+
+
+
+
+
+
+===================================================
+
+The following tests are run on datasets that are not commonly available yet, but are being used for development testing:
 
 #### A fourth test of reading a small set of jpg files
 rm test4_jpgs.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\03_March
-perl ../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
+../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\03_March
+../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
 
 #### A fourth test of reading a larger set of jpg files (300 MB)
 rm test4_jpgs.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\02_February
-perl ../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
+../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\02_February
+../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
 
 #### A fifth test importing pre-existing .bdqc data from the Python version
 rm test5_PythonBdqcImport.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --importSig Complete.filteredCNVs1000
-perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --showOutliers --skipAttributes "tracking.dataDirectory"
+../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --importSig Complete.filteredCNVs1000
+../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --collate --calcModel
+../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --showOutliers --skipAttributes "tracking.dataDirectory"
 
 #### A sixth test for testing out the example custom external signature
 rm  test6_CustomSignature.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --dataDirectory test2_UniformQlogFiles_1outlier
-perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:add=perl ../bin/customBinarySignatureExample.pl"
-perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --collate
-perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcModel
-perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --showOutliers
+../bin/bdqc.pl --kbRootPath test6_CustomSignature --dataDirectory test2_UniformQlogFiles_1outlier
+../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:add=../bin/customBinarySignatureExample.pl"
+../bin/bdqc.pl --kbRootPath test6_CustomSignature --collate
+../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcModel
+../bin/bdqc.pl --kbRootPath test6_CustomSignature --showOutliers
 
-perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:set=perl ../bin/customBinarySignatureExample.pl"
+../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:set=../bin/customBinarySignatureExample.pl"
 
 
 ==============
