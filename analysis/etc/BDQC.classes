@@ -1,0 +1,110 @@
+## Class definitions to autogenerate the code for BDQC project
+##
+## Examples:
+## option serialize
+## option enableRMI
+## class <ExtendedClassName>
+##   attribute <datatype> <attributeName> <constraints>   (supported datatypes: string, int32, boolean, float)
+##           Example constraints: "enum(offline,online)"
+##   contains single <ClassName>                          (has a single objects of this class) Not quite supported yet??
+##   contains listOf <ClassName>                          (has array of objects of this class) Not quite supported yet??
+##   method <methodName>
+##     parameter attribute <parameterName> <constraints>   (attribute means it can take the class attribute as a parameter)
+##           Example constraints: requiredOrAvailable
+##     parameter <datatype> <parameterName> <constraints>  (supported datatypes as above )
+##           Example constraints: optional, required
+##     returns <datatype> <returnedVarname>  (this is not really supported properly yet)
+##
+apiVersion 0.0.1
+class BDQC.KB
+  attribute string kbRootPath
+  attribute string dataDirectory
+  attribute string qckb
+  attribute int32 isChanged
+  method createKb
+    returns object Response
+  method loadKb
+    parameter attribute kbRootPath requiredOrAvailable
+    parameter string skipIfFileNotFound optional
+    returns object Response
+  method saveKb
+    parameter attribute kbRootPath requiredOrAvailable
+    returns object Response
+  method scanDataPath
+    parameter attribute dataDirectory requiredOrAvailable
+    returns object Response
+  method importSignatures
+    parameter string inputFile required
+    parameter int32 importLimit optional
+    returns object Response
+  method calcSignatures
+    returns object Response
+  method calcModels
+    parameter string skipAttributes optional
+    returns object Response
+  method collateData
+    parameter string skipAttributes optional
+    returns object Response
+  method getOutliers
+    parameter string skipAttributes optional
+    returns object Response
+  method parsePlugins
+    parameter string pluginSignatures optional
+    parameter string pluginModels optional
+    returns object Response
+class BDQC.FileSignature.Text
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
+class BDQC.FileSignature.Binary
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
+class BDQC.FileSignature.XML
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
+class BDQC.FileSignature.Tabular
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
+class BDQC.DataModel
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Scalar
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Scalar.Number
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Scalar.String
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Histogram
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Array
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.UI
+  method viewOutliers
+    parameter kbRootPath
+  method outlierDetails
+    parameter kbRootPath
+    parameter outlier

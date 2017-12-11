@@ -1,0 +1,108 @@
+
+The BDQC KB contains all the information about a set of files and (potentially) their models of normal
+
+It is currently persisted as a Perl Storable for speed of access and a JSON file for human readability and ease of transfer.
+
+The internal data model is still rapidly evolving, but here is a shortened example of what it looks like (as JSON):
+
+   "startDate" : "2017-12-6 20:58:20",
+   "kBtype" : "BDQC",
+   "updates" : [
+      {
+         "comment" : "Scanned data directory 'test2_UniformQlogFiles_1outlier' and added 40 new files",
+         "operation" : "scanDataPath",
+         "datetime" : "2017-12-7 10:57:22"
+      },.......
+   ],
+   "dataDirectories" : [
+      {
+         "path" : "test2_UniformQlogFiles_1outlier",
+         "id" : "dir1"
+      }
+   ],
+   "files" : {
+      "dir1:test2_UniformQlogFiles_1outlier/5a19.convert.qlog" : {
+         "signatures" : {
+            "FileSignature::Text" : {
+               "LF" : 92,
+               "CR" : 0,
+               "LFCR" : 0,
+               "CRLF" : 0,
+               "nLines" : 92,
+               "averageLineLength" : 32.2173913043478,
+               "averageWordsPerLine" : 3.10869565217391
+            },
+            "fileType" : {
+               "typeName" : "qlog"
+            },
+            "tracking" : {
+               "isNew" : 1,
+               "fileTag" : "dir1:test2_UniformQlogFiles_1outlier/5a19.convert.qlog",
+               "dataDirectoryId" : "dir1",
+               "filePath" : "test2_UniformQlogFiles_1outlier/5a19.convert.qlog",
+               "dataDirectory" : "test2_UniformQlogFiles_1outlier",
+               "filename" : "5a19.convert.qlog"
+            },
+            "extrinsic" : {
+               "mode" : 33206,
+               "filename" : "5a19.convert.qlog",
+               "uncompressedExtension" : "qlog",
+               "basename" : "5a19.convert",
+               "iscompressed" : 0,
+               "size" : 3056,
+               "extension" : "qlog",
+               "mtime" : 1449095710
+            }
+         }
+      },
+   "fileTypes" : {
+      "qlog" : {
+         "name" : "qlog",
+         "fileTagList" : [
+            "dir1:test2_UniformQlogFiles_1outlier/5a19.convert.qlog",
+            ......
+            "dir1:test2_UniformQlogFiles_1outlier/5b05.convert.qlog"
+         ],
+         "signatures" : {
+            "fileType" : {
+               "averageLineLength" : {
+                  "values" : [ ..... ]
+                  "model" : {
+                     "distributionFlags" : {
+                        "allDifferent" : 0,
+                        "twoValued" : 1,
+                        "allIdentical" : 0
+                     },
+                     "deviations" : [
+                        {
+                           "datum" : 32.2173913043478,
+                           "deviationFlag" : "normal",
+                           "value" : 32.2173913043478,
+                           "deviation" : 0,
+                           "dataType" : "float"
+                        },.....
+                     ],
+                     "observedValues" : {
+                        "32.2173913043478" : 39,
+                        "32.5" : 1
+                     },
+                     "dataType" : "float",
+                     "typeCounts" : {
+                        "empty" : 0,
+                        "boolean" : 0,
+                        "integer" : 0,
+                        "undefined" : 0,
+                        "string" : 0,
+                        "float" : 40
+                     },
+                     "stats" : {
+                        "stdev" : 0.0441222684669449,
+                        "median" : 32.2173913043478,
+                        .....
+                     }
+                  }
+               },
+
+
+
+

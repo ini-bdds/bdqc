@@ -1,0 +1,13 @@
+
+cd /net/db/projects/BDDS/BDQC/edeutsch-GitHub/BDQC/doc
+
+file *
+
+set file=testDataModelScalar.pl
+dos2unix $file > $file.unix
+mv $file.unix $file
+
+
+
+
+

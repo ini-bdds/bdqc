@@ -1,0 +1,19 @@
+
+Summary of classes in this project:
+
+BDQC::Response			- Complex response from a method call including errors, warnings, information, results
+BDQC::KB			- Main class for BDQC
+				- Creates, reads, writes the KB information store
+				- Scans for files, calls out to signature calculation, model calculation, etc.
+BDQC::DataModel			- Top level data modeling class. Mostly just passes to more specific models
+BDQC::DataModel::Histogram	- Data model for a set of histograms, i.e. a hash/dict of observations and frequencies for each
+BDQC::DataModel::Array		- Data model for a set of arrays, i.e. a list of distinct observed observations (no repeats)
+BDQC::DataModel::Scalar		- Data model for a set of single attribute values (a scalar from each file)
+BDQC::DataModel::Scalar::Number	- Data model for a set of single numeric attribute values (a number from each file)
+BDQC::DataModel::Scalar::String	- Data model for a set of single string attribute values (a string value from each file)
+BDQC::FileSignature::Binary	- Calculate file attributes based on reading a file as characters
+BDQC::FileSignature::Text	- Calculate file attributes based on reading a file as lines of text
+BDQC::FileSignature::Tabular	- Calculate file attributes based on reading a file as lines of tabular text
+BDQC::FileSignature::XML	- Calculate file attributes based on reading a file as XML tags
+
+

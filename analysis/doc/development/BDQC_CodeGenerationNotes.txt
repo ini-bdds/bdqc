@@ -1,0 +1,39 @@
+
+Notes generating the BDQC classes
+
+====================================
+
+Create the classes:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
+
+If you update the class definition in etc/BDQC.classes or update the code generator,
+then you can refresh a class with:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.KB
+
+or all of them with:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
+
+
+#### To regenerate all individually on mimas
+cd /net/db/projects/BDDS/BDQC/edeutsch-GitHub/BDQC
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.HistogramModel
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.VectorModel
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.KB
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.FileSignature.Binary
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.FileSignature.Text
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.FileSignature.Tabular
+bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.FileSignature.XML
+
+
+
+
+
+
+
+
