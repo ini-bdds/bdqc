@@ -138,7 +138,8 @@ sub calcSignature {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
-  my $signature = { nLines=>0, CR=>0, LF=>0, CRLF=>0, LFCR=>0, averageLineLength=>0, averageWordsPerLine=>0 };
+  my $lineEndings = { CR=>0, LF=>0, CRLF=>0, LFCR=>0 };
+  my $signature = { nLines=>0, lineEndings=>$lineEndings, averageLineLength=>0, averageWordsPerLine=>0 };
 
   unless ( open(INFILE,$filePath) ) {
     $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
@@ -149,10 +150,13 @@ sub calcSignature {
   my $line;
   while ( $line = <INFILE> ) {
     $signature->{nLines}++;
-    if ( $line =~ /\n\r/ ) { $signature->{LFCR}++; }
-    elsif ( $line =~ /\r\n/ ) { $signature->{CRLF}++; }
-    elsif ( $line =~ /\n/ ) { $signature->{LF}++; }
-    else { $signature->{CR}++; }
+
+    #### Record the line endings
+    if ( $line =~ /\n\r/ ) { $lineEndings->{LFCR}++; }
+    elsif ( $line =~ /\r\n/ ) { $lineEndings->{CRLF}++; }
+    elsif ( $line =~ /\n/ ) { $lineEndings->{LF}++; }
+    else { $lineEndings->{CR}++; }
+
     $line =~ s/[\n\r]//g;
     $signature->{averageLineLength} += length($line);
     $line =~ s/^\s+//;
