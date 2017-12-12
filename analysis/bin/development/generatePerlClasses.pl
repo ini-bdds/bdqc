@@ -18,7 +18,7 @@ use Getopt::Long;
 use FindBin;
 use DirHandle;
 
-use lib "$FindBin::Bin/../lib";
+use lib "$FindBin::Bin/../../lib";
 
 use BDQC::Response qw(processParameters);
 
