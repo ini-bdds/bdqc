@@ -255,6 +255,13 @@ sub calcModels {
         $model = BDQC::DataModel->new( vector=>$values );
         my $result = $model->create();
         $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model} = $result->{model};
+
+	#### Add just the models without the datapoints or deviations to the models section
+	foreach my $modelKey ( keys(%{$result->{model}}) ) {
+	  next if ( $modelKey eq 'deviations' );
+          $qckb->{models}->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model}->{$modelKey} = $result->{model}->{$modelKey};
+        }
+
         $response->mergeResponse( sourceResponse=>$result );
         $nOperations++;
       }
@@ -661,6 +668,7 @@ sub createKb {
 
   #### Empty array for updates
   $qckb->{updates} = [];
+  $qckb->{models} = {};
   $qckb->{dataDirectories} = [];
 
   $qckb->{files} = {};
@@ -1230,17 +1238,26 @@ sub saveKb {
     return $response;
   }
 
+
+  #### First save the whole data structure as a Perl storable so it can be reloaded very rapidly
   my $filename = "$kbRootPath.qckb.storable";
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Saving BDQC KB to '$filename' and .json", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
-
   store($qckb,$filename);
   $self->setIsChanged(0);
 
+  #### Then also save the whole thing as a JSON file for developer inspection
   use JSON;
   my $json = JSON->new->allow_nonref;
   $json->canonical();
   my $buffer = $json->pretty->encode($qckb);
   $filename = "$kbRootPath.qckb.json";
+  open(OUTFILE,">$filename");
+  print OUTFILE $buffer;
+  close(OUTFILE);
+
+  #### Also write out just the models for later re-used
+  $buffer = $json->pretty->encode($qckb->{models});
+  $filename = "$kbRootPath.models.json";
   open(OUTFILE,">$filename");
   print OUTFILE $buffer;
   close(OUTFILE);
