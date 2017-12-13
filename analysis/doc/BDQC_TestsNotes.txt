@@ -14,23 +14,76 @@ unzip test2_UniformQlogFiles_1outlier.zip
 
 ../bin/bdqc.pl --help
 
+##################################################################################################
 #### Run a test of a set of 40 highly similar very small qlog files
 rm  test1_UniformQlogFiles.qckb.storable
 ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --dataDirectory test1_UniformQlogFiles
 ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --calcSig --collate --calcModel
 ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --showOutliers
 
+##################################################################################################
 #### A second test of the same set as above with one file manually edited to simulate a difference
 rm  test2_UniformQlogFiles_1outlier.qckb.storable
 ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --dataDirectory test2_UniformQlogFiles_1outlier
 ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --calcSig --collate --calcModel
 ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers --skip "extrinsic.mtime"
 
+##################################################################################################
 #### A third test of reading some pm files
 rm test3_pmlib.qckb.storable
 ../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory ../lib
 ../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
 ../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
+
+##################################################################################################
+#### A fourth test of neXtProt text data files
+set test=test4_neXtProt
+cd $BDQC/testdata
+mkdir $test
+cd $test
+wget 'ftp://ftp.nextprot.org/pub/current_release/chr_reports/*'
+cd $BDQC/testdata
+rm  $test.qckb.storable
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers
+
+
+##################################################################################################
+#### A fifth test of Ensembl tsv files
+set test=test5_ensembl
+cd $BDQC/testdata
+mkdir $test
+cd $test
+wget 'ftp://ftp.ensembl.org/pub/release-90/tsv/homo_sapiens/Homo_sapiens.GRCh38.90.uniprot.tsv.gz'
+gunzip Homo_sapiens.GRCh38.90.uniprot.tsv.gz
+../test5_filesplit.pl
+rm Homo_sapiens.GRCh38.90.uniprot.tsv
+
+cd $BDQC/testdata
+rm  $test.qckb.storable
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers
+
+##################################################################################################
+#### A sixth test of XML files
+set test=test6_mzXML
+cd $BDQC/testdata
+mkdir $test
+cd $test
+wget 'ftp://ftp.peptideatlas.org/pub/PeptideAtlas/Repository/PAe000029/PAe000029_mzXML_201104131929.tar.gz'
+tar -zxvf PAe000029_mzXML_201104131929.tar.gz
+rm PAe000029_mzXML_201104131929.tar.gz
+
+cd $BDQC/testdata
+rm  $test.qckb.storable
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers
+
+
+
 
 
 
