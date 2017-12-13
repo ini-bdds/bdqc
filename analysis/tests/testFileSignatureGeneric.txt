@@ -1,0 +1,10 @@
+
+./testFileSignatureGeneric.pl --file ../testdata/test4_neXtProt/nextprot_chromosome_1.txt
+./testFileSignatureGeneric.pl --file testFileSignatureGeneric.pl
+./testFileSignatureGeneric.pl --file ../testdata/test2_UniformQlogFiles_1outlier.qckb.json
+./testFileSignatureGeneric.pl --file ../testdata/test2_UniformQlogFiles_1outlier.zip
+./testFileSignatureGeneric.pl --file ../testdata/test5_ensembl/A.tsv
+./testFileSignatureGeneric.pl --file ../testdata/test6_mzXML/HP_1.mzXML
+
+
+
