@@ -57,7 +57,7 @@ mkdir $test
 cd $test
 wget 'ftp://ftp.ensembl.org/pub/release-90/tsv/homo_sapiens/Homo_sapiens.GRCh38.90.uniprot.tsv.gz'
 gunzip Homo_sapiens.GRCh38.90.uniprot.tsv.gz
-../test5_filesplit.pl
+../test5_split.pl
 rm Homo_sapiens.GRCh38.90.uniprot.tsv
 
 cd $BDQC/testdata
