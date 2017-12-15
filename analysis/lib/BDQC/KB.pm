@@ -23,6 +23,15 @@ my $VERSION = '0.0.1';
 
 use BDQC::DataModel;
 
+use BDQC::FileSignature::Generic;
+use BDQC::FileSignature::Text;
+use BDQC::FileSignature::Binary;
+use BDQC::FileSignature::XML;
+use BDQC::FileSignature::Tabular;
+
+use Time::HiRes qw(gettimeofday tv_interval);
+
+
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
 
@@ -330,6 +339,8 @@ sub calcSignatures {
 
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
+
+
   $isImplemented = 1;
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
     message=>"Calculating signatures for all new files");
@@ -337,25 +348,16 @@ sub calcSignatures {
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
 
-  use BDQC::FileSignature::Text;
-  use BDQC::FileSignature::Binary;
-  use BDQC::FileSignature::XML;
-  use BDQC::FileSignature::Tabular;
-  use Time::HiRes qw(gettimeofday tv_interval);
-
   my %knownExtensions = (
-    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
-    "fasta" => { specificTypeName=>'FASTA', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
-    "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
-    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
-    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
-    "mzML" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
+#    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
+#    "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
+#    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
+#    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
+#    "mzML" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "jpg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
-    "jpeg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
-    "JPG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
-    "JPEG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
-    "raw" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
-    "RAW" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
+#    "jpeg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
+#    "JPG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
+#    "JPEG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
   );
 
   eval {
@@ -379,12 +381,37 @@ sub calcSignatures {
     my $knownExtension = $knownExtensions{$signatures->{extrinsic}->{uncompressedExtension}};
     my @signatureList;
     my $fileTypeName = $signatures->{extrinsic}->{uncompressedExtension};
+
+    #### Always run the FileSignature::Generic to help figure out what else to run on it
+    my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
+    my $signatureName = "FileSignature::Generic";
+    my $genericResult = $genericSignature->calcSignature();
+    if ( $genericResult->{status} eq 'OK' ) {
+      $signatures->{$signatureName} = $genericResult->{signature};
+    } else {
+      $response->mergeResponse( sourceResponse=>$genericResult );
+      return $response;
+    }
+
+    #### Based on the results of FileSignature::Generic, decide what signatures to run
+    if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
+      @signatureList = ( 'FileSignature::Binary' );
+    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
+      @signatureList = ( 'FileSignature::XML' );
+    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'tsv' ) {
+      @signatureList = ( 'FileSignature::Tabular' );
+    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'json' ) {
+      @signatureList = ( 'FileSignature::Text' );
+    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'plain' ) {
+      @signatureList = ( 'FileSignature::Text' );
+    } else {
+      @signatureList = ( 'FileSignature::Text' );
+    }
+
+    #### If this is a known extension that should override what would be automatic, set it
     if ( $knownExtension ) {
       @signatureList = @{$knownExtension->{signatureList}};
       $fileTypeName = $knownExtension->{specificTypeName};
-    } else {
-      #$signatureList = [ 'FileSignature::UnknownFiletype' ];
-      @signatureList = ( 'FileSignature::Text' );
     }
     $signatures->{fileType}->{typeName} = $fileTypeName;
 
@@ -392,13 +419,11 @@ sub calcSignatures {
     if ( $qckb->{pluginSignatures} ) {
       foreach my $testFileTypeName ( ( "*all",$fileTypeName) ) {
         if ( $qckb->{pluginSignatures}->{$testFileTypeName} ) {
-          #print "yes, there's a $testFileTypeName\n";
           if ( $qckb->{pluginSignatures}->{$testFileTypeName}->{set} ) {
             @signatureList = @{$qckb->{pluginSignatures}->{$testFileTypeName}->{set}};
           }
           if ( $qckb->{pluginSignatures}->{$testFileTypeName}->{add} ) {
             push(@signatureList, @{$qckb->{pluginSignatures}->{$testFileTypeName}->{add}});
-            #print "  yes, there's an add for that. Now: ".join(",",@signatureList)."\n";
           }
         }
       }
@@ -408,6 +433,8 @@ sub calcSignatures {
     foreach my $signatureName ( @signatureList ) {
       my $moduleName = "BDQC::$signatureName";
       my $result;
+
+      #### If the signature is a BDQC module, then call that
       if ( $signatureName =~ /^FileSignature::/ ) {
         #print "Running $moduleName\n";
         my $signature = $moduleName->new( filePath=>$filePath );
@@ -416,6 +443,8 @@ sub calcSignatures {
         #my $t1 = [gettimeofday];
         #my $elapsed = tv_interval($t0,$t1);
         #print "$fileTag  $elapsed\n";
+
+      #### Otherwise try to run it as an executable with the STDOUT captured as JSON
       } else {
         my @resultText = `$signatureName --filename $filePath`;
         $result = decode_json(join("\n",@resultText));
