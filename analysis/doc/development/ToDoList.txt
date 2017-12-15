@@ -1,17 +1,28 @@
 
 Prioritized to do list:
 
-- Tidy things up and check into ini GitHub
 - Assemble a zoo of test files that can be downloaded beyond the tiny ones in the repo 
+- Make sure that .html files don't choke the xml plugin
+- Test reading of compressed files on UNIX at least
 
-- Create a template program that is quite simple as an example for a model creator
-- Add ability to override Models to an external program
-- Create a generic file assessor, in binary mode, but recognize text files, tsv, xml, json,
 - Improve the FileSignatures
+- Add an HTML-based result explorer
+
+- Add support for low, medium, and high sensitivity
+- Create a generic file assessor, in binary mode, but recognize text files, tsv, xml, json,
 - Package up as a nice Perl module
 - Design and write a series of Perl t/ tests
 - Expand the documentation
-- Split the Scalar model into String and Number
-- change the Array model to be order-dependent somehow
-- Add an HTML-based result explorer
 
+- Add option to import just models from the .models file
+- Add option to compare new files (and their signatures) to existing models
+
+- Create a template program that is quite simple as an example for a model creator
+- Add ability to override Models to an external program
+- Split the Scalar model into String and Number
+- change the Array model to be order-dependent somehow?
+- Change the Array model to be just sensitive to membership of items? Isn't it already? Test!
+
+- Is is possible to separate the length and avg ASCII into two numbers instead of one?
+- Work on some more testDistributions
+- 
