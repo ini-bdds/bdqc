@@ -220,8 +220,9 @@ sub calcSignature {
 
   #### Store the results in the response object
   #$signature->{charHistogram} = $charHistogram;
-  $signature->{stats} = \%stats;
-  $response->{signature} = $signature;
+  #$signature->{stats} = \%stats;
+  #$response->{signature} = $signature;
+  $response->{signature} = \%stats;
 
 
 
