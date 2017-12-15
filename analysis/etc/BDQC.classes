@@ -52,6 +52,11 @@ class BDQC.KB
     parameter string pluginSignatures optional
     parameter string pluginModels optional
     returns object Response
+class BDQC.FileSignature.Generic
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
 class BDQC.FileSignature.Text
   attribute string filePath
   method calcSignature
