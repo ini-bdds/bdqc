@@ -526,6 +526,9 @@ sub generateOoapi {
       return $response;
     }
 
+    #### Enable a mode where even on Windows we use UNIX line endings
+    binmode OUTFILE;
+
     #### Write out a premable
     print OUTFILE <<EOU;
 package $fullClassName;

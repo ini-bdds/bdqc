@@ -744,6 +744,7 @@ sub getOutliers {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
+  my $sensitivity = processParameters( name=>'sensitivity', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   my $skipAttributes = processParameters( name=>'skipAttributes', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
@@ -775,6 +776,21 @@ sub getOutliers {
     }
   }
 
+  #### Set the sensitivity for detection of outliers
+  if ( $sensitivity ) {
+    $sensitivity = 3 if ( $sensitivity =~ /high/i );
+    $sensitivity = 5 if ( $sensitivity =~ /med(ium)*/i );
+    $sensitivity = 10 if ( $sensitivity =~ /low/i );
+    if ( $sensitivity !~ /\s*[\d\.]+\s*/ ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"InvalidSensitivity", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Specified sensitivity '$sensitivity' is not valid");
+      return($response);
+    }
+  #### Else set the default sensitivity to 5 deviations
+  } else {
+    $sensitivity = 5;
+  }
+
   #### For each fileType, signature, and attribute, record if any deviations are outliers
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
     $outliers->{fileTypes}->{$fileType}->{nFiles} = 0;
@@ -795,7 +811,7 @@ sub getOutliers {
         #### Loop over all the deviations, looking for one labeled an outlier
         my $iDeviation = 0;
         foreach my $deviation ( @{$model->{deviations}} ) {
-          if ( defined($deviation->{deviationFlag}) && $deviation->{deviationFlag} eq 'outlier' ) {
+          if ( defined($deviation->{deviation}) && $deviation->{deviation} >= $sensitivity ) {
 
             #### Extract the datum and vaue for the outlier and condition a bit
             my $value = '(null)';
