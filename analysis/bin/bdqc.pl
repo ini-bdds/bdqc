@@ -52,6 +52,9 @@ Options:
                       modeling, or outlier reporting (e.g. "extrinsic.mtime;tracking.dataDirectory" to skip
                       collation, model, or outlier reporting of the file modification times and directory names.
   --showOutliers      Show all outliers in the QC KB
+  --sensitivity x     Set the sensitivity of the outlier detection. Can either be low, medium, high or a numerical
+                      value specifying the number of deviations from typical to flag as an outlier.
+                      low=10, medium=5 (default), and high=3 deviations
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
 
@@ -63,6 +66,7 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
+                   "sensitivity:s", 
   )) {
   print "$USAGE";
   exit 2;
@@ -139,7 +143,7 @@ sub main {
 
   #### Show the deviations found in the data
   if ( $result->{status} eq 'OK' && $OPTIONS{showOutliers} ) {
-    my $result = $qckb->getOutliers( skipAttributes=>$OPTIONS{skipAttributes}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    my $result = $qckb->getOutliers( skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
