@@ -205,7 +205,7 @@ sub getModelSelect {
   my $msel = "<select id=plotselect onchange=drawplot()>\n";                   
   my $has_opts;
   for my $m ( sort { $a cmp $b } ( keys( %{$models} ) ) ) {
-    next if $models->{$m}->{data}->[0]->{dataType} eq 'string';
+#    next if $models->{$m}->{data}->[0]->{dataType} eq 'string';
     $msel .= "<option id='$m'>$m</option>\n";
     $has_opts++;
   }
@@ -235,19 +235,37 @@ sub getPlotHTML {
   function drawplot () {
     var models = [];
     var hover = [];
+    var jitter = [];
+    var color = [];
   ~;
 
-  for my $m ( sort { lc($a) <=> lc($b) } ( keys( %{$args{models}} ) ) ) {
+  for my $m ( sort { lc($a) cmp lc($b) } ( keys( %{$args{models}} ) ) ) {
     my @data;
     my @flag;
+    my @jitter;
+    my @color;
+    my $sign = 1;
+
+    my $n = 'rgb(8,81,156)';
+    my $e = 'rgb(255,255,0)';
+    my $o = 'rgb(219,64,82)';
+
     for my $d ( @{$args{models}->{$m}->{data}} ) {
       push @data, $d->{value};  
-      push @flag, $d->{deviationFlag};  
+      push @flag, ( $d->{filename} ) ? "$d->{filename}: $d->{deviationFlag}" : $d->{deviationFlag};  
+      push @color, ( $d->{deviationFlag} eq 'normal' ) ? $n :
+                   ( $d->{deviationFlag} eq 'outlier' ) ? $o : $e;
+      push @jitter, $sign*rand(0.2)/10;
+      $sign = ( $sign == 1 ) ? -1 : 1;
     }
     my $dstr = join( ',', @data );
     $HTML .= "models['$m'] = [$dstr]\n"; 
     my $lblstr = join( "','", @flag );
     $HTML .= "hover['$m'] = ['$lblstr']\n"; 
+    my $colorstr = join( "','", @color );
+    $HTML .= "color['$m'] = ['$colorstr']\n"; 
+    my $jitterstr = join(',', @jitter );
+    $HTML .= "jitter['$m'] = [$jitterstr]\n"; 
 
   }
   $HTML .= qq~
@@ -257,26 +275,36 @@ sub getPlotHTML {
     var plotdata = [
     {
       y: models[model],
-      hoverinfo: 'all',
-      hoveron: 'points',
-      customdata: hover[model],
-//      y: [530887,485892,607403,604229,614625,106103,271216,545388,707144,666517,165958,569102,542880],
-//      y: [0.75, 5.25, 5.5, 6, 6.2, 6.6, 6.80, 7.0, 7.2, 7.5, 7.5, 7.75, 8.15, 8.15, 8.65, 8.93, 9.2, 9.5, 10, 10.25, 11.5, 12, 16, 20.90, 22.3, 23.25],
-
+      x: jitter[model],
+      text: hover[model],
+      hovermode: 'closest',
+      hoverinfo: 'y+text',
+      type: 'scatter',
+      mode: 'markers',
+      marker: { color: color[model] },
+      showlegend: false,
+      showticklabels: false,
+    },
+    {
+      y: models[model],
       type: 'box',
-      boxpoints: '$style{$args{params}->{style}}',
+      boxpoints: false,
+      showticklabels: false,
+      hoverinfo: 'none',
       name: model,
       marker: {
        color: 'rgb(8,81,156)',
-       outliercolor: 'rgba(219, 64, 82, 0.6)',
-       line: {
-         outliercolor: 'rgba(219, 64, 82, 1.0)',
-         outlierwidth: 2
-       }
-      }
+      },
+//       outliercolor: 'rgba(219, 64, 82, 0.6)',
+//       line: {
+//         outliercolor: 'rgba(219, 64, 82, 1.0)',
+//         outlierwidth: 2
+//       }
+//      }
     }
     ]
-    Plotly.newPlot('plot_div', plotdata);
+
+    Plotly.newPlot('plot_div', plotdata, { showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false } } );
   }
   </script>
   ~;

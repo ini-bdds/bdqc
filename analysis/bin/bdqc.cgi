@@ -16,6 +16,7 @@ use Getopt::Long;
 use FindBin;
 use Data::Dumper;
 use JSON;
+use File::Basename;
 
 use lib "$FindBin::Bin/../lib";
 use BDQC::KB;
@@ -35,7 +36,6 @@ sub main {
   my $params = $ui->parseParameters();
 
   my $rpath = $params->{kbRootPath} || $ENV{kbRootPath} || $ARGV[0];
-#  $rpath ||= "/net/dblocal/www/html/devDC/sbeams/cgi/bdqc/analysis/testdata/log";
   $rpath ||= "/net/db/projects/PeptideAtlas/MRMAtlas/analysis/2017/BDQC/testdata/log";
 
   unless ( -e "${rpath}.qckb.json" ) {
@@ -48,19 +48,26 @@ sub main {
   my $result = $kb->createKb();
   $result = $kb->loadKb( kbRootPath => $rpath, quiet => 1 );
 
-  open JSN, "${rpath}.qckb.json";
-  my $json_string;
-  { 
-    undef local $/;
-    $json_string = <JSN>;
-  }
-  close JSN;
+#  open JSN, "${rpath}.qckb.json";
+#  my $json_string;
+#  { 
+#    undef local $/;
+#    $json_string = <JSN>;
+#  }
+#  close JSN;
 
-  my $qckb = decode_json( $json_string );
+#  my $qckb = decode_json( $json_string );
+  my $qckb = $kb->{_qckb};
   my %models;
 
   # Loop over data structure.  File type
   for my $ft ( keys( %{$qckb->{fileTypes}} ) ) {
+
+    my @files;
+    # Under type read list of files
+    for my $tag ( @{$qckb->{fileTypes}->{$ft}->{fileTagList}} ) {
+      push @files, basename( $tag );
+    }
 
     # Then Signature
     for my $sig ( keys( %{$qckb->{fileTypes}->{$ft}->{signatures}} ) ) {
@@ -69,22 +76,28 @@ sub main {
       # Then individual 'Elements'
       for my $sigelem ( keys( %{$sig_obj} ) ) {
         my $has_outliers = 0;
+        my $has_deviation = 0;
         my @dev;
 
         next unless $sig_obj->{$sigelem}->{model}->{deviations};
 
+        my $fidx = 0;
         for my $dev ( @{$sig_obj->{$sigelem}->{model}->{deviations}} ) {
-          next unless $dev->{deviationFlag};
+          last unless defined ( $dev->{deviationFlag} );
+          $has_deviation++;
           if ( $dev->{deviationFlag} !~ /^normal$/i ) {
             $has_outliers++;
           }
+          $dev->{filename} = $files[$fidx];
           push @dev, $dev;
+          $fidx++;
         }
 
         my $mkey = $sig . '__' . $sigelem;
         $mkey =~ s/FileSignature::/FS/;
 
-        next unless $has_outliers;
+#        next unless $has_outliers;
+        next unless $has_deviation;
 
         $models{$mkey} = { hasout => $has_outliers,
                              data => \@dev };
