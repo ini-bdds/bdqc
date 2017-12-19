@@ -204,12 +204,24 @@ sub calcSignature {
   if ( $stats{fileType} eq 'text' ) {
     my $lineNumbers = $charHistogram->{10};
     $lineNumbers = ($charHistogram->{13}||0) if ( ($charHistogram->{13}||0) > $lineNumbers );
+    my $gtltSum = ($charHistogram->{60}||0) + ($charHistogram->{62}||0);
+    my $gtltDelta = ($charHistogram->{60}||0) - ($charHistogram->{62}||0);
+    my $quoteSum = ($charHistogram->{34}||0);
+    my $colonSum = ($charHistogram->{58}||0);
+    my $semicolonSum = ($charHistogram->{59}||0);
+    #print "quoteSum=$quoteSum, colonSum=$colonSum, semicolonSum=$semicolonSum\n";
+
     if ( ($charHistogram->{9}||0) > .9 * $lineNumbers ) {
       $stats{subFileType} = 'tsv';
-    } elsif ( ( ($charHistogram->{60}||0) + ($charHistogram->{62}||0) ) > $stats{meanAsciiValue} ) {
+    } elsif ( $gtltSum > $stats{meanAsciiValue} && abs( $gtltDelta ) / $gtltSum < 0.05) {
+      #print "Sum=$gtltSum, delta=$gtltDelta\n";
       $stats{subFileType} = 'xml';
     } elsif ( ( ($charHistogram->{34}||0) + ($charHistogram->{58}||0) ) > $stats{meanAsciiValue} ) {
-      $stats{subFileType} = 'json';
+      if ( $semicolonSum > $colonSum ) {
+        $stats{subFileType} = 'code';
+      } else {
+        $stats{subFileType} = 'json';
+      }
     } elsif ( ($charHistogram->{44}||0) > .9 * $lineNumbers ) {
       $stats{subFileType} = 'csv';
     } else {
