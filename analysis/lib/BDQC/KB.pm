@@ -352,8 +352,9 @@ sub calcSignatures {
 #    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
 #    "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
 #    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
-#    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
-#    "mzML" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
+    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
+    "mzML" => { specificTypeName=>'mzML', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
+    "mzXML" => { specificTypeName=>'mzXML', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "bmp" => { specificTypeName=>'bmp', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
     "gif" => { specificTypeName=>'gif', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
     "png" => { specificTypeName=>'png', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
@@ -370,9 +371,12 @@ sub calcSignatures {
     print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
     $knownExtensions{xml}->{signatureList} = [ "FileSignature::Text" ];
     $knownExtensions{mzML}->{signatureList} = [ "FileSignature::Text" ];
+    $knownExtensions{mzXML}->{signatureList} = [ "FileSignature::Text" ];
   }
 
   my $nFiles = 0;
+  my $totalFiles = scalar(keys(%{$qckb->{files}}));
+  my $t0 = [gettimeofday];
 
   foreach my $fileTag ( keys(%{$qckb->{files}}) ) {
     $nFiles++;
@@ -400,10 +404,13 @@ sub calcSignatures {
     if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
       @signatureList = ( 'FileSignature::Binary' );
     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
-      @signatureList = ( 'FileSignature::XML' );
+      #@signatureList = ( 'FileSignature::XML' );  # Too fragile. FIXME
+      @signatureList = ( 'FileSignature::Text' );
     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'tsv' ) {
       @signatureList = ( 'FileSignature::Tabular' );
     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'json' ) {
+      @signatureList = ( 'FileSignature::Text' );
+    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'code' ) {
       @signatureList = ( 'FileSignature::Text' );
     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'plain' ) {
       @signatureList = ( 'FileSignature::Text' );
@@ -464,7 +471,20 @@ sub calcSignatures {
       }
     }
 
+    #### Print some progress information
+    unless ( $quiet ) {
+      my $percentDone = int(( $nFiles/$totalFiles ) * 100);
+      my $t1 = [gettimeofday];
+      my $elapsed = tv_interval($t0,$t1);
+      if ( $elapsed > 2 ) {
+        print "$percentDone%..";
+        $t0 = $t1;
+      }
+    }
+
   }
+
+  print "\n" unless ( $quiet );
 
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Calculated signatures for $nFiles files", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
