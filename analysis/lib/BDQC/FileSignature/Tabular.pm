@@ -139,28 +139,210 @@ sub calcSignature {
 
   $isImplemented++;
 
-  my %tsv_info = ( tcnt => {} );
-  my $lines;
-  my $totalTabs;
-  open TSV, $filePath;
-  while ( my $line = <TSV> ) {
-    chomp $line;
-    chomp $line;
-    my @line = split( "\t", $line, -1 );
-    my $tcnt = scalar( @line );
-    $lines++;
-    $totalTabs += $tcnt;
-    $tsv_info{tabCnt}->{$tcnt}++;
-    my $ncnt = 0;
-    for my $c ( @line ) {
-      $ncnt++ if !defined $c || $c eq '';
-    }
-    $tsv_info{nullCnt}++;
-  }
-  $tsv_info{disparateTabs} = ( scalar( keys( %{$tsv_info{tabCnt}} ) ) > 1 ) ? 1 : 0;
-  $tsv_info{averageNumTabs} = ( $lines ) ? sprintf( "%0.1f", $totalTabs/$lines) : 0;
+  #### Set up an empty signature}
+  my $signature = { nRows=>0, commentCharacter=>'', nCommentLines=>0, hasColumnNames=>0, nColumns=>0, blankLines=>0 };
 
-  $response->{signature} = \%tsv_info;
+  unless ( open(INFILE,$filePath) ) {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+      message=>"Unable to open file '$filePath'");
+    return $response;
+  }
+
+  my $iLine=0;
+  my %columnCounts;
+  my @columnCounts;
+  my $separator = "\t";
+  my @lines;
+  my @nNumerals;
+  my $columnHeaderRow = -1;
+
+  #### Loop through file, trying to interpret it as delimited data
+  while ( my $line = <INFILE> ) {
+    $line =~ s/[\r\n]//g;
+    push(@lines,$line);
+
+    #### If this is an empty line, just record it as such and move on
+    if ( $line eq '' || $line =~ /^\s+$/ ) {
+      $signature->{blankLines}++;
+      push(@nNumerals,0);
+      push(@columnCounts,0);
+      $columnCounts{0}++;
+      $iLine++;
+      next;
+    }
+
+    #### Split the line
+    my @columns = split( /$separator/, $line, -1 );
+    my $nColumns = scalar(@columns);
+    push(@columnCounts,$nColumns);
+    $columnCounts{$nColumns}++;
+
+    #### Count the number of columns that are numerals
+    $nNumerals[$iLine] = 0;
+    foreach my $value ( @columns ) {
+      $nNumerals[$iLine]++ if ( $value =~ /^\s*[\d\.\+\-eE]+\s*$/ );
+    }
+
+    $iLine++;
+    last if ( $iLine >= 50 );
+  }
+
+  #### Diagnostic
+  #for ( my $i=0; $i<10; $i++ ) {
+  #  print "    $columnCounts[$i]\t$nNumerals[$i]\n";
+  #}
+
+  #### Determine what the most common number of columns is here at the beginning of the file
+  my @mostCommonNColumns;
+  foreach my $nColumns ( keys(%columnCounts) ) {
+    push(@mostCommonNColumns,[$nColumns,$columnCounts{$nColumns}]);
+    #print "INFO: columnCounts: $nColumns,$columnCounts{$nColumns}\n";
+  }
+  my @sortedMostCommonNColumns = reverse sort numericallyBySecondValue @mostCommonNColumns;
+  my $mostCommonNColumns = $sortedMostCommonNColumns[0]->[0];
+  #print "INFO: The most common number of columns is $mostCommonNColumns\n";
+
+  #### Find the first data row as the first one with at least the most common number of columns
+  my $firstDataRow = 0;
+  foreach my $columnCount ( @columnCounts ) {
+    last if ( $columnCount >= $mostCommonNColumns );
+    $firstDataRow++;
+  }
+
+  #### If the first row has fewer numerals than the next data row, assume it is a header line. Crude. FIXME
+  $signature->{nCommentLines} = $firstDataRow-1;
+  if ( $nNumerals[$firstDataRow] < $nNumerals[$firstDataRow+1] ) {
+    $columnHeaderRow = $firstDataRow;
+    $firstDataRow++;
+    $signature->{hasColumnNames} = 1;
+    $signature->{nCommentLines} = $columnHeaderRow-1;
+  }
+
+  #print "INFO: firstDataRow=$firstDataRow, columnHeaderRow=$columnHeaderRow\n";
+  $signature->{nCommentLines} = 1;
+  $signature->{nColumns} = $mostCommonNColumns;
+
+  my $lastNonCommentLine = -1;
+  if ( $columnHeaderRow > 0 ) {
+    $lastNonCommentLine = $columnHeaderRow-1;
+  } elsif ( $firstDataRow > 0 ) {
+    $lastNonCommentLine = $firstDataRow-1;
+  }
+
+  #print "lastNonCommentLine=$lastNonCommentLine\n";
+  if ( $lastNonCommentLine >= 0 ) {
+    for ( my $i=0; $i<=$lastNonCommentLine; $i++ ) {
+      my $line = $lines[$i];
+      $line =~ s/^\s+//;
+      $signature->{commentCharacter} = substr($line,0,1);
+    }
+  }
+
+  #### Now that we've figured all this out, return to the beginning of the file and parse the data
+  seek(INFILE,0,0);
+  $signature->{blankLines} = 0;
+  $signature->{separator} = $separator;
+  $iLine = 0;
+  my $columnData;
+  my $maxDiscreteValues = 50;
+  my $columnNumericalArrays;
+
+  #### Loop through file, collecting data on each column and row
+  while ( my $line = <INFILE> ) {
+    $line =~ s/[\r\n]//g;
+
+    #### If this is an empty line, just record it as such and move on
+    if ( $line eq '' || $line =~ /^\s+$/ ) {
+      $signature->{blankLines}++;
+      $iLine++;
+      next;
+    }
+
+    #### Split the line
+    my @columns = split( /$separator/, $line, -1 );
+    my $nColumns = scalar(@columns);
+
+    #### If the row is the column name row, then store that
+    if ( $iLine == $columnHeaderRow ) {
+      my $iColumn = 0;
+      foreach my $value ( @columns ) {
+        $signature->{"columns.$iColumn.columnName"} = $value;
+        $iColumn++;
+      }
+    }
+
+    #### If this is a data row, process it
+    if ( $iLine >= $firstDataRow ) {
+      $signature->{nRows}++;
+      $signature->{columnsPerRow}->{$nColumns}++;
+      my $iColumn = 0;
+      foreach my $value ( @columns ) {
+        if ( exists($signature->{"columns.$iColumn.discreteValues"}->{$value}) ) {
+          $signature->{"columns.$iColumn.discreteValues"}->{$value}++;
+        } else {
+          unless ( $signature->{"columns.$iColumn.nDiscreteValues"} ) {
+            $signature->{"columns.$iColumn.nDiscreteValues"} = 0;
+            $signature->{"columns.$iColumn.discreteValueCountExceedsLimit"} = 0;
+          }
+          if ( $signature->{"columns.$iColumn.nDiscreteValues"} >= $maxDiscreteValues ) {
+            $signature->{"columns.$iColumn.discreteValueCountExceedsLimit"} = 1;
+          } else {
+            $signature->{"columns.$iColumn.discreteValues"}->{$value}++;
+            $signature->{"columns.$iColumn.nDiscreteValues"}++;
+          }
+        }
+
+        #### Interpret the value to a data type
+        my $datum = $value;
+        my $dataType = '?';
+        if ( ! defined($datum) ) { $dataType = 'undefined'; }
+        elsif ( $datum =~ /^\s*NaN\s*$/ ) { $dataType = 'undefined'; }
+        elsif ( $datum =~ /^\s*\-*Inf\s*$/ ) { $dataType = 'undefined'; }
+        elsif ( $datum =~ /^\s*null\s*$/i ) { $dataType = 'undefined'; }
+        elsif ( $datum =~ /^\s*undef\s*$/ ) { $dataType = 'undefined'; }
+        elsif ( $datum =~ /^\s*None\s*$/ ) { $dataType = 'undefined'; }
+        elsif ( $datum =~ /^\s*$/ ) { $dataType = 'empty'; }
+        elsif ( $datum =~ /^\s*[\+\-]*\d+\s*$/ ) { $dataType = 'integer'; }
+        elsif ( $datum =~ /^\s*[\+\-]*\d+\.[\d]*\s*$/ ) { $dataType = 'float'; }
+        elsif ( $datum =~ /^\s*[\+\-]*\.[\d]+\s*$/ ) { $dataType = 'float'; }
+        elsif ( $datum =~ /^\s*[\+\-]*\d+\.[\d]*[ed][\+\-]*\d+\s*$/ ) { $dataType = 'float'; }
+        elsif ( $datum =~ /^\s*[\+\-]*\.[\d]+[ed][\+\-]*\d+\s*$/ ) { $dataType = 'float'; }
+        elsif ( $datum =~ /^\s*true\s*$/i || $datum =~ /^\s*false\s*$/i || $datum =~ /^\s*t\s*$/i || $datum =~ /^\s*f\s*$/i ) { $dataType = 'boolean'; }
+        else { $dataType = 'string'; }
+        $signature->{"columns.$iColumn.dataType"}->{$dataType}++;
+
+        #### If this is a number, keep it in an array for mean and median calculation
+        if ( $dataType eq 'integer' || $dataType eq 'float' ) {
+          $columnNumericalArrays->[$iColumn]->{array} = [] unless ($columnNumericalArrays->[$iColumn]->{array});
+          push(@{$columnNumericalArrays->[$iColumn]->{array}},$datum);
+          $columnNumericalArrays->[$iColumn]->{nNonNullElements}++;
+        }
+
+        #### Increment and continue
+        $iColumn++;
+      }
+    }
+
+    $iLine++;
+  }
+
+
+  #### For each column, calculate a median and SIQR
+  my $iColumn = 0;
+  foreach my $column ( @{$columnNumericalArrays} ) {
+    if ( $column ) {
+      my @sortedNumbers = sort numerically @{$column->{array}};
+      my $nElements = $column->{nNonNullElements};
+      $signature->{"columns.$iColumn.median"} = $sortedNumbers[$nElements/2];
+      $signature->{"columns.$iColumn.siqr"} = ( $sortedNumbers[$nElements*3/4] - $sortedNumbers[$nElements*1/4] ) / 2;
+    }
+    $iColumn++;
+  }
+
+  $signature->{columns} = $columnData;
+  $response->{signature} = $signature;
+
+
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -193,6 +375,23 @@ sub show {
 
   print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
   return $buffer;
+}
+
+sub numerically {
+###############################################################################
+# numerically
+# sorting routine to sort numbers as numbers instead of strings
+###############################################################################
+  return $a <=> $b;
+}
+
+
+sub numericallyBySecondValue {
+###############################################################################
+# numericallyBySecondValue
+# sorting routine to sort numbers in the value part of a has turned into an array
+###############################################################################
+  return $a->[1] <=> $b->[1];
 }
 
 
