@@ -203,6 +203,10 @@ sub create {
     $stats->{mean} = $stats->{sum} / $stats->{nonNullElements};
   }
 
+  #### Record some additional stats
+  $stats->{nElements} = $nElements;
+  $stats->{nDistinctValues} = scalar(keys(%observedValues));
+
   #### Try to decide the most likely dataType based on simple heuristics, allowing for missing values
   my $dataType = 'unknown';
   if ( $typeCounts{undefined} + $typeCounts{empty} + $typeCounts{integer} == $nElements ) {
@@ -243,8 +247,12 @@ sub create {
     #### If this is a numerical vector, then calculate median and siqr
     if ( $dataType eq 'integer' or $dataType eq 'float' ) {
       my @sortedVector = sort numerically @cleanedVector;
+      my $nElements = scalar(@sortedVector);
       $stats->{median} = $sortedVector[$nElements/2];
-      $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
+      $stats->{siqr} = 0;
+      if ( defined($sortedVector[$nElements/4*3]) && defined($sortedVector[$nElements/4]) ) {
+        $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
+      }
       #print "Input: ".join(",",@sortedVector)."\n";
       my @sortedVectorSomeOutliersRemoved = removeSomeOutliers(@sortedVector);
       #print "Output: ".join(",",@sortedVectorSomeOutliersRemoved)."\n";
@@ -267,33 +275,43 @@ sub create {
       my @numericalVector;
       my $iValue = 0;
       foreach my $datum ( @{$vector} ) {
-        my $asciiAverage = 0;
-        for (my $i=0; $i<length($datum); $i++) {
-          $asciiAverage += ord(substr($datum,$i,1));
+        my $asciiAverage;
+        my $stringValue;
+        if ( defined($datum) ) {
+          for (my $i=0; $i<length($datum); $i++) {
+            $asciiAverage += ord(substr($datum,$i,1));
+          }
+          my $datumLength = length($datum) || 1;
+          $asciiAverage /= $datumLength;
+          $stringValue = length($datum)+$asciiAverage;
         }
-        my $datumLength = length($datum) || 1;
-        $asciiAverage /= $datumLength;
-        my $stringValue = length($datum)+$asciiAverage;
+
         push(@numericalVector,$stringValue);
         $deviations[$iValue]->{stringValue} = $stringValue;
 
         #### Keep some stats to calculate a mean and standard deviation
         my $datum = $stringValue;
-        $stats->{sum} += $datum;
-        $stats->{nonNullElements}++;
-        if ( ! defined($stats->{minimum}) ) {
-          $stats->{minimum} = $datum;
-          $stats->{maximum} = $datum;
-        } else {
-          $stats->{minimum} = $datum if ( $datum < $stats->{minimum} );
-          $stats->{maximum} = $datum if ( $datum > $stats->{maximum} );
+        if ( defined($datum) ) {
+          $stats->{sum} += $datum;
+          $stats->{nonNullElements}++;
+          if ( ! defined($stats->{minimum}) ) {
+            $stats->{minimum} = $datum;
+            $stats->{maximum} = $datum;
+          } else {
+            $stats->{minimum} = $datum if ( $datum < $stats->{minimum} );
+            $stats->{maximum} = $datum if ( $datum > $stats->{maximum} );
+          }
         }
 
         $iValue++;
       }
       my @sortedVector = sort numerically @numericalVector;
+      my $nElements = scalar(@sortedVector);
       $stats->{median} = $sortedVector[$nElements/2];
-      $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
+      $stats->{siqr} = 0;
+      if ( defined($sortedVector[$nElements/4*3]) && defined($sortedVector[$nElements/4]) ) {
+        $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
+      }
 
       #### Calculate the mean
       if ( $stats->{nonNullElements} ) {
@@ -314,7 +332,7 @@ sub create {
 
       #### If the value is not null, then add to the variance
       if ( defined($value) && defined($stats->{mean}) ) {
-        $stats->{variance} += ( ($value - $stats->{mean})**2 );
+        $stats->{variance} += ( ( ($value||0) - ($stats->{mean}||0) )**2 );
       }
 
       #### If the value is undefined, can't really calculate a deviation. Set to 999
@@ -323,12 +341,12 @@ sub create {
 
         #### Now try calculating the deviation based on a mean and stdev after some crude extreme value removal if available
         if ( defined($stats->{adjustedMean}) && $stats->{adjustedStdev} ) {
-          $deviation = abs($stats->{adjustedMean}-$value)/$stats->{adjustedStdev};
+          $deviation = abs( ($stats->{adjustedMean}||0) - ($value||0) )/$stats->{adjustedStdev};
 
         #### Else fall back to the original crude mechanism
-        } else {
+        } elsif ( defined($stats->{median}) && $siqr ) {
           #### First attempt based simply on the median and the SIQR. Crude.
-          $deviation = abs($stats->{median}-$value)/$siqr;
+          $deviation = abs( ($stats->{median}||0) - ($value||0) )/$siqr;
         }
       }
 
@@ -359,7 +377,7 @@ sub create {
     }    
 
     #### Calculate the stdev
-    if ( defined($stats->{variance}) && defined($stats->{nonNullElements}) ) {
+    if ( defined($stats->{variance}) && $stats->{nonNullElements} ) {
       $stats->{stdev} = sqrt( $stats->{variance}/$stats->{nonNullElements} );
     }
 
