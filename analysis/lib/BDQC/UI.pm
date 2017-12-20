@@ -172,6 +172,8 @@ sub parseParameters {
   my $self = shift;
   my %params;
   if ( $ENV{QUERY_STRING} ) {
+    $params{cgimode} = 1;
+    $params{writeHTML} = 1;
     my @params = split( /[&;]/, $ENV{QUERY_STRING} );
     for my $param ( @params ) {
       my ( $k, $v ) = split( /=/, $param );

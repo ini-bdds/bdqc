@@ -30,7 +30,7 @@ use BDQC::FileSignature::XML;
 use BDQC::FileSignature::Tabular;
 
 use Time::HiRes qw(gettimeofday tv_interval);
-
+use File::Basename;
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -1689,5 +1689,62 @@ sub splitFilePath {
   return $components;
 }
 
+sub parseModels {
+  my $self = shift || die ("Must be called as an object method");
+  my %opts = @_;
+  die unless $opts{kb};
+
+  my $qckb = $opts{kb}->{_qckb};
+  my %models;
+
+  # Loop over data structure.  File type
+  for my $ft ( keys( %{$qckb->{fileTypes}} ) ) {
+
+    my @files;
+    # Under type read list of files
+    for my $tag ( @{$qckb->{fileTypes}->{$ft}->{fileTagList}} ) {
+      push @files, basename( $tag );
+    }
+
+    # Then Signature
+    for my $sig ( keys( %{$qckb->{fileTypes}->{$ft}->{signatures}} ) ) {
+      my $sig_obj = $qckb->{fileTypes}->{$ft}->{signatures}->{$sig};
+
+      # Then individual 'Elements'
+      for my $sigelem ( keys( %{$sig_obj} ) ) {
+        my $has_outliers = 0;
+        my $has_deviation = 0;
+        my @dev;
+
+        next unless $sig_obj->{$sigelem}->{model}->{deviations};
+
+        my $fidx = 0;
+        for my $dev ( @{$sig_obj->{$sigelem}->{model}->{deviations}} ) {
+          last unless defined ( $dev->{deviationFlag} );
+          $has_deviation++;
+          if ( $dev->{deviationFlag} !~ /^normal$/i ) {
+            $has_outliers++;
+          }
+          $dev->{filename} = $files[$fidx];
+          push @dev, $dev;
+          $fidx++;
+        }
+
+        my $mkey = $sig . '__' . $sigelem;
+        $mkey =~ s/FileSignature::/FS/;
+
+#        next unless $has_outliers;
+        next unless $has_deviation;
+
+        $models{$mkey} = { hasout => $has_outliers,
+                             data => \@dev };
+      }
+    }
+  }
+  return \%models;
+}
+
+
 ###############################################################################
 1;
+

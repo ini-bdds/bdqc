@@ -21,6 +21,8 @@ use FindBin;
 use lib "$FindBin::Bin/../lib";
 
 use BDQC::KB;
+use BDQC::UI;
+my $ui = new BDQC::UI;
 
 #### Set program name and usage banner
 my $PROG_NAME = $FindBin::Script;
@@ -55,6 +57,7 @@ Options:
   --sensitivity x     Set the sensitivity of the outlier detection. Can either be low, medium, high or a numerical
                       value specifying the number of deviations from typical to flag as an outlier.
                       low=10, medium=5 (default), and high=3 deviations
+  --writeHTML         Write results as HTML page. Automatically invoked if called as a cgi (ENV{query_string} set).
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
 
@@ -66,11 +69,17 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
-                   "sensitivity:s", 
+                   "sensitivity:s",'writeHTML' 
   )) {
   print "$USAGE";
   exit 2;
 }
+
+my $cgiopts = $ui->parseParameters();
+for my $copt ( keys( %{$cgiopts} )  ) {
+  $OPTIONS{$copt} = $cgiopts->{$copt};
+}
+
 
 #### Print usage on --help
 if ( $OPTIONS{help} ) {
@@ -147,13 +156,20 @@ sub main {
     $response->mergeResponse( sourceResponse=>$result );
   }
 
+  #### Write out signature/model information as HTML. Assumes that these have
+  #### already been calculated. 
+  if ( $OPTIONS{writeHTML} ) {
+    writeHTML( $qckb );
+    exit;
+  } 
+
   #### If a KC QC file parameter was provided, write out the KB
   if ( $result->{status} eq 'OK' && $OPTIONS{kbRootPath} ) {
     my $result = $qckb->saveKb( kbRootPath=>$OPTIONS{kbRootPath}, verbose => $verbose, quiet=>$quiet, debug=>$debug, testonly=>$testonly );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
-  #### If we're in an error state, show the results and exit abnormally
+  #### If we are in an error state, show the results and exit abnormally
   if ( $response->{status} ne 'OK' ) {
     print "==============================\n";
     print "bdqc.pl terminated with errors:\n";
@@ -164,3 +180,17 @@ sub main {
   return;
 }
 
+sub writeHTML {
+  my $kb = shift || die;
+  print $ui->getHeader() if $OPTIONS{cgimode};
+  print $ui->startPage();
+
+  my $models = $kb->parseModels( kb => $kb );
+  my $msel = $ui->getModelSelect();
+  my $plotHTML = $ui->getPlotHTML( models => $models,
+                                     msel => $msel,
+                                   params => \%OPTIONS );
+  print $plotHTML;
+  print $ui->endPage();
+  return 'OK';
+}
