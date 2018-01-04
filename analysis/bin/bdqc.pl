@@ -1,9 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 ###############################################################################
-# Program        bdqc.pl
+# Program       bdqc.pl
 # Author        Eric Deutsch <edeutsch@systemsbiology.org>
-# Date            2017-11-06
+# Date          2017-11-06
 #
 # Description : This program is a simple interface to the BDQC software
 #
