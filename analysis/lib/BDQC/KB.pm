@@ -339,8 +339,6 @@ sub calcSignatures {
 
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
-
-
   $isImplemented = 1;
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
     message=>"Calculating signatures for all new files");
@@ -1380,13 +1378,7 @@ sub scanDataPath {
     $self->setDataDirectory($dataDirectory);
   }
 
-  if ( ! defined($dataDirectory) ) {
-    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'AttributedataDirectoryNotDefined', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-       message=>"Attribute 'dataDirectory' must be defined");
-    print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $debug );
-    return $response;
-  }
-
+  my $inputFiles = processParameters( name=>'inputFiles', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
   foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
@@ -1404,31 +1396,75 @@ sub scanDataPath {
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
 
+  #### Make sure either dataDirectory or inputFiles is specified
+  if ( $dataDirectory && $inputFiles ) {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'CantHaveBothDataDirectoryAndInputFiles', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+      message=>"Cannot specify both dataDirectory '$dataDirectory' and inputFiles '$inputFiles' in same invocation. Run first one then the other if both are needed.");
+    return $response;
+  }
+  if ( ! $dataDirectory && ! $inputFiles ) {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'MustHaveEitherDataDirectoryOrInputFiles', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+      message=>"Must specify either dataDirectory or inputFiles");
+    return $response;
+  }
+
   #### If the dataDirectory was a Windows path, fix it
-  if ( $dataDirectory =~ /\\/ ) {
+  if ( $dataDirectory && $dataDirectory =~ /\\/ ) {
     $dataDirectory =~ s/\\/\//g;
     $self->setDataDirectory($dataDirectory);
   }
+  if ( $inputFiles && $inputFiles =~ /\\/ ) {
+    $inputFiles =~ s/\\/\//g;
+  }
+
 
   my %stats = ( totalFiles=>0, newFiles=>0, totalSize=>0 );
 
-  #### Verify that the specified directory exists and is a directory
-  if ( ! -e $dataDirectory ) {
-    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'DataDirecoryNotFound', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Data directory '$dataDirectory' is not found");
-    return $response;
-  } elsif ( ! -d $dataDirectory ) {
-    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'SpecifiedDataDirecoryNotADirectory', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Data directory '$dataDirectory' is  found but is not a directory");
-    return $response;
-  }
-
-  #### See if this dataDirectory has already been scanned
+  #### Set up a directoryId
   my $dataDirectoryId = '';
   my $nPreviousDirectories = scalar(@{$qckb->{dataDirectories}});
-  foreach my $previousDirectories ( @{$qckb->{dataDirectories}} ) {
-    if ( $previousDirectories->{path} eq $dataDirectory ) {
-      $dataDirectoryId = $previousDirectories->{id};
+
+
+  #### Verify that the specified directory exists and is a directory
+  if ( $dataDirectory ) {
+    if ( ! -e $dataDirectory ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'DataDirecoryNotFound', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Data directory '$dataDirectory' is not found");
+      return $response;
+    } elsif ( ! -d $dataDirectory ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'SpecifiedDataDirecoryNotADirectory', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Data directory '$dataDirectory' is  found but is not a directory");
+      return $response;
+    }
+
+    #### See if this dataDirectory has already been scanned
+    foreach my $previousDirectories ( @{$qckb->{dataDirectories}} ) {
+      if ( $previousDirectories->{path} eq $dataDirectory ) {
+        $dataDirectoryId = $previousDirectories->{id};
+      }
+    }
+
+  }
+
+  #### Put this directory on the stack and work on it
+  my @directoriesToProcess;
+  if ( $dataDirectory ) {
+    @directoriesToProcess = ( $dataDirectory );
+  }
+
+  #### If the input is inputFiles, then load that
+  if ( $inputFiles ) {
+    if ( -f $inputFiles ) {
+      open(INFILE,$inputFiles);
+      while ( my $line = <INFILE> ) {
+        $line =~ s/[\n\r]+$//;
+        next unless ( $line );
+        push(@directoriesToProcess,$line);
+        #print "  - Adding $line\n";
+      }
+    } else {
+      @directoriesToProcess = glob($inputFiles);
+      #print "Glob of 'inputFiles' resolved to:\n  - ".join("\n  - ",@directoriesToProcess)."\n";
     }
   }
 
@@ -1439,73 +1475,124 @@ sub scanDataPath {
     push(@{$qckb->{dataDirectories}}, { id=>$dataDirectoryId, path=>$dataDirectory });
   }
 
-  #### Put this directory on the stack and recursively catalog all files}
-  my @directoriesToProcess = ( $dataDirectory );
+
+  #### Loop over the directories and files to work on
   my $done = 0;
+  my @additionalDirectories;
   while ( ! $done ) {
+
+    #### Get the next thing to do or finish
     my $directory = shift(@directoriesToProcess);
+    my $additionalDirectoriesFlag = 0;
+    unless ( $directory ) {
+      $directory = shift(@additionalDirectories);
+      $additionalDirectoriesFlag = 1;
+      #print "Processing additional directory '$directory'\n" if ( $directory );
+    }
     last unless ( $directory );
-    opendir(DIR,$directory) || die("ERROR: Unable to open directory '$directory'");
-    my @entries = grep(!/^\.{1,2}$/, readdir(DIR));
-    closedir(DIR);
-    @entries = sort(@entries);
-    foreach my $entry ( @entries ) {
-      if ( -f "$directory/$entry" ) {
-        my $fileTag = "$dataDirectoryId:$directory/$entry";
-        my $filePath = "$directory/$entry";
-        $stats{totalFiles}++;
 
-        #### Parse the filename into pieces
-        my @parts = split(/\./,$entry);
-        my $nParts = scalar(@parts);
-        my $basename = '';
-        my $extension = '';
-        my $uncompressedExtension = '';
-        my $isCompressed = 0;
-        if ( $nParts == 1) {
-          $basename = $entry;
-        } else {
-          $extension = $parts[$nParts-1];
-          my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
-          if ( $compressedExtensions{$extension} ) {
-            $isCompressed = 1;
-            if ( $nParts == 2 ) {
-              $basename = $parts[0];
-            } else {
-              $uncompressedExtension = $parts[$nParts-2];
-              $basename = join(".",@parts[0..$nParts-3]);
-            }
-          } else {
-            $uncompressedExtension = $extension;
-            $basename = join(".",@parts[0..$nParts-2]);
-          }
-        }
+    my @entries;
+    if ( -d $directory ) {
+      #### If this was found with a glob and is not an additional directory, defer it to later
+      if ( $inputFiles && ! $additionalDirectoriesFlag ) {
+        push(@additionalDirectories,$directory);
+	next;
 
-        my $tracking = { fileTag=>$fileTag, filePath=>$filePath, filename=>$entry, dataDirectory=>$dataDirectory, dataDirectoryId=>$dataDirectoryId };
-        my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($filePath);
-        $size = 0 if ( ! defined($size) );
-        $mtime = 0 if ( ! defined($mtime) );
-        $mode = 0 if ( ! defined($mode) );
-        $stats{totalSize} += $size;
-
-        if ( exists($qckb->{files}->{$fileTag}) ) {
-          $tracking->{isNew} = 0;
-          $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isNew} = 0;
-          if ( $mtime ne $qckb->{files}->{$fileTag}->{signatures}->{extrinsic}->{mtime} ) {
-            $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isChanged} = 1;
-          }
-        } else {
-          $tracking->{isNew} = 1;
-          $stats{newFiles}++;
-          $qckb->{files}->{$fileTag} ->{signatures}->{tracking} = $tracking;
-          my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename };
-          $qckb->{files}->{$fileTag}->{signatures}->{extrinsic} = $extrinsic;
-        }
-      } elsif ( -d "$directory/$entry" ) {
-        push(@directoriesToProcess,"$directory/$entry");
+      #### Otherwise read the directory and process the contents
       } else {
-        print "Do not know what to do with $directory/$entry\n";
+        opendir(DIR,$directory) || die("ERROR: Unable to open directory '$directory'");
+        @entries = grep(!/^\.{1,2}$/, readdir(DIR));
+        closedir(DIR);
+        @entries = sort(@entries);
       }
+
+    #### Or if the directory is actually a file, then just process it
+    } elsif ( -f $directory ) {
+      push(@entries,$directory);
+      #$directory = '';
+    }
+
+    #### Loop over all the entries from the directory
+    foreach my $entry ( @entries ) {
+      my $fileTag = "";
+      my $filePath = "";
+
+      #### If we're in the dataDirectory mode, process files but push more directories
+      if ( $dataDirectory || $additionalDirectoriesFlag ) {
+        if ( -f "$directory/$entry" ) {
+          $fileTag = "$dataDirectoryId:$directory/$entry";
+          $filePath = "$directory/$entry";
+        } elsif ( -d "$directory/$entry" ) {
+          push(@additionalDirectories,"$directory/$entry");
+	  next;
+        } else {
+          print "Do not know what to do with $directory/$entry\n";
+	  next;
+        }
+      
+      #### Otherwise if we're in inputFiles mode, process files and push directories
+      } elsif ( $inputFiles && ! $additionalDirectoriesFlag ) {
+        if ( -f $entry ) {
+          $fileTag = "$dataDirectoryId:$entry";
+          $filePath = "$entry";
+        } elsif ( -d "$directory/$entry" ) {
+          push(@additionalDirectories,"$directory/$entry");
+	  next;
+        } else {
+          print "Do not know what to do with $entry\n";
+	  next;
+        }
+      }
+
+      $stats{totalFiles}++;
+
+      #### Parse the filename into pieces
+      my @parts = split(/\./,$entry);
+      my $nParts = scalar(@parts);
+      my $basename = '';
+      my $extension = '';
+      my $uncompressedExtension = '';
+      my $isCompressed = 0;
+      if ( $nParts == 1) {
+        $basename = $entry;
+      } else {
+        $extension = $parts[$nParts-1];
+        my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
+        if ( $compressedExtensions{$extension} ) {
+          $isCompressed = 1;
+          if ( $nParts == 2 ) {
+            $basename = $parts[0];
+          } else {
+            $uncompressedExtension = $parts[$nParts-2];
+            $basename = join(".",@parts[0..$nParts-3]);
+          }
+        } else {
+          $uncompressedExtension = $extension;
+          $basename = join(".",@parts[0..$nParts-2]);
+        }
+      }
+
+      my $tracking = { fileTag=>$fileTag, filePath=>$filePath, filename=>$entry, dataDirectory=>$dataDirectory, dataDirectoryId=>$dataDirectoryId };
+      my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($filePath);
+      $size = 0 if ( ! defined($size) );
+      $mtime = 0 if ( ! defined($mtime) );
+      $mode = 0 if ( ! defined($mode) );
+      $stats{totalSize} += $size;
+
+      if ( exists($qckb->{files}->{$fileTag}) ) {
+        $tracking->{isNew} = 0;
+        $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isNew} = 0;
+        if ( $mtime ne $qckb->{files}->{$fileTag}->{signatures}->{extrinsic}->{mtime} ) {
+          $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isChanged} = 1;
+        }
+      } else {
+        $tracking->{isNew} = 1;
+        $stats{newFiles}++;
+        $qckb->{files}->{$fileTag} ->{signatures}->{tracking} = $tracking;
+        my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename };
+        $qckb->{files}->{$fileTag}->{signatures}->{extrinsic} = $extrinsic;
+      }
+
     }
   }
 
@@ -1513,10 +1600,17 @@ sub scanDataPath {
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"$stats{totalFiles} files ($stats{totalSize} bytes) scanned. $stats{newFiles} files are new to this scan.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### Create an entry in the updates log about what this did
+  my $comment;
+  if ( $dataDirectory ) {
+    $comment = "Scanned data directory '$dataDirectory' and added $stats{newFiles} new files";
+  } else {
+    $comment = "Scanned files contained in '$inputFiles' and added $stats{newFiles} new files";
+  }
+
   my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
   my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
     operation => $METHOD,
-    comment => "Scanned data directory '$dataDirectory' and added $stats{newFiles} new files"
+    comment => $comment
   };
   push(@{$qckb->{updates}},$updateEntry);
 
@@ -1640,55 +1734,6 @@ sub flattenAttributes {
   
   return $result;
 }
-sub splitFilePath {
-###############################################################################
-# splitFilePath
-###############################################################################
-  my $METHOD = 'splitFilePath';
-  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
-  my $self = shift || die ("self not passed");
-  my $filePath = shift;
-
-  my %components;
-
-  #### Parse off the directory
-  my @pathParts = split(/\//,$filePath);
-  my $directory = join("\/",@pathParts[0..($#pathParts-1)]);
-  my $entry = $pathParts[$#pathParts];
-
-  #### Parse the filename into pieces
-  my @parts = split(/\./,$entry);
-  my $nParts = scalar(@parts);
-  my $basename = '';
-  my $extension = '';
-  my $uncompressedExtension = '';
-  my $isCompressed = 0;
-  if ( $nParts == 1) {
-    $basename = $entry;
-  } else {
-    $extension = $parts[$nParts-1];
-    my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
-    if ( $compressedExtensions{$extension} ) {
-      $isCompressed = 1;
-      if ( $nParts == 2 ) {
-        $basename = $parts[0];
-      } else {
-        $uncompressedExtension = $parts[$nParts-2];
-        $basename = join(".",@parts[0..$nParts-3]);
-      }
-    } else {
-      $uncompressedExtension = $extension;
-      $basename = join(".",@parts[0..$nParts-2]);
-    }
-  }
-
-  my $components = { directory=>$directory, basename=>$basename, extension=>$extension, uncompressedExtension=>$uncompressedExtension,
-    isCompressed=>$isCompressed, filename=>$entry };
-
-  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
-  return $components;
-}
-
 sub parseModels {
   my $self = shift || die ("Must be called as an object method");
   my %opts = @_;
@@ -1743,8 +1788,54 @@ sub parseModels {
   }
   return \%models;
 }
+sub splitFilePath {
+###############################################################################
+# splitFilePath
+###############################################################################
+  my $METHOD = 'splitFilePath';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $filePath = shift;
 
+  my %components;
+
+  #### Parse off the directory
+  my @pathParts = split(/\//,$filePath);
+  my $directory = join("\/",@pathParts[0..($#pathParts-1)]);
+  my $entry = $pathParts[$#pathParts];
+
+  #### Parse the filename into pieces
+  my @parts = split(/\./,$entry);
+  my $nParts = scalar(@parts);
+  my $basename = '';
+  my $extension = '';
+  my $uncompressedExtension = '';
+  my $isCompressed = 0;
+  if ( $nParts == 1) {
+    $basename = $entry;
+  } else {
+    $extension = $parts[$nParts-1];
+    my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
+    if ( $compressedExtensions{$extension} ) {
+      $isCompressed = 1;
+      if ( $nParts == 2 ) {
+        $basename = $parts[0];
+      } else {
+        $uncompressedExtension = $parts[$nParts-2];
+        $basename = join(".",@parts[0..$nParts-3]);
+      }
+    } else {
+      $uncompressedExtension = $extension;
+      $basename = join(".",@parts[0..$nParts-2]);
+    }
+  }
+
+  my $components = { directory=>$directory, basename=>$basename, extension=>$extension, uncompressedExtension=>$uncompressedExtension,
+    isCompressed=>$isCompressed, filename=>$entry };
+
+  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
+  return $components;
+}
 
 ###############################################################################
 1;
-
