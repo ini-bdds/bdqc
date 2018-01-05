@@ -37,6 +37,9 @@ Options:
   --debug n           Set debug level. The default is 0
   --kbRootPath x      Full or relative root path QC KB results files (file extension will be added)
   --dataDirectory x   Full or relative directory path of the data to be scanned
+  --inputFiles x      An input file which lists individual files to add
+                      OR a file glob of files to import (e.g. --inputFiles "subdir/A*/*.tsv". NOTE that
+                      depending on the shell you are using, the glob string should be in quotes or the shell will expand it first
   --calcSignatures    Calculate file signatures for all new files in the QC KB
   --importSignatures x Import .bdqc signatures from the specified external file
   --importLimit N     Limit the number of signatures during import to N (for testing only)
@@ -69,7 +72,7 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
-                   "sensitivity:s",'writeHTML' 
+                   "sensitivity:s","writeHTML", "inputFiles:s",
   )) {
   print "$USAGE";
   exit 2;
@@ -123,6 +126,12 @@ sub main {
   #### Perform the scan of the dataPath
   if ( $result->{status} eq 'OK' && $OPTIONS{dataDirectory} ) {
     my $result = $qckb->scanDataPath( dataDirectory=>$OPTIONS{dataDirectory}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    $response->mergeResponse( sourceResponse=>$result );
+  }
+
+  #### Perform the scan of the inputFiles
+  if ( $result->{status} eq 'OK' && $OPTIONS{inputFiles} ) {
+    my $result = $qckb->scanDataPath( inputFiles=>$OPTIONS{inputFiles}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
