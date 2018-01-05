@@ -31,7 +31,8 @@ class BDQC.KB
     parameter attribute kbRootPath requiredOrAvailable
     returns object Response
   method scanDataPath
-    parameter attribute dataDirectory requiredOrAvailable
+    parameter attribute dataDirectory optional
+    parameter string inputFiles optional
     returns object Response
   method importSignatures
     parameter string inputFile required
