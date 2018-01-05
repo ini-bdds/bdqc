@@ -23,17 +23,38 @@ rm  test1_UniformQlogFiles.qckb.storable
 
 ##################################################################################################
 #### A second test of the same set as above with one file manually edited to simulate a difference
-rm  test2_UniformQlogFiles_1outlier.qckb.storable
-../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --dataDirectory test2_UniformQlogFiles_1outlier
-../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers --skip "extrinsic.mtime"
+set test=test2_UniformQlogFiles_1outlier
+rm  $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers --skip "extrinsic.mtime"
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+
 
 ##################################################################################################
 #### A third test of reading some pm files
-rm test3_pmlib.qckb.storable
-../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory ../lib
-../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
+set test=test3_pmlib
+rm  $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory ../lib
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+
+#### Same again with with an input list
+find ../lib -name "*.pm" > $test.inputFiles
+rm  $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --inputFiles $test.inputFiles
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+
+#### Same again with with a glob
+rm  $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --inputFiles "../lib/BDQC/*"
+../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+
 
 ##################################################################################################
 #### A fourth test of neXtProt text data files
