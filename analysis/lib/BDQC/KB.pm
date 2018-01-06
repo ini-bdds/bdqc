@@ -366,7 +366,7 @@ sub calcSignatures {
     require XML::Parser;
   };
   if ( $@ ) {
-    print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
+    #print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
     $knownExtensions{xml}->{signatureList} = [ "FileSignature::Text" ];
     $knownExtensions{mzML}->{signatureList} = [ "FileSignature::Text" ];
     $knownExtensions{mzXML}->{signatureList} = [ "FileSignature::Text" ];
@@ -444,7 +444,8 @@ sub calcSignatures {
 
       #### If the signature is a BDQC module, then call that
       if ( $signatureName =~ /^FileSignature::/ ) {
-        #print "Running $moduleName\n";
+	#next if ( $moduleName =~ /Tabular/ );
+        #print "Running $moduleName on $filePath\n";
         my $signature = $moduleName->new( filePath=>$filePath );
         #my $t0 = [gettimeofday];
         $result = $signature->calcSignature();
