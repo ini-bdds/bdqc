@@ -82,10 +82,51 @@ gunzip Homo_sapiens.GRCh38.90.uniprot.tsv.gz
 rm Homo_sapiens.GRCh38.90.uniprot.tsv
 
 cd $BDQC/testdata
-rm  $test.qckb.storable
+rm $test.qckb.storable $test.html
 ../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers
+../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+
+#### Same, but test compressed
+set test=test5_ensembl_gz
+cd $BDQC/testdata
+cp -a test5_ensembl $test
+cd $test
+gzip *
+cd ..
+
+cd $BDQC/testdata
+rm $test.qckb.storable $test.html
+rm $test/Ibad.tsv.gz
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+../bin/bdqc.pl --kbRootPath $test --calcSig
+../bin/bdqc.pl --kbRootPath $test --collate
+../bin/bdqc.pl --kbRootPath $test --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+http://www.peptideatlas.org/tmp/bdqc.html
+
+## Add one file with a corruption
+cd $test
+zcat I.tsv.gz > Ibad.tsv
+echo "ENSG00000283056	ENST00000634234	ENSP00000489599	I3L1H9	Unip" >> Ibad.tsv
+gzip Ibad.tsv
+cd ..
+rm $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+../bin/bdqc.pl --kbRootPath $test --calcSig
+../bin/bdqc.pl --kbRootPath $test --collate
+../bin/bdqc.pl --kbRootPath $test --calcModel
+../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
+../bin/bdqc.pl --kbRootPath $test --writeHTML > $test.html
+cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+http://www.peptideatlas.org/tmp/bdqc.html
+
+
+
+
 
 ##################################################################################################
 #### A sixth test of XML files
@@ -161,6 +202,15 @@ rm test12*
 ../bin/bdqc.pl --kbRootPath test12_pepxml --data ../../../testdata/pepxml
 ../bin/bdqc.pl --kbRootPath test12_pepxml --calcSig --collate --calcModel --showOutliers
 
+
+
+=============
+
+other fiddling;
+
+../bin/bdqc.pl --kbRootPath /net/gestalt/bdqc/qckb --showOutliers
+../bin/bdqc.pl --kbRootPath /net/gestalt/bdqc/qckb --writeHTML > zz_bdqc_gg1.html
+more /net/gestalt/bdqc/qckb.models.json
 
 
 
