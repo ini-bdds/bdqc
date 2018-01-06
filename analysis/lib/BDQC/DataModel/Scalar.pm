@@ -362,13 +362,30 @@ sub create {
       #### Or if this is a two-valued distribution with only 1 or 2 outliers, then mark as an outlier
       #### Somewhat specialized, arbitrary rules
       if ( $distributionFlags->{twoValued} ) {
+
+	#### If there is a singleton in a two-valued distribution
         if ( $observedValues{$datumOrNull} == 1 ) {
-          $flag = 'extremity' if ( $nElements > 2 );
-          $flag = 'outlier' if ( $nElements > 4 );
+	  if ( $nElements > 2 ) {
+	    $flag = 'extremity';
+	    $deviations[$iValue]->{deviation} = 3;
+	  }
+	  if ( $nElements > 4 ) {
+	    $flag = 'outlier';
+	    $deviations[$iValue]->{deviation} = 11;
+	  }
+
+	#### Else if there are two items in a two-valued distribution
         } elsif ( $observedValues{$datumOrNull} == 2 ) {
-          $flag = 'extremity' if ( $nElements > 5 );
-          $flag = 'outlier' if ( $nElements > 9 );
+	  if ( $nElements > 5 ) {
+	    $flag = 'extremity';
+	    $deviations[$iValue]->{deviation} = 3;
+	  }
+	  if ( $nElements > 9 ) {
+	    $flag = 'outlier';
+	    $deviations[$iValue]->{deviation} = 11;
+	  }
         }
+
       }
         
       $deviations[$iValue]->{deviationFlag} = $flag;
