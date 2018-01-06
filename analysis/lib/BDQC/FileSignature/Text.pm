@@ -141,10 +141,21 @@ sub calcSignature {
   my $lineEndings = { CR=>0, LF=>0, CRLF=>0, LFCR=>0 };
   my $signature = { nLines=>0, lineEndings=>$lineEndings, averageLineLength=>0, averageWordsPerLine=>0 };
 
-  unless ( open(INFILE,$filePath) ) {
-    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Unable to open file '$filePath'");
-    return $response;
+  if ( $filePath =~ /\.gz$/ ) {
+    use IO::Zlib;
+    my $error;
+    tie(*INFILE, 'IO::Zlib', $filePath, 'r') or $error = 1;
+    if ( $error ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Unable to open '$filePath': $@");
+      return $response;
+    }
+  } else {
+    unless ( open(INFILE,$filePath) ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Unable to open file '$filePath': $@");
+      return $response;
+    }
   }
 
   my $line;

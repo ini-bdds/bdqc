@@ -143,11 +143,23 @@ sub calcSignature {
   $isImplemented = 1;
   my $signature = {};
 
-  unless ( open(INFILE,'<:raw',$filePath) ) {
-    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Unable to open file '$filePath'");
-    return $response;
+  if ( $filePath =~ /\.gz$/ ) {
+    use IO::Zlib;
+    my $error;
+    tie(*INFILE, 'IO::Zlib', $filePath, 'rb') or $error = 1;
+    if ( $error ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Unable to open '$filePath': $@");
+      return $response;
+    }
+  } else {
+    unless ( open(INFILE,'<:raw',$filePath) ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Unable to open file '$filePath': $@");
+      return $response;
+    }
   }
+
 
   my $charHistogram = {};
   my @charList = ();

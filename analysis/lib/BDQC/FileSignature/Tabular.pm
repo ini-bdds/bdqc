@@ -142,10 +142,21 @@ sub calcSignature {
   #### Set up an empty signature}
   my $signature = { nRows=>0, commentCharacter=>'', nCommentLines=>0, hasColumnNames=>0, nColumns=>0, blankLines=>0 };
 
-  unless ( open(INFILE,$filePath) ) {
-    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Unable to open file '$filePath'");
-    return $response;
+  if ( $filePath =~ /\.gz$/ ) {
+    use IO::Zlib;
+    my $error;
+    tie(*INFILE, 'IO::Zlib', $filePath, 'rb') or $error = 1;
+    if ( $error ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Unable to open '$filePath': $@");
+      return $response;
+    }
+  } else {
+    unless ( open(INFILE,$filePath) ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Unable to open file '$filePath': $@");
+      return $response;
+    }
   }
 
   my $iLine=0;
@@ -158,7 +169,7 @@ sub calcSignature {
 
   #### Loop through file, trying to interpret it as delimited data
   while ( my $line = <INFILE> ) {
-    $line =~ s/[\r\n]//g;
+    $line =~ s/[\r\n]+$//;
     push(@lines,$line);
 
     #### If this is an empty line, just record it as such and move on
@@ -239,7 +250,10 @@ sub calcSignature {
   }
 
   #### Now that we've figured all this out, return to the beginning of the file and parse the data
-  seek(INFILE,0,0);
+
+  # Since seek won't work on a gzipped file, replay the first 50 lines from memory and then continue reading
+  #seek(INFILE,0,0);
+
   $signature->{blankLines} = 0;
   $signature->{separator} = $separator;
   $iLine = 0;
@@ -248,8 +262,19 @@ sub calcSignature {
   my $columnNumericalArrays;
 
   #### Loop through file, collecting data on each column and row
-  while ( my $line = <INFILE> ) {
-    $line =~ s/[\r\n]//g;
+  my $done = 0;
+  my $line;
+  while ( ! $done ) {
+
+    #### Replay the first 50 lines from memory and then continue reading the file
+    if ( $iLine < 50 ) {
+      $line = $lines[$iLine];
+      last unless ( $line );
+    } else {
+      $line = <INFILE>;
+      last unless ( $line );
+      $line =~ s/[\r\n]//g;
+    }
 
     #### If this is an empty line, just record it as such and move on
     if ( $line eq '' || $line =~ /^\s+$/ ) {
