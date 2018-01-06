@@ -373,6 +373,7 @@ sub calcSignatures {
   }
 
   my $nFiles = 0;
+  my $nNewFiles = 0;
   my $totalFiles = scalar(keys(%{$qckb->{files}}));
   my $t0 = [gettimeofday];
 
@@ -380,12 +381,12 @@ sub calcSignatures {
     $nFiles++;
     my $signatures = $qckb->{files}->{$fileTag}->{signatures};
     my $filePath = $signatures->{tracking}->{filePath};
-    if ( $signatures->{extrinsic}->{isCompressed} ) {
-      $filePath = "zcat $filePath |";   #FIXME
-    }
     my $knownExtension = $knownExtensions{$signatures->{extrinsic}->{uncompressedExtension}};
-    my @signatureList;
     my $fileTypeName = $signatures->{extrinsic}->{uncompressedExtension};
+
+    #### If the file is not new, then we don't need to rerun the signature
+    next unless ( $signatures->{tracking}->{isNew} );
+    $nNewFiles++;
 
     #### Always run the FileSignature::Generic to help figure out what else to run on it
     my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
@@ -399,6 +400,7 @@ sub calcSignatures {
     }
 
     #### Based on the results of FileSignature::Generic, decide what signatures to run
+    my @signatureList;
     if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
       @signatureList = ( 'FileSignature::Binary' );
     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
@@ -485,13 +487,13 @@ sub calcSignatures {
 
   print "\n" unless ( $quiet );
 
-  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Calculated signatures for $nFiles files", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Calculated signatures for $nNewFiles new files", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### Create an entry in the updates log about what this did
   my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
   my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
     operation => $METHOD,
-    comment => "Calculate signatures for $nFiles files"
+    comment => "Calculate signatures for $nNewFiles new files"
   };
   push(@{$qckb->{updates}},$updateEntry);
 
@@ -597,22 +599,25 @@ sub collateData {
     #### If this is a new file, then add it to the file of files for this filetype
     if ( $signatures->{tracking}->{isNew} ) {
       push(@{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}},$fileTag);
+    }
 
-      #### Also create a complete hash of all attributes for each signature
-      foreach my $signature ( keys(%{$signatures}) ) {
-        foreach my $attribute ( keys(%{$signatures->{$signature}}) ) {
+    #### Also create a complete hash of all attributes for each signature
+    foreach my $signature ( keys(%{$signatures}) ) {
+      foreach my $attribute ( keys(%{$signatures->{$signature}}) ) {
 
-          #### Check to see if this signature/attribute is one we should skip, or else add it to the list
-          if ( $attributesToSkip{$signature} ) {
-            #print "Don't bother collating all of signature $signature\n";
-          } elsif ( $attributesToSkip{"$signature.$attribute"} ) {
-            #print "Don't bother collating $signature.$attribute\n";
-          } else {
-            $allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}->{$attribute}++;
-          }
+        #### Check to see if this signature/attribute is one we should skip, or else add it to the list
+        if ( $attributesToSkip{$signature} ) {
+          #print "Don't bother collating all of signature $signature\n";
+        } elsif ( $attributesToSkip{"$signature.$attribute"} ) {
+          #print "Don't bother collating $signature.$attribute\n";
+        } else {
+          $allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}->{$attribute}++;
+          #### Clear out any possible values from a previous run
+          $qckb->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{$attribute}->{values} = undef;
         }
       }
     }
+
     $nFiles++;
   }
 
@@ -640,6 +645,10 @@ sub collateData {
           push(@{$signatures->{$signature}->{$attribute}->{values}},$fileAttribute);
         }
       }
+
+      #### Make sure that new files are no longer tagged as new at this point
+      $qckb->{files}->{$fileTag}->{signatures}->{tracking}->{isNew} = 0;
+
     }
   }
 
