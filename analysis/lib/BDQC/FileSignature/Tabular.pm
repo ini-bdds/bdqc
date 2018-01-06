@@ -230,23 +230,13 @@ sub calcSignature {
   }
 
   #print "INFO: firstDataRow=$firstDataRow, columnHeaderRow=$columnHeaderRow\n";
-  $signature->{nCommentLines} = 1;
   $signature->{nColumns} = $mostCommonNColumns;
 
-  my $lastNonCommentLine = -1;
-  if ( $columnHeaderRow > 0 ) {
-    $lastNonCommentLine = $columnHeaderRow-1;
-  } elsif ( $firstDataRow > 0 ) {
-    $lastNonCommentLine = $firstDataRow-1;
-  }
+  #### Determine the comment character
+  $signature->{nCommentLines} = 0 if ( $signature->{nCommentLines} < 0 );
 
-  #print "lastNonCommentLine=$lastNonCommentLine\n";
-  if ( $lastNonCommentLine >= 0 ) {
-    for ( my $i=0; $i<=$lastNonCommentLine; $i++ ) {
-      my $line = $lines[$i];
-      $line =~ s/^\s+//;
-      $signature->{commentCharacter} = substr($line,0,1);
-    }
+  if ( $signature->{nCommentLines} > 0 ) {
+    $signature->{commentCharacter} = substr($lines[0],0,1);
   }
 
   #### Now that we've figured all this out, return to the beginning of the file and parse the data
