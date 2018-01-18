@@ -5,3 +5,4 @@ cruft
 *.aux
 *.log
 *.toc
+.DS_Store
