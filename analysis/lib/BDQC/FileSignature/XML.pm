@@ -157,11 +157,24 @@ sub calcSignature {
                          Char  => \&data,
                        Default => \&other );
 
-  $xparser->parsefile( $filePath, ErrorContext => 3);
-  my %curr_tags = %tags;
-  $response->{signature} = { tags => \%curr_tags,
-                             ntags => scalar(keys(%curr_tags)),
-                             dsize => $dsize };
+  #### Wrap the parsing in an eval because any malformed XML will cause a die
+  eval {
+    $xparser->parsefile( $filePath, ErrorContext => 3);
+  };
+
+  #### If there's an error, report it in the message
+  if ( $@ ) {
+    $response->{signature} = { parserMessage => $@ };
+
+  #### Otherwise record all the stats from the parsing (and message of 'none')
+  } else {
+    my %curr_tags = %tags;
+    $response->{signature} = { tags => \%curr_tags,
+			       parserMessage => 'none',
+                               ntags => scalar(keys(%curr_tags)),
+                               dsize => $dsize };
+  }
+
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
