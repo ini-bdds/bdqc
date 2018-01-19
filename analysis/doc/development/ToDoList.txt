@@ -1,21 +1,22 @@
 
 Prioritized to do list:
 
-- Assemble a zoo of test files that can be downloaded beyond the tiny ones in the repo 
+- The XML plugin is fragile to imperfect XML. Needs to be made robust in the face of bad input. Maybe custom
 - Make sure that .html files don't choke the xml plugin
-- Test reading of compressed files on UNIX at least
+- Try to fix the file extension handling section better. Better to use extensions where possible rather than empirical
+- Check out the tsvs in the Papers directory and see if the tsv detector needs improvement
+- Think about how to adjust models so that long tails don't trigger outliers so easily
 
-- Improve the FileSignatures
-- Add an HTML-based result explorer
-
-- Add support for low, medium, and high sensitivity
-- Create a generic file assessor, in binary mode, but recognize text files, tsv, xml, json,
-- Package up as a nice Perl module
-- Design and write a series of Perl t/ tests
 - Expand the documentation
 
 - Add option to import just models from the .models file
 - Add option to compare new files (and their signatures) to existing models
+- Start testing with a wider range of files on the computer
+- There is a rumor that sometimes txt files will trigger Tabular and sometimes not for similar files, causing a problem
+
+- Package up as a nice Perl module
+- Design and write a series of Perl t/ tests
+
 
 - Create a template program that is quite simple as an example for a model creator
 - Add ability to override Models to an external program

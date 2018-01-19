@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "environ.h"
 
-int MAX_CATEGORY_CARDINALITY       = 16;
+int MAX_CATEGORY_CARDINALITY       = 32;
 int MAX_ABSOLUTE_CATEGORICAL_VALUE = 16;
 int MAXLEN_CATEGORY_LABEL          = 63;
 

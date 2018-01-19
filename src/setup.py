@@ -48,6 +48,6 @@ setup(name="bdqc",
 				'c/stats/quicksel.c'
 			 ],
 			 extra_compile_args=['-std=c99'],
-			 define_macros=[("_POSIX_C_SOURCE","200809L"),])]
+			 define_macros=[("_POSIX_C_SOURCE","200809L"),("EXHAUSTIVE_OUTPUT","1")])]
 	)
 
