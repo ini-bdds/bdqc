@@ -17,6 +17,7 @@ $| = 1;
 
 use Getopt::Long;
 use FindBin;
+use Data::Dumper;
 
 use lib "$FindBin::Bin/../lib";
 
@@ -168,7 +169,7 @@ sub main {
   #### Write out signature/model information as HTML. Assumes that these have
   #### already been calculated. 
   if ( $OPTIONS{writeHTML} ) {
-    writeHTML( $qckb );
+    writeHTML( $qckb, $OPTIONS{kbRootPath} );
     exit;
   } 
 
@@ -191,13 +192,39 @@ sub main {
 
 sub writeHTML {
   my $kb = shift || die;
+  my $root_path = shift || die;
+
   print $ui->getHeader() if $OPTIONS{cgimode};
   print $ui->startPage();
+ 
+  if ( ! scalar( keys( %{$kb->{_qckb}->{files}} ) ) ) {
+    print "<H1>Missing or invalid KB path</H1>\n";
+    print $ui->endPage();
+    return; 
+  }
 
   my $models = $kb->parseModels( kb => $kb );
-  my $msel = $ui->getModelSelect();
+
+  my $outliers;
+  if ( $OPTIONS{skipbad} ) {
+    $outliers = $kb->getOutliers( astext => 1, skipAttributes=>"FileSignature::Generic.subFileType" );
+  } else {
+    $outliers = $kb->getOutliers( astext => 1 );
+  }
+
+  my $ftsel = $ui->getFiletypeSelect( $models );
+  my $msel_fx = $ui->getModelSelectFunction( $models );
+  my @mkeys = sort( keys( %{$models} ) );
+  my $msel = '<div id=mseldiv>' . $ui->getModelSelect($models->{$mkeys[0]}) . '</div>';
+
+  my $title = "View data from the analysis file $root_path";
+
   my $plotHTML = $ui->getPlotHTML( models => $models,
+                                    ftsel => $ftsel,
+                                    title => $title,
+                                  msel_fx => $msel_fx,
                                      msel => $msel,
+                                  outliers => $outliers,
                                    params => \%OPTIONS );
   print $plotHTML;
   print $ui->endPage();
