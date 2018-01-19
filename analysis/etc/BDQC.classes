@@ -49,6 +49,7 @@ class BDQC.KB
   method getOutliers
     parameter string skipAttributes optional
     parameter string sensitivity optional
+    parameter int32 astext optional
     returns object Response
   method parsePlugins
     parameter string pluginSignatures optional
