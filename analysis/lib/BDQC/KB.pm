@@ -775,6 +775,7 @@ sub getOutliers {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
+  my $astext = processParameters( name=>'astext', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   my $sensitivity = processParameters( name=>'sensitivity', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   my $skipAttributes = processParameters( name=>'skipAttributes', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
@@ -868,6 +869,7 @@ sub getOutliers {
 
   } # end foreach fileType
 
+  return $outliers if $astext;
 
   #### Print out the outlier files and their outlier values
   foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
@@ -1744,6 +1746,8 @@ sub flattenAttributes {
   
   return $result;
 }
+###############################################################################
+# parseModels
 sub parseModels {
   my $self = shift || die ("Must be called as an object method");
   my %opts = @_;
@@ -1754,12 +1758,14 @@ sub parseModels {
 
   # Loop over data structure.  File type
   for my $ft ( keys( %{$qckb->{fileTypes}} ) ) {
+    $models{$ft} = {};
 
     my @files;
     # Under type read list of files
     for my $tag ( @{$qckb->{fileTypes}->{$ft}->{fileTagList}} ) {
       push @files, basename( $tag );
     }
+    $models{$ft}->{files} = \@files;
 
     # Then Signature
     for my $sig ( keys( %{$qckb->{fileTypes}->{$ft}->{signatures}} ) ) {
@@ -1791,8 +1797,8 @@ sub parseModels {
 #        next unless $has_outliers;
         next unless $has_deviation;
 
-        $models{$mkey} = { hasout => $has_outliers,
-                             data => \@dev };
+        $models{$ft}->{$mkey} = { hasout => $has_outliers,
+                                    data => \@dev };
       }
     }
   }

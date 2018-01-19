@@ -204,22 +204,89 @@ sub startPage {
 sub getModelSelect {
   my $self = shift;
   my $models = shift || return "";
-  my $msel = "<select id=plotselect onchange=drawplot()>\n";                   
+  my $use_nl = shift;
+  $use_nl = 1 if !defined $use_nl;
+  my $sep = ( $use_nl ) ? "\n" : ' ';
+
+  my $msel = "<select id=plotselect onchange=drawplot()>$sep";                   
   my $has_opts;
   for my $m ( sort { $a cmp $b } ( keys( %{$models} ) ) ) {
+    next if $m eq 'files';
 #    next if $models->{$m}->{data}->[0]->{dataType} eq 'string';
-    $msel .= "<option id='$m'>$m</option>\n";
+    $msel .= qq~<option id="$m">$m</option>$sep~;
     $has_opts++;
   }
-  $msel .= "</select>\n";
+  $msel .= "</select>$sep";
   return ( $has_opts ) ? $msel : '';
 }
+
+sub getModelSelectFunction {
+  my $self = shift;
+  my $models = shift || return "";
+  my $js = qq~
+  <script type="text/javascript" charset="utf-8">
+  function setmodel () {
+    var model = document.getElementById("ftselect").value;
+    var msel = [];
+  ~;
+  for my $ft ( sort ( keys( %{$models} ) ) ) {
+    my $mod = $models->{$ft};
+    my $mselect = "'" . $self->getModelSelect( $mod, 0 ) . "'";
+#    $mselect =~ s/\s//g;
+#    $mselect =~ s/\n//g;
+    $js .= " msel['$ft'] = $mselect;\n";
+  }
+  $js .= qq~
+    document.getElementById("mseldiv").innerHTML = msel[model];
+  }
+  function showSignaturePlot( type, model ) {
+//    alert( type );
+//    alert( document.getElementById("ftselect").selectedIndex );
+    document.getElementById("ftselect").value = type
+//    alert( document.getElementById("ftselect").selectedIndex );
+    setmodel();
+//    alert(model);
+//    alert( document.getElementById("plotselect").selectedIndex );
+    var psel = document.getElementById("plotselect");
+    var i;
+    var txt = "All options:  \\n";
+    for ( i = 0; i < psel.length; i++ ) {
+      txt = txt + "\\n" + psel.options[i].value;
+    }
+//    alert( txt );
+
+//    alert( document.getElementById("plotselect").value );
+    document.getElementById("plotselect").value = model;
+    drawplot();
+//    alert( document.getElementById("plotselect").selectedIndex );
+  }
+  </script>
+  ~;
+  return $js;
+}
+
+
+###
+
+sub getFiletypeSelect {
+  my $self = shift;
+  my $models = shift || return "";
+  my $ftsel = "<select id=ftselect onchange='setmodel();drawplot()'>\n";                   
+  my $has_opts;
+  for my $ft ( sort ( keys( %{$models} ) ) ) {
+    $ftsel .= "<option id='$ft'>$ft</option>\n";
+    $has_opts++;
+  }
+  $ftsel .= "</select>\n";
+  return ( $has_opts ) ? $ftsel : '';
+}
+
 
 sub getPlotHTML {
   my $self = shift;
   my %args = @_;
   return '' unless $args{params} && $args{models};
-  $args{select} ||= $self->getModelSelect( $args{models} );
+  $args{msel} ||= $self->getModelSelect( $args{models} );
 
   my %style = ( 1 => 'all',
                 2 => 'suspectedoutliers',
@@ -228,11 +295,19 @@ sub getPlotHTML {
   $args{params}->{style} ||= 1;
 
   my $HTML = qq~
+  <div id=top_div></div>
+  <h3> $args{title}</h3>
+
   <script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  $args{msel_fx}
+  <br><br>
   <form name=plot id=plot>
-  <h3> Select Model to View: $args{select} </h3>
+  <table>
+  <tr><td align=right><b>Choose FileType:</b></td><td>$args{ftsel}</td></tr>
+  <tr><td><b>Select Model to View:</b></td><td>$args{msel}</td></tr>
+  </table>
   </form>
-  <div id="plot_div" style="width:800px;height:600;"></div>
+  <div id="plot_div" style="width:600px;height:400px;border-style:solid;border-color:gray;border-width:2px"></div>
   <script type="text/javascript" charset="utf-8">
   function drawplot () {
     var models = [];
@@ -241,54 +316,76 @@ sub getPlotHTML {
     var color = [];
   ~;
 
-  for my $m ( sort { lc($a) cmp lc($b) } ( keys( %{$args{models}} ) ) ) {
-    my @data;
-    my @flag;
-    my @jitter;
-    my @color;
-    my $sign = 1;
+  my @mkeys = sort(keys( %{$args{models}} ) );
+  use Data::Dumper;
+  my %fcnt;
+  for my $ft ( @mkeys ) {
+    my $currmodel = $args{models}->{$ft};
+    $HTML .= qq~
+    models['$ft'] = [];
+    hover['$ft'] = [];
+    jitter['$ft'] = [];
+    color['$ft'] = [];
+    ~;
+    $fcnt{$ft} = scalar( @{$args{models}->{$ft}->{files}} );
+    for my $m ( sort { lc($a) cmp lc($b) } ( keys( %{$currmodel} ) ) ) {
+      next if $m eq 'files';
 
-    my $n = 'rgb(8,81,156)';
-    my $e = 'rgb(255,255,0)';
-    my $o = 'rgb(219,64,82)';
-
-    for my $d ( @{$args{models}->{$m}->{data}} ) {
-      push @data, $d->{value};  
-      push @flag, ( $d->{filename} ) ? "$d->{filename}: $d->{deviationFlag}" : $d->{deviationFlag};  
-      push @color, ( $d->{deviationFlag} eq 'normal' ) ? $n :
-                   ( $d->{deviationFlag} eq 'outlier' ) ? $o : $e;
-      push @jitter, $sign*rand(0.2)/10;
-      $sign = ( $sign == 1 ) ? -1 : 1;
+      my @data;
+      my @flag;
+      my @jitter;
+      my @color;
+      my $sign = 1;
+  
+      my $n = 'rgb(8,81,156)';
+      my $e = 'rgb(255,255,0)';
+      my $o = 'rgb(219,64,82)';
+  
+      for my $d ( @{$currmodel->{$m}->{data}} ) {
+        push @data, $d->{value};  
+        push @flag, ( $d->{filename} ) ? "$d->{filename}: $d->{deviationFlag}" : $d->{deviationFlag};  
+        push @color, ( $d->{deviationFlag} eq 'normal' ) ? $n :
+                     ( $d->{deviationFlag} eq 'outlier' ) ? $o : $e;
+        push @jitter, $sign*rand(0.2)/10;
+        $sign = ( $sign == 1 ) ? -1 : 1;
+      }
+      my @cdata;
+      for my $d ( @data ) {
+        $d = '' if !defined $d;
+        push @cdata, $d;
+      }
+      my $dstr = join( ',', @cdata );
+  
+      $HTML .= "models['$ft']['$m'] = [$dstr]\n"; 
+      my $lblstr = join( "','", @flag );
+      $HTML .= "hover['$ft']['$m'] = ['$lblstr']\n"; 
+      my $colorstr = join( "','", @color );
+      $HTML .= "color['$ft']['$m'] = ['$colorstr']\n"; 
+      my $jitterstr = join(',', @jitter );
+      $HTML .= "jitter['$ft']['$m'] = [$jitterstr]\n"; 
+  
     }
-    my $dstr = join( ',', @data );
-    $HTML .= "models['$m'] = [$dstr]\n"; 
-    my $lblstr = join( "','", @flag );
-    $HTML .= "hover['$m'] = ['$lblstr']\n"; 
-    my $colorstr = join( "','", @color );
-    $HTML .= "color['$m'] = ['$colorstr']\n"; 
-    my $jitterstr = join(',', @jitter );
-    $HTML .= "jitter['$m'] = [$jitterstr]\n"; 
-
   }
   $HTML .= qq~
 
+    var ft = document.getElementById("ftselect").value;
     var model = document.getElementById("plotselect").value;
 
     var plotdata = [
     {
-      y: models[model],
-      x: jitter[model],
-      text: hover[model],
+      y: models[ft][model],
+      x: jitter[ft][model],
+      text: hover[ft][model],
       hovermode: 'closest',
       hoverinfo: 'y+text',
       type: 'scatter',
       mode: 'markers',
-      marker: { color: color[model] },
+      marker: { color: color[ft][model] },
       showlegend: false,
       showticklabels: false,
     },
     {
-      y: models[model],
+      y: models[ft][model],
       type: 'box',
       boxpoints: false,
       showticklabels: false,
@@ -308,8 +405,55 @@ sub getPlotHTML {
 
     Plotly.newPlot('plot_div', plotdata, { showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false } } );
   }
+
+  function toggleView ( type ) {
+    if ( document.getElementById(type).style.display == 'none' ) {
+      document.getElementById(type).style.display = 'inline-block';
+    } else {
+      document.getElementById(type).style.display = 'none';
+    }
+  }
   </script>
+  <h3 style=text-decoration:underline> File types with outliers</ul> </h3>
   ~;
+  my $outliers = $args{outliers};
+
+  my $fcnt;
+  
+  my $sp = "&nbsp;&nbsp;";
+  foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
+    my $nOutlierFiles = 0;
+    my $outlierHTML = '';
+    foreach my $outlierFileTagName ( sort keys(%{$outliers->{fileTypes}->{$fileType}->{fileTags}}) ) {
+      $outlierHTML .= "  $outlierFileTagName is an outlier because:<br>\n";
+      $nOutlierFiles++;
+      my $outlierFileTagList = $outliers->{fileTypes}->{$fileType}->{fileTags}->{$outlierFileTagName};
+      foreach my $outlier ( @{$outlierFileTagList} ) {
+        my $signature = $outlier->{signature};
+        my $attribute = $outlier->{attribute};
+        my $value = $outlier->{value};
+        my $deviation = $outlier->{deviation}->{deviation};
+        $deviation = sprintf( "%0.1f", $deviation);
+        $value = '(null)' if ( ! defined($value) );
+        $value = substr($value,0,70)."...." if ( length($value)>74 );
+        my $signature_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$signature.$attribute</a>~;
+        $signature_link =~ s/:://g;
+        $signature_link =~ s/\./__/;
+        $signature_link =~ s/FileSignature/FS/g;
+
+#        $outlierHTML .= "$sp$sp$sp- $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
+        $outlierHTML .= "$sp$sp$sp- $signature_link: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
+      }
+    }
+    if ( $nOutlierFiles ) {
+      $HTML .= qq~$sp<b>File Type: $fileType</b>, <a href="javascript:void(0);" onclick="toggleView('${fileType}_div')"> $nOutlierFiles outliers</a> out of $fcnt{$fileType} files<br>\n~;
+      $HTML .= qq~$sp$sp$sp<div id="${fileType}_div" style='display:none;border-style:dashed;border-color:gray;border-width:2px'>$outlierHTML</div><br>\n~;
+    } else {
+      $HTML .= qq~$sp<b>File Type: $fileType</b>, $nOutlierFiles outliers out of $fcnt{$fileType} files <br>\n~;
+      $HTML .= qq~<div width=800 id="no_div" style='display: inline'>$outlierHTML</div><br>\n~;
+    }
+#    $HTML .= "<br>\n";
+  }
   return $HTML;
 }
 
