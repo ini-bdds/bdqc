@@ -884,6 +884,7 @@ sub getOutliers {
         my $deviation = $outlier->{deviation}->{deviation};
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
+	$deviation = sprintf("%.1f",$deviation);
         print "  $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
       }
     }
