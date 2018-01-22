@@ -213,15 +213,16 @@ sub calcSignature {
   my $mostCommonNColumns = $sortedMostCommonNColumns[0]->[0];
   #print "INFO: The most common number of columns is $mostCommonNColumns\n";
 
-  #### Find the first data row as the first one with at least the most common number of columns
+  #### Find the first data row as the first one with the most common number of columns
   my $firstDataRow = 0;
   foreach my $columnCount ( @columnCounts ) {
-    last if ( $columnCount >= $mostCommonNColumns );
+    #print "$firstDataRow\t$columnCount\n";
+    last if ( $columnCount == $mostCommonNColumns );
     $firstDataRow++;
   }
+  $signature->{nCommentLines} = $firstDataRow;
 
   #### If the first row has fewer numerals than the next data row, assume it is a header line. Crude. FIXME
-  $signature->{nCommentLines} = $firstDataRow-1;
   if ( $nNumerals[$firstDataRow] < $nNumerals[$firstDataRow+1] ) {
     $columnHeaderRow = $firstDataRow;
     $firstDataRow++;
@@ -247,7 +248,6 @@ sub calcSignature {
   $signature->{blankLines} = 0;
   $signature->{separator} = $separator;
   $iLine = 0;
-  my $columnData;
   my $maxDiscreteValues = 50;
   my $columnNumericalArrays;
 
@@ -354,7 +354,6 @@ sub calcSignature {
     $iColumn++;
   }
 
-  $signature->{columns} = $columnData;
   $response->{signature} = $signature;
 
 
