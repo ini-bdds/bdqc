@@ -385,7 +385,7 @@ sub calcSignatures {
     my $fileTypeName = $signatures->{extrinsic}->{uncompressedExtension};
 
     #### If the file is not new, then we don't need to rerun the signature
-    next unless ( $signatures->{tracking}->{isNew} );
+    next if ( $signatures->{tracking}->{hasSignatures} );
     $nNewFiles++;
 
     #### Always run the FileSignature::Generic to help figure out what else to run on it
@@ -471,6 +471,9 @@ sub calcSignatures {
         return $response;
       }
     }
+
+    #### Record that this one has signatures calculated
+    $signatures->{tracking}->{hasSignatures} = 1;
 
     #### Print some progress information
     unless ( $quiet ) {
@@ -569,6 +572,8 @@ sub collateData {
     "extrinsic.basename"=>1,
     "extrinsic.extension"=>1,
     "tracking.isNew"=>1,
+    "tracking.hasSignatures"=>1,
+    "tracking.hasBeenCollated"=>1,
     "tracking.fileTag"=>1,
     "tracking.dataDirectoryId"=>1,
     "tracking.filePath"=>1,
@@ -591,14 +596,22 @@ sub collateData {
     my $signatures = $qckb->{files}->{$fileTag}->{signatures};
     my $fileTypeName = $signatures->{fileType}->{typeName};
 
+    #### Check that $fileTypeName is valid
+    unless ( $fileTypeName ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"MissingSignatures", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"FileTag '$fileTag' does not have a signature calculation yet. Need to run --calcSignatures first");
+      return($response);
+    }
+
     #### If this fileTypeName has not yet been added, do so
     unless ( $qckb->{fileTypes}->{$fileTypeName} ) {
       $qckb->{fileTypes}->{$fileTypeName} = { name=>$fileTypeName, fileTagList=>[], signatures=>{} };
     }
 
     #### If this is a new file, then add it to the file of files for this filetype
-    if ( $signatures->{tracking}->{isNew} ) {
+    unless ( $signatures->{tracking}->{hasBeenCollated} ) {
       push(@{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}},$fileTag);
+      $signatures->{tracking}->{hasBeenCollated} = 1;
     }
 
     #### Also create a complete hash of all attributes for each signature
@@ -647,7 +660,7 @@ sub collateData {
       }
 
       #### Make sure that new files are no longer tagged as new at this point
-      $qckb->{files}->{$fileTag}->{signatures}->{tracking}->{isNew} = 0;
+      #$qckb->{files}->{$fileTag}->{signatures}->{tracking}->{isNew} = 0;
 
     }
   }
@@ -1466,9 +1479,21 @@ sub scanDataPath {
   }
 
   #### If the input is inputFiles, then load that
+  my $sourceListFile = '';
   if ( $inputFiles ) {
     if ( -f $inputFiles ) {
       open(INFILE,$inputFiles);
+      $sourceListFile = $inputFiles;
+
+      #### See if this same file was already scanned once, in which case, switch to that source id
+      foreach my $previousFiles ( @{$qckb->{dataDirectories}} ) {
+	if ( $previousFiles && $previousFiles->{sourceListFile} ) {
+	  if ( $previousFiles->{sourceListFile} eq $inputFiles ) {
+	    $dataDirectoryId = $previousFiles->{id};
+	  }
+        }
+      }
+
       while ( my $line = <INFILE> ) {
         $line =~ s/[\n\r]+$//;
         next unless ( $line );
@@ -1485,7 +1510,10 @@ sub scanDataPath {
   unless ( $dataDirectoryId ) {
     $nPreviousDirectories++;
     $dataDirectoryId = "dir$nPreviousDirectories";
-    push(@{$qckb->{dataDirectories}}, { id=>$dataDirectoryId, path=>$dataDirectory });
+    my $tmpContent = { id=>$dataDirectoryId };
+    $tmpContent->{path} = $dataDirectory if ( $dataDirectory );
+    $tmpContent->{sourceListFile} = $sourceListFile if ( $sourceListFile );
+    push(@{$qckb->{dataDirectories}}, $tmpContent);
   }
 
 
@@ -1593,8 +1621,14 @@ sub scanDataPath {
       $stats{totalSize} += $size;
 
       if ( exists($qckb->{files}->{$fileTag}) ) {
-        $tracking->{isNew} = 0;
-        $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isNew} = 0;
+
+	#### If this file has already been previously processed, then remove the isNew flag
+	my $signatures = $qckb->{files}->{$fileTag}->{signatures};
+	if ( $signatures->{tracking}->{hasSignatures} && $signatures->{tracking}->{hasBeenCollated} ) {
+          $tracking->{isNew} = 0;
+          $qckb->{files}->{$fileTag}->{signatures}->{tracking}->{isNew} = 0;
+        }
+
         if ( $mtime ne $qckb->{files}->{$fileTag}->{signatures}->{extrinsic}->{mtime} ) {
           $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isChanged} = 1;
         }
