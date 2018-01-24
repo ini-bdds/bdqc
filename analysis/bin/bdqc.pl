@@ -209,7 +209,7 @@ sub writeHTML {
   if ( $OPTIONS{skipbad} ) {
     $outliers = $kb->getOutliers( astext => 1, skipAttributes=>"FileSignature::Generic.subFileType" );
   } else {
-    $outliers = $kb->getOutliers( astext => 1 );
+    $outliers = $kb->getOutliers( astext => 1, skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity} );
   }
 
   my $ftsel = $ui->getFiletypeSelect( $models );
