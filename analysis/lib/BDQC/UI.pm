@@ -438,7 +438,7 @@ sub getPlotHTML {
         $value = substr($value,0,70)."...." if ( length($value)>74 );
         my $signature_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$signature.$attribute</a>~;
         $signature_link =~ s/:://g;
-        $signature_link =~ s/\./__/;
+        #$signature_link =~ s/\./__/;
         $signature_link =~ s/FileSignature/FS/g;
 
 #        $outlierHTML .= "$sp$sp$sp- $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
