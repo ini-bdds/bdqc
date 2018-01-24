@@ -376,6 +376,7 @@ sub calcSignatures {
   my $nNewFiles = 0;
   my $totalFiles = scalar(keys(%{$qckb->{files}}));
   my $t0 = [gettimeofday];
+  my $printedSomeProgressInfo = 0;
 
   foreach my $fileTag ( keys(%{$qckb->{files}}) ) {
     $nFiles++;
@@ -483,12 +484,13 @@ sub calcSignatures {
       if ( $elapsed > 2 ) {
         print "$percentDone%..";
         $t0 = $t1;
+	$printedSomeProgressInfo++;
       }
     }
 
   }
 
-  print "\n" unless ( $quiet );
+  print "\n" if ( $printedSomeProgressInfo );
 
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Calculated signatures for $nNewFiles new files", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
@@ -1826,7 +1828,7 @@ sub parseModels {
           $fidx++;
         }
 
-        my $mkey = $sig . '__' . $sigelem;
+        my $mkey = $sig . '.' . $sigelem;
         $mkey =~ s/FileSignature::/FS/;
 
 #        next unless $has_outliers;
