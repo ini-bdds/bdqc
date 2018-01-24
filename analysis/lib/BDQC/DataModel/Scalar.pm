@@ -317,8 +317,151 @@ sub create {
       if ( $stats->{nonNullElements} ) {
         $stats->{mean} = $stats->{sum} / $stats->{nonNullElements};
       }
+      @cleanedVector = @numericalVector;
+    }
+
+
+    #### New experimental code to assess the degree of outliers rather than using the standard deviation
+    my %gapStats;
+    my $newCodeDebug = 0;
+
+    #### Assess how big the gaps are for the potential outliers
+    if ( $stats->{nonNullElements} > 15 ) {
+      my @sortedVector = sort numerically @cleanedVector;
+      my $nElements = scalar(@sortedVector);
+      my $halfNElements = int($nElements/2);
+      my $nFirstQuartile = int($nElements * 0.25);
+      my $nThirdQuartile = int($nElements * 0.75);
+
+      my $outlierFraction = 0.15;
+      $outlierFraction = 0.10 if ( $nElements > 100 );
+      $outlierFraction = 0.05 if ( $nElements > 1000 );
+
+      #### Assess the upper half of the distribution
+      my @halfVector = @sortedVector[$nFirstQuartile..($nElements-1)];
+      my @compoundHalfVector;
+      my @deltas;
+      my $maxDelta = 0;
+      for ( my $i=0; $i<scalar(@halfVector)-1; $i++) {
+	my $delta = $halfVector[$i+1] - $halfVector[$i];
+	$maxDelta = $delta if ( $delta > $maxDelta );
+        push(@deltas, $delta);
+	my %attributes = ( value=>$halfVector[$i+1], delta=>$delta, previousValue=>$halfVector[$i], nFromEnd=>scalar(@halfVector)-2-$i );
+	push(@compoundHalfVector,\%attributes);
+      }
+
+      my @normalizedDeltas;
+      my $i = 0;
+      foreach my $delta ( @deltas ) {
+	push(@normalizedDeltas, $delta / ($maxDelta||1) );
+	$compoundHalfVector[$i]->{normalizedDelta} = $delta / ($maxDelta||1);
+	$i++;
+      }
+      my @sortedDeltas = reverse sort numerically @normalizedDeltas;
+      my @sortedCompoundHalfVector = sort byNormalizedDelta @compoundHalfVector;
+
+      my @roundedDeltas;
+      for ( my $i=0; $i<10; $i++) {
+	push(@roundedDeltas,sprintf("%.3f",$sortedDeltas[$i]));
+      }
+      print join(",",@roundedDeltas)."\n" if ( $newCodeDebug );
+
+      $gapStats{median} = $stats->{median};
+      $gapStats{upper}->{normalBound} = $stats->{maximum};
+      $gapStats{lower}->{normalBound} = $stats->{minimum};
+
+
+      if ( $sortedCompoundHalfVector[1]->{normalizedDelta} <= 0.6 && $sortedCompoundHalfVector[1]->{normalizedDelta} != 0.0 ) {
+	print "RESULT: Outlier flagged with delta $sortedCompoundHalfVector[1]->{normalizedDelta} at or above $sortedCompoundHalfVector[0]->{value} ($sortedCompoundHalfVector[0]->{nFromEnd} elements from end)\n" if ( $newCodeDebug );
+	if ( $sortedCompoundHalfVector[0]->{nFromEnd} > $nElements * $outlierFraction ) {
+	  print "  oops, but nFromEnd is above $nFirstQuartile, so discount that\n" if ( $newCodeDebug );
+        } else {
+	  my $thisGap = $sortedCompoundHalfVector[0]->{delta};
+	  my $nextGap = $sortedCompoundHalfVector[1]->{delta};
+	  my $gapFactor = 0;
+	  if ( $nextGap ) {
+	    $gapFactor = $thisGap / $nextGap;
+  	  } else {
+	    $gapFactor = 2.5;
+          }
+	  #### Set deviations to 2.25 times the next gap. This is an arbitrary scaling factor
+	  #### to align Eric's perceived gaps to sensitivity cutoffs high=3, med=5, low=10
+	  my $gapDeviations = $gapFactor * 2.25;
+	  print "  This gap was $thisGap. The next biggest gap was $nextGap. gapFactor=$gapFactor. gapDeviations=$gapDeviations\n" if ( $newCodeDebug );
+
+	  $gapStats{upper}->{triggerGap} = $thisGap;
+	  $gapStats{upper}->{gapDeviations} = $gapDeviations;
+	  $gapStats{upper}->{triggerValue} = $sortedCompoundHalfVector[0]->{value};
+	  $gapStats{upper}->{normalBound} = $sortedCompoundHalfVector[0]->{value} - $thisGap;
+	  $gapStats{upper}->{deviationScale} = $gapDeviations / ($thisGap||1);
+	  if ( $newCodeDebug ) {
+	    print "  ## upper triggerGap = $gapStats{upper}->{triggerGap}\n";
+	    print "  ## upper gapDeviations = $gapStats{upper}->{gapDeviations}\n";
+	    print "  ## upper triggerValue = $gapStats{upper}->{triggerValue}\n";
+	    print "  ## upper normalBound = $gapStats{upper}->{normalBound}\n";
+	    print "  ## upper deviationScale = $gapStats{upper}->{deviationScale}\n";
+	  }
+        }
+
+      }
+
+      #### Assess the lower half of the distribution
+      @halfVector = @sortedVector[0..$nThirdQuartile];         #
+      @compoundHalfVector = ();
+      @deltas = ();
+      $maxDelta = 0;
+      for ( my $i=0; $i<scalar(@halfVector)-1; $i++) {
+	my $delta = $halfVector[$i+1] - $halfVector[$i];
+	$maxDelta = $delta if ( $delta > $maxDelta );
+        push(@deltas, $delta);
+	my %attributes = ( value=>$halfVector[$i], delta=>$delta, previousValue=>$halfVector[$i+1], nFromEnd=>$i );    #
+	push(@compoundHalfVector,\%attributes);
+      }
+
+      @normalizedDeltas = ();
+      $i = 0;
+      foreach my $delta ( @deltas ) {
+	push(@normalizedDeltas, $delta / ($maxDelta||1) );
+	$compoundHalfVector[$i]->{normalizedDelta} = $delta / ($maxDelta||1);
+	$i++;
+      }
+      @sortedDeltas = reverse sort numerically @normalizedDeltas;
+      @sortedCompoundHalfVector = sort byNormalizedDelta @compoundHalfVector;
+
+      @roundedDeltas = ();
+      for ( my $i=0; $i<10; $i++) {
+	push(@roundedDeltas,sprintf("%.3f",$sortedDeltas[$i]));
+      }
+      print join(",",@roundedDeltas)."\n" if ( $newCodeDebug );
+
+      if ( $sortedCompoundHalfVector[1]->{normalizedDelta} <= 0.6 && $sortedCompoundHalfVector[1]->{normalizedDelta} != 0.0 ) {
+	print "RESULT: Outlier flagged with delta $sortedCompoundHalfVector[1]->{normalizedDelta} at or below $sortedCompoundHalfVector[0]->{value} ($sortedCompoundHalfVector[0]->{nFromEnd} elements from end)\n" if ( $newCodeDebug );  #
+	if ( $sortedCompoundHalfVector[0]->{nFromEnd} > $nElements * $outlierFraction ) {
+	  print "  oops, but nFromEnd is above $nFirstQuartile, so discount that\n" if ( $newCodeDebug );
+        } else {
+	  my $thisGap = $sortedCompoundHalfVector[0]->{delta};
+	  my $nextGap = $sortedCompoundHalfVector[1]->{delta};
+	  my $gapFactor = 0;
+	  if ( $nextGap ) {
+	    $gapFactor = $thisGap / $nextGap;
+  	  } else {
+	    $gapFactor = 5;
+          }
+	  #### Set deviations to 2.25 times the next gap. This is an arbitrary scaling factor
+	  #### to align Eric's perceived gaps to sensitivity cutoffs high=3, med=5, low=10
+	  my $gapDeviations = $gapFactor * 2.25;
+	  print "  This gap was $thisGap. The next biggest gap was $nextGap. gapFactor=$gapFactor. gapDeviations=$gapDeviations\n" if ( $newCodeDebug );
+
+	  $gapStats{lower}->{triggerGap} = $thisGap;
+	  $gapStats{lower}->{gapDeviations} = $gapDeviations;
+	  $gapStats{lower}->{triggerValue} = $sortedCompoundHalfVector[0]->{value};
+	  $gapStats{lower}->{normalBound} = $sortedCompoundHalfVector[0]->{value} + $thisGap;
+	  $gapStats{lower}->{deviationScale} = $gapDeviations / ($thisGap||1);
+        }
+      }
 
     }
+    print "\n" if ( $newCodeDebug );
 
     #### Calculate the extremities at 3 times SIQR and outliers at 5 times SIQR
     my $iValue = 0;
@@ -337,7 +480,34 @@ sub create {
 
       #### If the value is undefined, can't really calculate a deviation. Set to 999
       my $deviation = 999;
-      if ( defined($value) && defined($siqr) ) {
+
+      #### Calculate deviations based on gap stats
+      if ( $gapStats{lower} ) {
+
+	#### For the upper part of the distribution
+	if ( $value >= $gapStats{median} ) {
+	  if ( $value <= $gapStats{upper}->{normalBound} ) {
+	    my $factor = ( $gapStats{upper}->{normalBound} - $gapStats{median} ) || 1;
+	    my $delta = $value - $gapStats{median};
+	    $deviation = 2.9 * $delta / $factor;
+	  } else {
+	    my $delta = ( $value - $gapStats{upper}->{normalBound} ) * $gapStats{upper}->{deviationScale};
+	    $deviation = $delta;
+	  }
+	#### For the upper part of the distribution
+        } else {
+	  if ( $value >= $gapStats{lower}->{normalBound} ) {
+	    my $factor = ( $gapStats{median} - $gapStats{lower}->{normalBound} ) || 1;
+	    my $delta = $gapStats{median} - $value;
+	    $deviation = 2.9 * $delta / $factor;
+	  } else {
+	    my $delta = ( $gapStats{lower}->{normalBound} - $value ) * $gapStats{lower}->{deviationScale};
+	    $deviation = $delta;
+	  }
+        }
+
+      #### Otherwise, base the deviation on the value and SIQR if available
+      } elsif ( defined($value) && defined($siqr) ) {
 
         #### Now try calculating the deviation based on a mean and stdev after some crude extreme value removal if available
         if ( defined($stats->{adjustedMean}) && $stats->{adjustedStdev} ) {
@@ -352,8 +522,8 @@ sub create {
 
       $deviations[$iValue]->{deviation} = $deviation;
       my $flag = 'normal';
-      $flag = 'extremity' if ( $deviation >= 3 );
-      $flag = 'outlier' if ( $deviation >= 5 );
+      $flag = 'extremity' if ( $deviation >= 5 );
+      $flag = 'outlier' if ( $deviation >= 10 );
 
       #### Protect against undefined values
       my $datumOrNull = $datum;
@@ -390,6 +560,9 @@ sub create {
         
       $deviations[$iValue]->{deviationFlag} = $flag;
       $deviations[$iValue]->{value} = $value;
+
+      print " ****\t$iValue\t$value\t$deviation\t$flag\n" if ( $newCodeDebug );
+
       $iValue++;
     }    
 
@@ -404,8 +577,6 @@ sub create {
   #### Store the information gleaned into the model in the response
   $response->{model} = { dataType=>$dataType, typeCounts=>\%typeCounts, observedValues=>\%observedValues,
     distributionFlags=>$distributionFlags, stats=>$stats, deviations=>\@deviations };
-
-
 
 
 
@@ -456,6 +627,15 @@ sub numerically {
     return 1;
   }
   return $a <=> $b;
+}
+
+
+sub byNormalizedDelta {
+###############################################################################
+# byNormalizedDelta
+# sorting routine for an array of hashes by normalizedDelta: reversed
+###############################################################################
+  return $b->{normalizedDelta} <=> $a->{normalizedDelta};
 }
 
 
