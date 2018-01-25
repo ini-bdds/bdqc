@@ -203,7 +203,19 @@ sub writeHTML {
     return; 
   }
 
-  my $models = $kb->parseModels( kb => $kb );
+  # Sensitivity desired
+  my $sens = 'all';
+  if ( $OPTIONS{sens} ) {
+    $sens = $OPTIONS{sens};
+  }
+  my $sensitivity = '';
+  for my $opt ( qw( all deviations outliers ) ) {
+    my $checked = ( $opt eq $sens ) ? 'checked' : '';
+    $sensitivity .= "$opt <input type=radio name=sens $checked value=$opt>&nbsp;";
+  }
+  my $nidx = $OPTIONS{name_idx} || 3;
+
+  my $models = $kb->parseModels( kb => $kb, sens => $sens, nidx => $nidx );
 
   my $outliers;
   if ( $OPTIONS{skipbad} ) {
@@ -224,6 +236,7 @@ sub writeHTML {
                                     title => $title,
                                   msel_fx => $msel_fx,
                                      msel => $msel,
+                             msensitivity => $sensitivity,
                                   outliers => $outliers,
                                    params => \%OPTIONS );
   print $plotHTML;

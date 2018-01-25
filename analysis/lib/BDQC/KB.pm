@@ -31,6 +31,7 @@ use BDQC::FileSignature::Tabular;
 
 use Time::HiRes qw(gettimeofday tv_interval);
 use File::Basename;
+use File::Spec;
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -363,11 +364,24 @@ sub calcSignatures {
 #    "JPEG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
   );
 
-  eval {
-    require XML::Parser;
-  };
+  my $needs_xml = 0;
+  for my $type ( keys( %{$qckb->{fileTypes}} ) ) {
+    next unless $knownExtensions{$type};
+    for my $sig ( @{$knownExtensions{$type}->{signatureList}} ) {
+      if ( $sig =~ /XML/i ) {
+        $needs_xml++;
+        last;
+      }
+    }
+    last if $needs_xml;
+  }
+  if ( $needs_xml ) {
+    eval {
+      require XML::Parser;
+    };
+  }
   if ( $@ ) {
-    #print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
+    print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
     $knownExtensions{xml}->{signatureList} = [ "FileSignature::Text" ];
     $knownExtensions{mzML}->{signatureList} = [ "FileSignature::Text" ];
     $knownExtensions{mzXML}->{signatureList} = [ "FileSignature::Text" ];
@@ -1816,6 +1830,7 @@ sub parseModels {
   die unless $opts{kb};
 
   my $qckb = $opts{kb}->{_qckb};
+  my $sens = $opts{sens} || 'all';
   my %models;
 
   # Loop over data structure.  File type
@@ -1823,9 +1838,17 @@ sub parseModels {
     $models{$ft} = {};
 
     my @files;
+    my @ftags;
     # Under type read list of files
-    for my $tag ( @{$qckb->{fileTypes}->{$ft}->{fileTagList}} ) {
-      push @files, basename( $tag );
+    for my $file ( @{$qckb->{fileTypes}->{$ft}->{fileTagList}} ) {
+      push @files, basename( $file );
+      if ( $opts{nidx} == 1 ) {
+        push @ftags, basename( $file );
+      } else {
+        my @path = File::Spec->splitdir( $file );
+        my $idx = ( $opts{nidx} )  * -1;
+        push @ftags, $path[$idx];
+      }
     }
     $models{$ft}->{files} = \@files;
 
@@ -1836,28 +1859,35 @@ sub parseModels {
       # Then individual 'Elements'
       for my $sigelem ( keys( %{$sig_obj} ) ) {
         my $has_outliers = 0;
-        my $has_deviation = 0;
+        my $has_deviations = 0;
         my @dev;
 
         next unless $sig_obj->{$sigelem}->{model}->{deviations};
 
         my $fidx = 0;
         for my $dev ( @{$sig_obj->{$sigelem}->{model}->{deviations}} ) {
-          last unless defined ( $dev->{deviationFlag} );
-          $has_deviation++;
-          if ( $dev->{deviationFlag} !~ /^normal$/i ) {
+          next unless defined ( $dev->{deviationFlag} );
+          if ( $dev->{deviationFlag} =~ /extremity/i ) {
+            $has_deviations++;
+          } elsif ( $dev->{deviationFlag} =~ /outlier/i ) {
+            $has_deviations++;
             $has_outliers++;
           }
           $dev->{filename} = $files[$fidx];
+          $dev->{filetag} = $ftags[$fidx];
           push @dev, $dev;
           $fidx++;
         }
 
         my $mkey = $sig . '.' . $sigelem;
-        $mkey =~ s/FileSignature::/FS/;
+#        $mkey =~ s/FileSignature::/FS/;
 
-#        next unless $has_outliers;
-        next unless $has_deviation;
+        # desired sensitivity
+        if ( $sens eq 'outliers' ) {
+          next unless $has_outliers;
+        } elsif ( $sens eq 'deviations' ) {
+          next unless $has_deviations;
+        }
 
         $models{$ft}->{$mkey} = { hasout => $has_outliers,
                                     data => \@dev };

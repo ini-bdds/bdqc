@@ -274,6 +274,13 @@ sub getFiletypeSelect {
   my $ftsel = "<select id=ftselect onchange='setmodel();drawplot()'>\n";                   
   my $has_opts;
   for my $ft ( sort ( keys( %{$models} ) ) ) {
+    my $has_data = 0;
+    for my $m ( keys( %{$models->{$ft}} ) ) {
+      next if $m eq 'files';
+      $has_data++;
+    }
+    next unless $has_data;
+
     $ftsel .= "<option id='$ft'>$ft</option>\n";
     $has_opts++;
   }
@@ -285,6 +292,7 @@ sub getFiletypeSelect {
 sub getPlotHTML {
   my $self = shift;
   my %args = @_;
+  use Data::Dumper;
   return '' unless $args{params} && $args{models};
   $args{msel} ||= $self->getModelSelect( $args{models} );
 
@@ -293,6 +301,8 @@ sub getPlotHTML {
                 3 => 'Outliers' );
 
   $args{params}->{style} ||= 1;
+
+#  <tr><td><b>Models to consider:</b></td><td>$args{msensitivity}</td></tr>
 
   my $HTML = qq~
   <div id=top_div></div>
@@ -343,7 +353,7 @@ sub getPlotHTML {
   
       for my $d ( @{$currmodel->{$m}->{data}} ) {
         push @data, $d->{value};  
-        push @flag, ( $d->{filename} ) ? "$d->{filename}: $d->{deviationFlag}" : $d->{deviationFlag};  
+        push @flag, ( $d->{filetag} ) ? "$d->{filetag}: $d->{deviationFlag}" : $d->{deviationFlag};  
         push @color, ( $d->{deviationFlag} eq 'normal' ) ? $n :
                      ( $d->{deviationFlag} eq 'outlier' ) ? $o : $e;
         push @jitter, $sign*rand(0.2)/10;
@@ -437,9 +447,10 @@ sub getPlotHTML {
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
         my $signature_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$signature.$attribute</a>~;
-        $signature_link =~ s/:://g;
+
+#        $signature_link =~ s/:://g;
         #$signature_link =~ s/\./__/;
-        $signature_link =~ s/FileSignature/FS/g;
+#        $signature_link =~ s/FileSignature/FS/g;
 
 #        $outlierHTML .= "$sp$sp$sp- $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
         $outlierHTML .= "$sp$sp$sp- $signature_link: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
