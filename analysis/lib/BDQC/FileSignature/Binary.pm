@@ -211,6 +211,26 @@ sub show {
 }
 
 
+sub setSignatureAttributeDescriptions {
+###############################################################################
+# setSignatureAttributeDescriptions
+###############################################################################
+  my $METHOD = 'setSignatureAttributeDescriptions';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $qckb = shift || die ("qckb not passed");
+
+  return if ( exists($qckb->{signatureInfo}->{"FileSignature::Binary.charHistogram"}->{friendlyName}) );
+
+  my $info = $qckb->{signatureInfo};
+
+  $info->{"FileSignature::Text.lineEndings"}->{friendlyName} = "pattern of byte counts";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{upper} = "different";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{lower} = "different";
+
+  return;
+}
+
 
 ###############################################################################
 1;

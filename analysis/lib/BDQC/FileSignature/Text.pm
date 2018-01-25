@@ -176,6 +176,8 @@ sub calcSignature {
     $signature->{averageWordsPerLine} += scalar(@words);
   }
 
+  close(INFILE);
+
   if ( $signature->{nLines} ) {
     $signature->{averageLineLength} /= $signature->{nLines};
     $signature->{averageWordsPerLine} /= $signature->{nLines};
@@ -216,6 +218,38 @@ sub show {
   return $buffer;
 }
 
+
+sub setSignatureAttributeDescriptions {
+###############################################################################
+# setSignatureAttributeDescriptions
+###############################################################################
+  my $METHOD = 'setSignatureAttributeDescriptions';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $qckb = shift || die ("qckb not passed");
+
+  return if ( exists($qckb->{signatureInfo}->{"FileSignature::Text.nLines"}->{friendlyName}) );
+
+  my $info = $qckb->{signatureInfo};
+
+  $info->{"FileSignature::Text.nLines"}->{friendlyName} = "number of lines";
+  $info->{"FileSignature::Text.nLines"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Text.nLines"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::Text.lineEndings"}->{friendlyName} = "pattern of line endings";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{upper} = "different";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{lower} = "different";
+
+  $info->{"FileSignature::Text.averageLineLength"}->{friendlyName} = "average length of each line";
+  $info->{"FileSignature::Text.averageLineLength"}->{sideName}->{upper} = "longer";
+  $info->{"FileSignature::Text.averageLineLength"}->{sideName}->{lower} = "shorter";
+
+  $info->{"FileSignature::Text.averageWordsPerLine"}->{friendlyName} = "average number of words per line";
+  $info->{"FileSignature::Text.averageWordsPerLine"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Text.averageWordsPerLine"}->{sideName}->{lower} = "shorter";
+
+  return;
+}
 
 
 ###############################################################################

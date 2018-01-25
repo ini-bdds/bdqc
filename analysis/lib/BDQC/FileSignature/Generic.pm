@@ -173,11 +173,10 @@ sub calcSignature {
   my ( @nonZeroAsciiValues, @nonZeroCharacterCounts );
 
   #### Transform from an array to a hash and collect some stats along the way
-  my %stats = ( fractionBelow128=>0, fractionAbove127=>0, meanAsciiValue=>0, nDifferentCharacters=>0 );
+  my %stats = ( fractionAbove127=>0, meanAsciiValue=>0, nDifferentCharacters=>0 );
   for (my $i=0; $i<256; $i++) {
     if ( $charList[$i] ) {
       $charHistogram->{$i} = $charList[$i];
-      $stats{fractionBelow128} += $charList[$i] if ( $i<128 );
       $stats{fractionAbove127} += $charList[$i] if ( $i>127 );
       $stats{meanCharacterCount} += $charList[$i];
       $stats{meanAsciiValue} += $i;
@@ -189,7 +188,6 @@ sub calcSignature {
 
   #### Normalize
   if ( $bytesRead ) {
-    $stats{fractionBelow128} = $stats{fractionBelow128} / $bytesRead;
     $stats{fractionAbove127} = $stats{fractionAbove127} / $bytesRead;
   }
 
@@ -204,8 +202,6 @@ sub calcSignature {
   #### Some heuristics of what kind of file this is
   if ( $bytesRead == 0 ) {
     $stats{fileType} = 'zeroLength';
-  } elsif ( $stats{fractionBelow128} == 0 ) {
-    $stats{fileType} = 'binary';
   } elsif ( $stats{fractionAbove127} < 0.1) {
     $stats{fileType} = 'text';
   } else {
@@ -299,6 +295,54 @@ sub numerically {
   return $a <=> $b;
 }
 
+
+sub setSignatureAttributeDescriptions {
+###############################################################################
+# setSignatureAttributeDescriptions
+###############################################################################
+  my $METHOD = 'setSignatureAttributeDescriptions';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $qckb = shift || die ("qckb not passed");
+
+  return if ( exists($qckb->{signatureInfo}->{"FileSignature::Generic.nLines"}->{friendlyName}) );
+
+  my $info = $qckb->{signatureInfo};
+
+  $info->{"FileSignature::Generic.fractionAbove127"}->{friendlyName} = "fraction of bytes above ASCII 127";
+  $info->{"FileSignature::Generic.fractionAbove127"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Generic.fractionAbove127"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::Generic.meanAsciiValue"}->{friendlyName} = "average ASCII value";
+  $info->{"FileSignature::Generic.meanAsciiValue"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Generic.meanAsciiValue"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::Generic.meanCharacterCount"}->{friendlyName} = "average instances of each ASCII value";
+  $info->{"FileSignature::Generic.meanCharacterCount"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Generic.meanCharacterCount"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::Generic.medianCharacterCount"}->{friendlyName} = "median number of instances of each ASCII value";
+  $info->{"FileSignature::Generic.medianCharacterCount"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Generic.medianCharacterCount"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::Generic.nDifferentCharacters"}->{friendlyName} = "number of different ASCII values";
+  $info->{"FileSignature::Generic.nDifferentCharacters"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Generic.nDifferentCharacters"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::Generic.fileType"}->{friendlyName} = "broad file type";
+  $info->{"FileSignature::Generic.fileType"}->{sideName}->{upper} = "different";
+  $info->{"FileSignature::Generic.fileType"}->{sideName}->{lower} = "different";
+
+  $info->{"FileSignature::Generic.subFileType"}->{friendlyName} = "subcategory of file type";
+  $info->{"FileSignature::Generic.subFileType"}->{sideName}->{upper} = "different";
+  $info->{"FileSignature::Generic.subFileType"}->{sideName}->{lower} = "different";
+
+  $info->{"FileSignature::Generic."}->{friendlyName} = "";
+  $info->{"FileSignature::Generic."}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::Generic."}->{sideName}->{lower} = "smaller";
+
+  return;
+}
 
 
 ###############################################################################

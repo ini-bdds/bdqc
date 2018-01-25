@@ -248,6 +248,39 @@ sub show {
 }
 
 
+sub setSignatureAttributeDescriptions {
+###############################################################################
+# setSignatureAttributeDescriptions
+###############################################################################
+  my $METHOD = 'setSignatureAttributeDescriptions';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $qckb = shift || die ("qckb not passed");
+
+  return if ( exists($qckb->{signatureInfo}->{"FileSignature::XML.tags"}->{friendlyName}) );
+
+  my $info = $qckb->{signatureInfo};
+
+  $info->{"FileSignature::XML.tags"}->{friendlyName} = "pattern of XML tag counts";
+  $info->{"FileSignature::XML.tags"}->{sideName}->{upper} = "different";
+  $info->{"FileSignature::XML.tags"}->{sideName}->{lower} = "different";
+
+  $info->{"FileSignature::XML.parserMessage"}->{friendlyName} = "error message from the XML parser";
+  $info->{"FileSignature::XML.parserMessage"}->{sideName}->{upper} = "different";
+  $info->{"FileSignature::XML.parserMessage"}->{sideName}->{lower} = "different";
+
+  $info->{"FileSignature::XML.ntags"}->{friendlyName} = "number of distinct XML tags";
+  $info->{"FileSignature::XML.ntags"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::XML.ntags"}->{sideName}->{lower} = "smaller";
+
+  $info->{"FileSignature::XML.dsize"}->{friendlyName} = "total number of XML data characters";
+  $info->{"FileSignature::XML.dsize"}->{sideName}->{upper} = "larger";
+  $info->{"FileSignature::XML.dsize"}->{sideName}->{lower} = "smaller";
+
+  return;
+}
+
 
 ###############################################################################
 1;
+
