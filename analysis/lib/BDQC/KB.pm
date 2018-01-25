@@ -345,6 +345,7 @@ sub calcSignatures {
 
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
+  $self->setBuiltinSignatureAttributeDescriptions();
 
   my %knownExtensions = (
 #    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
@@ -393,6 +394,7 @@ sub calcSignatures {
     my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
     my $signatureName = "FileSignature::Generic";
     my $genericResult = $genericSignature->calcSignature();
+    $genericSignature->setSignatureAttributeDescriptions($qckb);
     if ( $genericResult->{status} eq 'OK' ) {
       $signatures->{$signatureName} = $genericResult->{signature};
     } else {
@@ -451,6 +453,7 @@ sub calcSignatures {
         #print "Running $moduleName on $filePath\n";
         my $signature = $moduleName->new( filePath=>$filePath );
         #my $t0 = [gettimeofday];
+        $signature->setSignatureAttributeDescriptions($qckb);
         $result = $signature->calcSignature();
         #my $t1 = [gettimeofday];
         #my $elapsed = tv_interval($t0,$t1);
@@ -858,7 +861,7 @@ sub getOutliers {
         #### Loop over all the deviations, looking for one labeled an outlier
         my $iDeviation = 0;
         foreach my $deviation ( @{$model->{deviations}} ) {
-          if ( defined($deviation->{deviation}) && $deviation->{deviation} >= $sensitivity ) {
+          if ( defined($deviation->{deviation}) && abs($deviation->{deviation}) >= $sensitivity ) {
 
             #### Extract the datum and vaue for the outlier and condition a bit
             my $value = '(null)';
@@ -886,12 +889,21 @@ sub getOutliers {
 
   return $outliers if $astext;
 
-  #### Print out the outlier files and their outlier values
+  #### Render the outlier information in various forms and return
+  my $friendlyTextBuffer = '';
+  my $nerdyTextBuffer = '';
+
+  #### Loop over each fileType and filename
   foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
     foreach my $outlierFileTagName ( sort keys(%{$outliers->{fileTypes}->{$fileType}->{fileTags}}) ) {
-      print "$outlierFileTagName is an outlier because:\n";
-      $nOutlierFiles++;
+
       my $outlierFileTagList = $outliers->{fileTypes}->{$fileType}->{fileTags}->{$outlierFileTagName};
+      my $nOutlierFlags = scalar(@{$outlierFileTagList});
+      $nOutlierFiles++;
+
+      $friendlyTextBuffer .= "The file $outlierFileTagName is an outlier with $nOutlierFlags flags:\n";
+      $nerdyTextBuffer .= "$outlierFileTagName is an outlier with $nOutlierFlags flags:\n";
+
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
         my $attribute = $outlier->{attribute};
@@ -900,15 +912,28 @@ sub getOutliers {
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
 	$deviation = sprintf("%.1f",$deviation);
-        print "  $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
+
+        $nerdyTextBuffer .= " - $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
+
+	my $side = "upper";
+	$side = "lower" if ( $deviation < 0 );
+	my $noun = $qckb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
+	my $verb = "is " . ($qckb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different");
+	$friendlyTextBuffer .= " - The $noun $verb than normal\n";
       }
     }
   }
 
-  #### If there were none, print that
+  #### If there were none, say that
   unless ( $nOutlierFiles ) {
-    print " - No outliers found\n";
+    $friendlyTextBuffer .= "No outliers were found\n";
+    $nerdyTextBuffer .= "No outliers found\n";
   }
+
+  $response->{friendlyTextBuffer} = $friendlyTextBuffer;
+  $response->{nerdyTextBuffer} = $nerdyTextBuffer;
+  $response->{outliers} = $outliers;
+
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -1841,6 +1866,8 @@ sub parseModels {
   }
   return \%models;
 }
+
+
 sub splitFilePath {
 ###############################################################################
 # splitFilePath
@@ -1889,6 +1916,44 @@ sub splitFilePath {
   print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
   return $components;
 }
+
+
+sub setBuiltinSignatureAttributeDescriptions {
+###############################################################################
+# setBuiltinSignatureAttributeDescriptions
+###############################################################################
+  my $METHOD = 'setBuiltinSignatureAttributeDescriptions';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+
+  my $qckb = $self->getQckb();
+  return if ( exists($qckb->{signatureInfo}->{"extrinsic.size"}->{friendlyName}) );
+
+  my $info = $qckb->{signatureInfo};
+
+  $info->{"extrinsic.size"}->{friendlyName} = "file size";
+  $info->{"extrinsic.size"}->{sideName}->{upper} = "larger";
+  $info->{"extrinsic.size"}->{sideName}->{lower} = "smaller";
+
+  $info->{"extrinsic.mtime"}->{friendlyName} = "modification timestamp";
+  $info->{"extrinsic.mtime"}->{sideName}->{upper} = "later";
+  $info->{"extrinsic.mtime"}->{sideName}->{lower} = "earlier";
+
+  $info->{"extrinsic.filename"}->{friendlyName} = "file name itself";
+  $info->{"extrinsic.filename"}->{sideName}->{upper} = "longer or has different characters";
+  $info->{"extrinsic.filename"}->{sideName}->{lower} = "shorter or has different characters";
+
+  $info->{"extrinsic.basename"}->{friendlyName} = "file folder name";
+  $info->{"extrinsic.basename"}->{sideName}->{upper} = "longer or has different characters";
+  $info->{"extrinsic.basename"}->{sideName}->{lower} = "shorter or has different characters";
+
+  $info->{"extrinsic.readable"}->{friendlyName} = "read permissions";
+  $info->{"extrinsic.readable"}->{sideName}->{upper} = "different";
+  $info->{"extrinsic.readable"}->{sideName}->{lower} = "different";
+
+  return;
+}
+
 
 ###############################################################################
 1;
