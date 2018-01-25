@@ -494,15 +494,16 @@ sub create {
 	    my $delta = ( $value - $gapStats{upper}->{normalBound} ) * $gapStats{upper}->{deviationScale};
 	    $deviation = $delta;
 	  }
-	#### For the upper part of the distribution
+
+	#### For the lower part of the distribution
         } else {
 	  if ( $value >= $gapStats{lower}->{normalBound} ) {
 	    my $factor = ( $gapStats{median} - $gapStats{lower}->{normalBound} ) || 1;
 	    my $delta = $gapStats{median} - $value;
-	    $deviation = 2.9 * $delta / $factor;
+	    $deviation = -2.9 * $delta / $factor;
 	  } else {
 	    my $delta = ( $gapStats{lower}->{normalBound} - $value ) * $gapStats{lower}->{deviationScale};
-	    $deviation = $delta;
+	    $deviation = -1 * $delta;
 	  }
         }
 
@@ -511,19 +512,20 @@ sub create {
 
         #### Now try calculating the deviation based on a mean and stdev after some crude extreme value removal if available
         if ( defined($stats->{adjustedMean}) && $stats->{adjustedStdev} ) {
-          $deviation = abs( ($stats->{adjustedMean}||0) - ($value||0) )/$stats->{adjustedStdev};
+          $deviation = ($stats->{adjustedMean}||0) - ($value||0) / $stats->{adjustedStdev};
 
         #### Else fall back to the original crude mechanism
         } elsif ( defined($stats->{median}) && $siqr ) {
           #### First attempt based simply on the median and the SIQR. Crude.
-          $deviation = abs( ($stats->{median}||0) - ($value||0) )/$siqr;
+          $deviation = ($stats->{median}||0) - ($value||0) / $siqr;
         }
       }
 
       $deviations[$iValue]->{deviation} = $deviation;
+
       my $flag = 'normal';
-      $flag = 'extremity' if ( $deviation >= 5 );
-      $flag = 'outlier' if ( $deviation >= 10 );
+      $flag = 'extremity' if ( abs($deviation) >= 5 );
+      $flag = 'outlier' if ( abs($deviation) >= 10 );
 
       #### Protect against undefined values
       my $datumOrNull = $datum;
