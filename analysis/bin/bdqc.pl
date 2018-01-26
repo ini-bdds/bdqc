@@ -58,6 +58,7 @@ Options:
                       modeling, or outlier reporting (e.g. "extrinsic.mtime;tracking.dataDirectory" to skip
                       collation, model, or outlier reporting of the file modification times and directory names.
   --showOutliers      Show all outliers in the QC KB
+  --outputFormat x    Format in which to show output: friendly (default), nerdy, tsv, JSON
   --sensitivity x     Set the sensitivity of the outlier detection. Can either be low, medium, high or a numerical
                       value specifying the number of deviations from typical to flag as an outlier.
                       low=10, medium=5 (default), and high=3 deviations
@@ -73,7 +74,7 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
-                   "sensitivity:s","writeHTML", "inputFiles:s",
+                   "sensitivity:s","writeHTML", "inputFiles:s","outputFormat:s",
   )) {
   print "$USAGE";
   exit 2;
@@ -164,6 +165,11 @@ sub main {
   if ( $result->{status} eq 'OK' && $OPTIONS{showOutliers} ) {
     my $result = $qckb->getOutliers( skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
+    if ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} eq "nerdy" ) {
+      print $result->{nerdyTextBuffer};
+    } else {
+      print $result->{friendlyTextBuffer};
+    }
   }
 
   #### Write out signature/model information as HTML. Assumes that these have
