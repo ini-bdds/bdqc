@@ -172,27 +172,42 @@ sub create {
     elsif ( $datum =~ /^\s*true\s*$/i || $datum =~ /^\s*false\s*$/i || $datum =~ /^\s*t\s*$/i || $datum =~ /^\s*f\s*$/i ) { $dataType = 'boolean'; }
     else { $dataType = 'string'; }
     $typeCounts{$dataType}++;
-    push(@deviations,{ dataType=>$dataType, datum=>$datum, value=>$datum });
-    if ( $dataType ne 'undefined' ) {
-      push(@cleanedVector,$datum);
-    }
 
     #### Add to the hash of all the observed values, although undef becomes null
     my $datumOrNull = $datum;
     $datumOrNull = 'null' if ( ! defined($datum) );
     $observedValues{$datumOrNull}++;
 
+    #### For a datatype of string, convert the string to a number for calculation of distributions
+    my $value = $datum;
+    if ( $dataType eq 'string' ) {
+      my $asciiAverage;
+      for (my $i=0; $i<length($datum); $i++) {
+        $asciiAverage += ord(substr($datum,$i,1));
+      }
+      my $datumLength = length($datum) || 1;
+      $asciiAverage /= $datumLength;
+      $value = length($datum) + $asciiAverage;
+    }
+    #print "** datum=$datum, value=$value, dataType=$dataType\n";
+
     #### Keep some stats to calculate a mean and standard deviation
-    if ( $dataType eq 'integer' || $dataType eq 'float' ) {
-      $stats->{sum} += $datum;
+    if ( $dataType eq 'integer' || $dataType eq 'float' || $dataType eq 'string' ) {
+      $stats->{sum} += $value;
       $stats->{nonNullElements}++;
       if ( ! defined($stats->{minimum}) ) {
-        $stats->{minimum} = $datum;
-        $stats->{maximum} = $datum;
+        $stats->{minimum} = $value;
+	$stats->{maximum} = $value;
       } else {
-        $stats->{minimum} = $datum if ( $datum < $stats->{minimum} );
-        $stats->{maximum} = $datum if ( $datum > $stats->{maximum} );
+	$stats->{minimum} = $value if ( $value < $stats->{minimum} );
+	$stats->{maximum} = $value if ( $value > $stats->{maximum} );
       }
+    }
+
+    #### Add this datum to the deviations vector
+    push(@deviations, { dataType=>$dataType, datum=>$datum, value=>$value } );
+    if ( $dataType ne 'undefined' && $dataType ne 'empty' ) {
+      push(@cleanedVector,$value);
     }
 
   } # end foreach $datum
@@ -213,7 +228,6 @@ sub create {
       $stats->{nullStatus} = "nullIsPartOfNormal";
     }
   }
-  #print "**nullStatus=$stats->{nullStatus}\n";
 
 
   #### Caclulate the mean
@@ -224,6 +238,7 @@ sub create {
   #### Record some additional stats
   $stats->{nElements} = $nElements;
   $stats->{nDistinctValues} = scalar(keys(%observedValues));
+
 
   #### Try to decide the most likely dataType based on simple heuristics, allowing for missing values
   my $dataType = 'unknown';
@@ -237,8 +252,6 @@ sub create {
     $dataType = 'string';
   }
 
-  #### Probably need some special code to handle with there are less than ~5 values. FIXME
-  # FIXME
 
   #### Determine a few classes of basic distributions (like allIdentical, TwoValued, allDifferent)
   my $nObservedValues = scalar(keys(%observedValues));
@@ -262,81 +275,28 @@ sub create {
   #### But if there is variation, then assess it
   } else {
 
-    #### If this is a numerical vector, then calculate median and siqr
-    if ( $dataType eq 'integer' or $dataType eq 'float' ) {
-      my @sortedVector = sort numerically @cleanedVector;
-      my $nElements = scalar(@sortedVector);
-      $stats->{median} = $sortedVector[$nElements/2];
-      $stats->{siqr} = 0;
-      if ( defined($sortedVector[$nElements/4*3]) && defined($sortedVector[$nElements/4]) ) {
-        $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
-      }
-      #print "Input: ".join(",",@sortedVector)."\n";
-      my @sortedVectorSomeOutliersRemoved = removeSomeOutliers(@sortedVector);
-      #print "Output: ".join(",",@sortedVectorSomeOutliersRemoved)."\n";
-      my $sum = 0;
-      foreach my $value ( @sortedVectorSomeOutliersRemoved ) {
-        $sum += $value;
-      }
-      my $newNElements = scalar(@sortedVectorSomeOutliersRemoved) || 1;
-      $stats->{adjustedMean} = $sum/$newNElements;
-      $sum = 0;
-      foreach my $value ( @sortedVectorSomeOutliersRemoved ) {
-        $sum += ($value-$stats->{adjustedMean})**2;
-      }
-      $stats->{adjustedStdev} = sqrt($sum/$newNElements);
+    #### Calculate median and siqr
+    my @sortedVector = sort numerically @cleanedVector;
+    my $nElements = scalar(@sortedVector);
+    $stats->{median} = $sortedVector[$nElements/2];
+    $stats->{siqr} = 0;
+    if ( defined($sortedVector[$nElements/4*3]) && defined($sortedVector[$nElements/4]) ) {
+      $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
     }
-
-    #### If this is a string vector, then first turn each string into a number based on the characters
-    ####   it contains and its length, and then calculate median and siqr
-    if ( $dataType eq 'string' ) {
-      my @numericalVector;
-      my $iValue = 0;
-      foreach my $datum ( @{$vector} ) {
-        my $asciiAverage;
-        my $stringValue;
-        if ( defined($datum) ) {
-          for (my $i=0; $i<length($datum); $i++) {
-            $asciiAverage += ord(substr($datum,$i,1));
-          }
-          my $datumLength = length($datum) || 1;
-          $asciiAverage /= $datumLength;
-          $stringValue = length($datum)+$asciiAverage;
-        }
-
-        push(@numericalVector,$stringValue);
-        $deviations[$iValue]->{stringValue} = $stringValue;
-
-        #### Keep some stats to calculate a mean and standard deviation
-        my $datum = $stringValue;
-        if ( defined($datum) ) {
-          $stats->{sum} += $datum;
-          $stats->{nonNullElements}++;
-          if ( ! defined($stats->{minimum}) ) {
-            $stats->{minimum} = $datum;
-            $stats->{maximum} = $datum;
-          } else {
-            $stats->{minimum} = $datum if ( $datum < $stats->{minimum} );
-            $stats->{maximum} = $datum if ( $datum > $stats->{maximum} );
-          }
-        }
-
-        $iValue++;
-      }
-      my @sortedVector = sort numerically @numericalVector;
-      my $nElements = scalar(@sortedVector);
-      $stats->{median} = $sortedVector[$nElements/2];
-      $stats->{siqr} = 0;
-      if ( defined($sortedVector[$nElements/4*3]) && defined($sortedVector[$nElements/4]) ) {
-        $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
-      }
-
-      #### Calculate the mean
-      if ( $stats->{nonNullElements} ) {
-        $stats->{mean} = $stats->{sum} / $stats->{nonNullElements};
-      }
-      @cleanedVector = @numericalVector;
+    #print "Input: ".join(",",@sortedVector)."\n";
+    my @sortedVectorSomeOutliersRemoved = removeSomeOutliers(@sortedVector);
+    #print "Output: ".join(",",@sortedVectorSomeOutliersRemoved)."\n";
+    my $sum = 0;
+    foreach my $value ( @sortedVectorSomeOutliersRemoved ) {
+      $sum += $value;
     }
+    my $newNElements = scalar(@sortedVectorSomeOutliersRemoved) || 1;
+    $stats->{adjustedMean} = $sum/$newNElements;
+    $sum = 0;
+    foreach my $value ( @sortedVectorSomeOutliersRemoved ) {
+      $sum += ($value-$stats->{adjustedMean})**2;
+    }
+    $stats->{adjustedStdev} = sqrt($sum/$newNElements);
 
 
     #### New experimental code to assess the degree of outliers rather than using the standard deviation
@@ -488,7 +448,7 @@ sub create {
     foreach my $datum ( @{$vector} ) {
       my $value = $datum;
       if ( $dataType eq 'string' ) {
-        $value = $deviations[$iValue]->{stringValue};
+        $value = $deviations[$iValue]->{value};
       }
 
       #### If the value is not null, then add to the variance
