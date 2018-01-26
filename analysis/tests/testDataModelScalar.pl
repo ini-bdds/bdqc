@@ -120,6 +120,24 @@ sub main {
     $suffix = "5pts_1outlier";
     @values = ( 6,20,130,9,17 );
 
+  #### Create vectorTag 5int_1null
+  } elsif ( $vectorTag eq '5int_1null' ) {
+    $comment = "Five integers, one null";
+    $suffix = "5pts_1null";
+    @values = ( 6,20,'',9,17 );
+
+  #### Create vectorTag 5int_2null
+  } elsif ( $vectorTag eq '5int_2null' ) {
+    $comment = "Five integers, two null";
+    $suffix = "5pts_1null";
+    @values = ( 6,'','',9,17 );
+
+  #### Create vectorTag 5int_2null
+  } elsif ( $vectorTag eq '5int_2null' ) {
+    $comment = "Five integers, two null";
+    $suffix = "5pts_1null";
+    @values = ( 6,'','',9,17 );
+
   #### Else not known
   } else {
     print "ERROR: --vectorTag = $vectorTag is not yet supported.\n\n";
