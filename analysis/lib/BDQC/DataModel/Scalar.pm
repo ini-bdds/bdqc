@@ -205,7 +205,7 @@ sub create {
     }
 
     #### Add this datum to the deviations vector
-    push(@deviations, { dataType=>$dataType, datum=>$datum, value=>$value } );
+    push(@deviations, { dataType=>$dataType, datum=>$datum, value=>$value, deviation=>0, deviationFlag=>'normal' } );
     if ( $dataType ne 'undefined' && $dataType ne 'empty' ) {
       push(@cleanedVector,$value);
     }
