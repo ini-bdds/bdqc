@@ -198,6 +198,24 @@ sub create {
   } # end foreach $datum
 
 
+  #### Set up rules for dealing with nulls
+  $stats->{nullStatus} = "noNulls";
+  if ( $stats->{nonNullElements} != $nElements ) {
+    my $outlierEdgeNumber = getOutlierEdgeNumber($nElements);
+    #print "**nElements=$nElements, outlierEdgeNumber=$outlierEdgeNumber, nonNullElements=$stats->{nonNullElements}\n";
+    if ( $stats->{nonNullElements} == 0 ) {
+      $stats->{nullStatus} = "allNulls";
+    } elsif ( $stats->{nonNullElements} <= $outlierEdgeNumber ) {
+      $stats->{nullStatus} = "nullIsNormal";
+    } elsif ( $nElements - $stats->{nonNullElements} <= $outlierEdgeNumber ) {
+      $stats->{nullStatus} = "nonNullIsNormal";
+    } else {
+      $stats->{nullStatus} = "nullIsPartOfNormal";
+    }
+  }
+  #print "**nullStatus=$stats->{nullStatus}\n";
+
+
   #### Caclulate the mean
   if ( $stats->{nonNullElements} ) {
     $stats->{mean} = $stats->{sum} / $stats->{nonNullElements};
@@ -478,14 +496,14 @@ sub create {
         $stats->{variance} += ( ( ($value||0) - ($stats->{mean}||0) )**2 );
       }
 
-      #### If the value is undefined, can't really calculate a deviation. Set to 999
-      my $deviation = 999;
+      #### Set a default deviation flag
+      my $deviation = 997;
 
       #### Calculate deviations based on gap stats
       if ( $gapStats{lower} ) {
 
 	#### For the upper part of the distribution
-	if ( $value >= $gapStats{median} ) {
+	if ( defined($value) && $value >= $gapStats{median} ) {
 	  if ( $value <= $gapStats{upper}->{normalBound} ) {
 	    my $factor = ( $gapStats{upper}->{normalBound} - $gapStats{median} ) || 1;
 	    my $delta = $value - $gapStats{median};
@@ -496,7 +514,7 @@ sub create {
 	  }
 
 	#### For the lower part of the distribution
-        } else {
+        } elsif ( defined($value) ) {
 	  if ( $value >= $gapStats{lower}->{normalBound} ) {
 	    my $factor = ( $gapStats{median} - $gapStats{lower}->{normalBound} ) || 1;
 	    my $delta = $gapStats{median} - $value;
@@ -521,6 +539,21 @@ sub create {
         }
       }
 
+
+      #### If the value is undefined, apply special rules for the deviation
+      if ( $deviations[$iValue]->{dataType} eq "undefined" || $deviations[$iValue]->{dataType} eq 'empty' ) {
+	if ( $stats->{nullStatus} eq "allNulls" || $stats->{nullStatus} eq "nullIsNormal"
+             || $stats->{nullStatus} eq "nullIsPartOfNormal" ) {
+	  $deviation = 0;
+        }
+
+      #### If the value is not undefined, but we've determined that null is the sole normal,
+      #### then force the defined value to be an outlier
+      } elsif ( $stats->{nullStatus} eq "nullIsNormal" ) {
+	$deviation = 998;
+      }
+
+      #### Record the calculated deviation value
       $deviations[$iValue]->{deviation} = $deviation;
 
       my $flag = 'normal';
@@ -694,6 +727,26 @@ sub removeSomeOutliers {
   }
 
   return @cleanedSortedVector;  
+}
+
+
+sub getOutlierEdgeNumber {
+###############################################################################
+# getOutlierEdgeNumber
+# Based on the input number, return a somewhat subjective number of the maximum
+# number of outliers permitted. More than this number of aberrant values would
+# then be considered part of normal.
+###############################################################################
+  my $population = shift;
+  die ("ERROR: getOutlierEdgeNumber requires a positive integer") if ( ! defined($population) );
+  my @lowNumbers = ( 0,0,0,1,1,1,2,2,2,2,3 );
+  return $lowNumbers[$population] if ( $population <= 10 );
+  return int($population/5)+1 if ( $population <= 20 );
+  return int($population/10)+3 if ( $population <= 50 );
+  return int($population/15)+5 if ( $population <= 100 );
+  return int($population*0.04)+7 if ( $population <= 1000 );
+  return int($population*0.02)+47 if ( $population <= 10000 );
+  return int($population*0.01)+127;
 }
 
 
