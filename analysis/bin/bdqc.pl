@@ -37,12 +37,18 @@ Options:
   --testonly          If set, nothing is actually altered
   --debug n           Set debug level. The default is 0
   --kbRootPath x      Full or relative root path QC KB results files (file extension will be added)
+
   --dataDirectory x   Full or relative directory path of the data to be scanned
   --inputFiles x      An input file which lists individual files to add
                       OR a file glob of files to import (e.g. --inputFiles "subdir/A*/*.tsv". NOTE that
                       depending on the shell you are using, the glob string should be in quotes or the shell will expand it first
-  --calcSignatures    Calculate file signatures for all new files in the QC KB
   --importSignatures x Import .bdqc signatures from the specified external file
+
+  --step              If set, only the explicitly named steps will be executed. In the absense of this parameter,
+                      all action steps will be automatically run: --calcSig, --collate, --calcModels, --showOutliers, --writeHTML
+                      Explicitly using any of those options will automatically trigger --step behavior
+
+  --calcSignatures    Calculate file signatures for all new files in the QC KB
   --importLimit N     Limit the number of signatures during import to N (for testing only)
   --collateData       Collate all the data from individual files in preparation for modeling
   --calcModels        Calculate file signature models for all files in the QC KB
@@ -62,7 +68,8 @@ Options:
   --sensitivity x     Set the sensitivity of the outlier detection. Can either be low, medium, high or a numerical
                       value specifying the number of deviations from typical to flag as an outlier.
                       low=10, medium=5 (default), and high=3 deviations
-  --writeHTML         Write results as HTML page. Automatically invoked if called as a cgi (ENV{query_string} set).
+  --writeHTML x       Summarize results as HTML to the specified filename. If the filename is STDOUT, the the HTML is written to STDOUT.
+                      This option is automatically invoked to STDOUT if called as a cgi (ENV{query_string} set).
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
 
@@ -74,7 +81,8 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
-                   "sensitivity:s","writeHTML", "inputFiles:s","outputFormat:s",
+                   "sensitivity:s","writeHTML:s", "inputFiles:s","outputFormat:s",
+                   "step",
   )) {
   print "$USAGE";
   exit 2;
@@ -113,7 +121,12 @@ sub main {
   my $result = $qckb->createKb();
   $response->mergeResponse( sourceResponse=>$result );
 
-  #### If a KC QC file parameter was provided, see if there is already one to warm start with
+  #### If no kbRootPath is set, use a default name
+  unless ( $OPTIONS{kbRootPath} ) {
+    $OPTIONS{kbRootPath} = "BDQC";
+  }
+
+  #### If a KBQC file parameter was provided, try to load and existing one to warm start with
   if ( $OPTIONS{kbRootPath} ) {
     $result = $qckb->loadKb( kbRootPath=>$OPTIONS{kbRootPath}, skipIfFileNotFound=>1 );
     $response->mergeResponse( sourceResponse=>$result );
@@ -137,8 +150,13 @@ sub main {
     $response->mergeResponse( sourceResponse=>$result );
   }
 
+  #### Determine if we should be in step-by-step mode or autorun mode
+  my $autorun = 1;
+  $autorun = 0 if ( $OPTIONS{step} );
+  $autorun = 0 if ( $OPTIONS{calcSignatures} || $OPTIONS{collateData} || $OPTIONS{showOutliers} || $OPTIONS{writeHTML});
+
   #### Calculate signatures for all files in the KB
-  if ( $result->{status} eq 'OK' && $OPTIONS{calcSignatures} ) {
+  if ( $result->{status} eq 'OK' && ( $OPTIONS{calcSignatures} || $autorun ) ) {
     my $result = $qckb->calcSignatures( verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
@@ -150,19 +168,25 @@ sub main {
   }
 
   #### Collate all attributes for all files in the KB by filetype into a form ready to model
-  if ( $result->{status} eq 'OK' && $OPTIONS{collateData} ) {
+  if ( $result->{status} eq 'OK' && ( $OPTIONS{collateData} || $autorun ) ) {
     my $result = $qckb->collateData( skipAttributes=>$OPTIONS{skipAttributes}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Calculate models and outliers for all files in the KB by filetype
-  if ( $result->{status} eq 'OK' && $OPTIONS{calcModels} ) {
+  if ( $result->{status} eq 'OK' && ( $OPTIONS{calcModels} || $autorun ) ) {
     my $result = $qckb->calcModels( skipAttributes=>$OPTIONS{skipAttributes}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
+  #### If a KC QC file parameter was provided, write out the KB
+  if ( $result->{status} eq 'OK' && $OPTIONS{kbRootPath} ) {
+    my $result = $qckb->saveKb( kbRootPath=>$OPTIONS{kbRootPath}, verbose => $verbose, quiet=>$quiet, debug=>$debug, testonly=>$testonly );
+    $response->mergeResponse( sourceResponse=>$result );
+  }
+
   #### Show the deviations found in the data
-  if ( $result->{status} eq 'OK' && $OPTIONS{showOutliers} ) {
+  if ( $result->{status} eq 'OK' && ( $OPTIONS{showOutliers} || $autorun ) ) {
     my $result = $qckb->getOutliers( skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
     if ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} eq "nerdy" ) {
@@ -173,17 +197,13 @@ sub main {
   }
 
   #### Write out signature/model information as HTML. Assumes that these have
-  #### already been calculated. 
-  if ( $OPTIONS{writeHTML} ) {
-    writeHTML( $qckb, $OPTIONS{kbRootPath} );
-    exit;
-  } 
-
-  #### If a KC QC file parameter was provided, write out the KB
-  if ( $result->{status} eq 'OK' && $OPTIONS{kbRootPath} ) {
-    my $result = $qckb->saveKb( kbRootPath=>$OPTIONS{kbRootPath}, verbose => $verbose, quiet=>$quiet, debug=>$debug, testonly=>$testonly );
-    $response->mergeResponse( sourceResponse=>$result );
+  #### already been calculated.
+  if ( $autorun && !$OPTIONS{writeHTML} ) {
+    $OPTIONS{writeHTML} = "$OPTIONS{kbRootPath}.html";
   }
+  if ( $OPTIONS{writeHTML} ) {
+    writeHTML( $qckb, $OPTIONS{kbRootPath}, $OPTIONS{writeHTML} );
+  } 
 
   #### If we are in an error state, show the results and exit abnormally
   if ( $response->{status} ne 'OK' ) {
@@ -196,16 +216,21 @@ sub main {
   return;
 }
 
+
+###############################################################################
 sub writeHTML {
   my $kb = shift || die;
   my $root_path = shift || die;
+  my $filename = shift || die;
 
-  print $ui->getHeader() if $OPTIONS{cgimode};
-  print $ui->startPage();
+  my $htmlBuffer = '';
+
+  $htmlBuffer .= $ui->getHeader() if $OPTIONS{cgimode};
+  $htmlBuffer .=  $ui->startPage();
  
   if ( ! scalar( keys( %{$kb->{_qckb}->{files}} ) ) ) {
-    print "<H1>Missing or invalid KB path</H1>\n";
-    print $ui->endPage();
+    $htmlBuffer .= "<H1>Missing or invalid KB path</H1>\n";
+    $htmlBuffer .= $ui->endPage();
     return; 
   }
 
@@ -245,7 +270,15 @@ sub writeHTML {
                              msensitivity => $sensitivity,
                                   outliers => $outliers,
                                    params => \%OPTIONS );
-  print $plotHTML;
-  print $ui->endPage();
+  $htmlBuffer .= $plotHTML;
+  $htmlBuffer .=  $ui->endPage();
+
+  if ( $filename =~ /STDOUT/i ) {
+    print $htmlBuffer;
+  } else {
+    open(OUTFILE,">$filename") || die;
+    print OUTFILE $htmlBuffer;
+  }
+
   return 'OK';
 }
