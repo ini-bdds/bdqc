@@ -1866,7 +1866,10 @@ sub parseModels {
 
         my $fidx = 0;
         for my $dev ( @{$sig_obj->{$sigelem}->{model}->{deviations}} ) {
-          next unless defined ( $dev->{deviationFlag} );
+#        use Data::Dumper;
+#        die Dumper( $dev ) if $sigelem =~ /columns.1.label/;
+#          next unless defined ( $dev->{deviationFlag} );
+          $dev->{deviationFlag} ||= 'normal';
           if ( $dev->{deviationFlag} =~ /extremity/i ) {
             $has_deviations++;
           } elsif ( $dev->{deviationFlag} =~ /outlier/i ) {
@@ -1889,11 +1892,14 @@ sub parseModels {
           next unless $has_deviations;
         }
 
+
         $models{$ft}->{$mkey} = { hasout => $has_outliers,
                                     data => \@dev };
       }
     }
   }
+#  use Data::Dumper;
+#  print Dumper( $models{out}->{'bdqc.builtin.tabular.tabledata.columns.1.labels'} );
   return \%models;
 }
 

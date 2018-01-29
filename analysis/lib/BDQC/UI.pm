@@ -351,9 +351,13 @@ sub getPlotHTML {
       my $e = 'rgb(255,255,0)';
       my $o = 'rgb(219,64,82)';
   
+      use Data::Dumper;
       for my $d ( @{$currmodel->{$m}->{data}} ) {
         push @data, $d->{value};  
-        push @flag, ( $d->{filetag} ) ? "$d->{filetag}: $d->{deviationFlag}" : $d->{deviationFlag};  
+        my $hlbl = ( $d->{filetag} ) ? "$d->{filetag}: $d->{deviationFlag}" : $d->{deviationFlag};  
+        $hlbl = " Value: $d->{datum})<br> $hlbl" if $d->{datum} != $d->{value};
+
+        push @flag, $hlbl;
         push @color, ( $d->{deviationFlag} eq 'normal' ) ? $n :
                      ( $d->{deviationFlag} eq 'outlier' ) ? $o : $e;
         push @jitter, $sign*rand(0.2)/10;

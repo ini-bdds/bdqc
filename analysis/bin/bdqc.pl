@@ -219,7 +219,7 @@ sub writeHTML {
     my $checked = ( $opt eq $sens ) ? 'checked' : '';
     $sensitivity .= "$opt <input type=radio name=sens $checked value=$opt>&nbsp;";
   }
-  my $nidx = $OPTIONS{name_idx} || 3;
+  my $nidx = $OPTIONS{name_idx} || 1;
 
   my $models = $kb->parseModels( kb => $kb, sens => $sens, nidx => $nidx );
 
