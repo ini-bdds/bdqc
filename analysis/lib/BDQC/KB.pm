@@ -404,6 +404,10 @@ sub calcSignatures {
     next if ( $signatures->{tracking}->{hasSignatures} );
     $nNewFiles++;
 
+    #### No need to proceed if this is a zero-length file
+    next if ( $signatures->{extrinsic}->{size} == 0 );
+    print "$signatures->{extrinsic}->{size}\t$filePath\n";
+
     #### Always run the FileSignature::Generic to help figure out what else to run on it
     my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
     my $signatureName = "FileSignature::Generic";
@@ -616,7 +620,7 @@ sub collateData {
     my $fileTypeName = $signatures->{fileType}->{typeName};
 
     #### Check that $fileTypeName is valid
-    unless ( $fileTypeName ) {
+    unless ( defined($fileTypeName) ) {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"MissingSignatures", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"FileTag '$fileTag' does not have a signature calculation yet. Need to run --calcSignatures first");
       return($response);
@@ -1632,8 +1636,8 @@ sub scanDataPath {
       my @parts = split(/\./,$entry);
       my $nParts = scalar(@parts);
       my $basename = '';
-      my $extension = '';
-      my $uncompressedExtension = '';
+      my $extension = 'noExt';
+      my $uncompressedExtension = 'noExt';
       my $isCompressed = 0;
       if ( $nParts == 1) {
         $basename = $entry;
@@ -1918,8 +1922,8 @@ sub splitFilePath {
   my @parts = split(/\./,$entry);
   my $nParts = scalar(@parts);
   my $basename = '';
-  my $extension = '';
-  my $uncompressedExtension = '';
+  my $extension = 'noExt';
+  my $uncompressedExtension = 'noExt';
   my $isCompressed = 0;
   if ( $nParts == 1) {
     $basename = $entry;
