@@ -1658,6 +1658,11 @@ sub scanDataPath {
         }
       }
 
+      #### special handling for files that seem to be dates as extensions
+      if ( $uncompressedExtension =~ /^[\d\-]+$/ ) {
+	$uncompressedExtension = "date";
+      }
+
       my $tracking = { fileTag=>$fileTag, filePath=>$filePath, filename=>$entry, dataDirectory=>$dataDirectory, dataDirectoryId=>$dataDirectoryId };
       my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($filePath);
       $size = 0 if ( ! defined($size) );
