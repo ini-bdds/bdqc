@@ -341,6 +341,8 @@ sub calcSignature {
     $iLine++;
   }
 
+  close(INFILE);
+  untie(*INFILE);
 
   #### For each column, calculate a median and SIQR
   my $iColumn = 0;

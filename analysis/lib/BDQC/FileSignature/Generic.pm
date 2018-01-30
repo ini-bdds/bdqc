@@ -148,14 +148,15 @@ sub calcSignature {
     my $error;
     tie(*INFILE, 'IO::Zlib', $filePath, 'rb') or $error = 1;
     if ( $error ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFileZlib", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Unable to open '$filePath': $@");
       return $response;
     }
   } else {
+    untie(*INFILE);
     unless ( open(INFILE,'<:raw',$filePath) ) {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open file '$filePath': $@");
+        message=>"Unable to open file path '$filePath': $@");
       return $response;
     }
   }
@@ -165,7 +166,7 @@ sub calcSignature {
   my @charList = ();
   
   my $chunk;
-  my $bytesRead = read(INFILE,$chunk,1024*50);
+  my $bytesRead = read(INFILE,$chunk,1024*50) || 0;
   my @ascii = unpack("C*",$chunk);
   map { $charList[$_]++; } @ascii;
 
@@ -202,6 +203,7 @@ sub calcSignature {
   #### Some heuristics of what kind of file this is
   if ( $bytesRead == 0 ) {
     $stats{fileType} = 'zeroLength';
+    $stats{subFileType} = 'zeroLength';
   } elsif ( $stats{fractionAbove127} < 0.1) {
     $stats{fileType} = 'text';
   } else {
@@ -209,7 +211,7 @@ sub calcSignature {
   }
 
   #### If text, what subtype
-  if ( $stats{fileType} eq 'text' ) {
+  if ( $bytesRead && $stats{fileType} eq 'text' ) {
     my $lineNumbers = $charHistogram->{10};
     $lineNumbers = ($charHistogram->{13}||0) if ( ($charHistogram->{13}||0) > $lineNumbers );
     my $gtltSum = ($charHistogram->{60}||0) + ($charHistogram->{62}||0);
@@ -243,7 +245,7 @@ sub calcSignature {
   #$signature->{stats} = \%stats;
   #$response->{signature} = $signature;
   $response->{signature} = \%stats;
-
+  untie(*INFILE);
 
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.

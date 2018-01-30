@@ -177,6 +177,7 @@ sub calcSignature {
   }
 
   close(INFILE);
+  untie(*INFILE);
 
   if ( $signature->{nLines} ) {
     $signature->{averageLineLength} /= $signature->{nLines};

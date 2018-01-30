@@ -170,6 +170,9 @@ sub calcSignature {
     $done = 1 if ( $bytesRead < 1024 );
   }
 
+  close(INFILE);
+  untie(*INFILE);
+
   for (my $i=0; $i<256; $i++) {
     $charHistogram->{$i} = $charList[$i] if ( $charList[$i] );
   }
