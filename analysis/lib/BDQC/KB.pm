@@ -1621,8 +1621,10 @@ sub scanDataPath {
           push(@additionalDirectories,"$directory/$entry");
 	  next;
         } else {
-          print "Do not know what to do with $directory/$entry\n";
-	  next;
+          #print "This is probably a sym link? $directory/$entry\n";
+	  $fileTag = "$dataDirectoryId:$directory/$entry";
+          $filePath = "$directory/$entry";
+	  #next;
         }
       
       #### Otherwise if we're in inputFiles mode, process files and push directories
