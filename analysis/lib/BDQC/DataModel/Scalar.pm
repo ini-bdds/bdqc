@@ -494,12 +494,19 @@ sub create {
 
         #### Now try calculating the deviation based on a mean and stdev after some crude extreme value removal if available
         if ( defined($stats->{adjustedMean}) && $stats->{adjustedStdev} ) {
-          $deviation = ($stats->{adjustedMean}||0) - ($value||0) / $stats->{adjustedStdev};
+          $deviation = ( ($value||0) - ($stats->{adjustedMean}||0) ) / $stats->{adjustedStdev};
+	  #print "==adjustedMean=$stats->{adjustedMean}, adjustedStdev=$stats->{adjustedStdev}, value=$value, deviation=$deviation\n";
 
         #### Else fall back to the original crude mechanism
         } elsif ( defined($stats->{median}) && $siqr ) {
           #### First attempt based simply on the median and the SIQR. Crude.
-          $deviation = ($stats->{median}||0) - ($value||0) / $siqr;
+          $deviation = ( ($value||0) - ($stats->{median}||0) ) / $siqr;
+	  #print "++median=$stats->{median}, siqr=$siqr, value=$value, deviation=$deviation\n";
+
+        #### This is probably a two-values or weird distribution, just give up
+        } else {
+	  $deviation = 0.11111;
+	  #print "--adjustedMean=$stats->{adjustedMean}, adjustedStdev=$stats->{adjustedStdev}, value=$value, deviation=$deviation\n";
         }
       }
 
@@ -555,6 +562,7 @@ sub create {
 	  }
         }
 
+	#print "twoValued: adjustedMean=$stats->{adjustedMean}, datumOrNull=$datumOrNull, obs=$observedValues{$datumOrNull}, deviation=$deviations[$iValue]->{deviation}\n";
       }
         
       $deviations[$iValue]->{deviationFlag} = $flag;
