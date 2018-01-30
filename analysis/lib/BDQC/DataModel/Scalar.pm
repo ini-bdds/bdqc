@@ -272,6 +272,10 @@ sub create {
       $stats->{median} = $vector->[0];
     }
    
+  #### Or if there are fewer than 3 values, then there's no point calculating stuff
+  } elsif ( $stats->{nonNullElements} < 3 ) {
+    $stats->{median} = $vector->[0];
+   
   #### But if there is variation, then assess it
   } else {
 
