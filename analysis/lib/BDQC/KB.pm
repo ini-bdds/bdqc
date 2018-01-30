@@ -406,7 +406,7 @@ sub calcSignatures {
 
     #### No need to proceed if this is a zero-length file
     next if ( $signatures->{extrinsic}->{size} == 0 );
-    print "$signatures->{extrinsic}->{size}\t$filePath\n";
+    #print "$signatures->{extrinsic}->{size}\t$filePath\n";
 
     #### Always run the FileSignature::Generic to help figure out what else to run on it
     my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
