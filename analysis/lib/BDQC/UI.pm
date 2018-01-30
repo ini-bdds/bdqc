@@ -355,7 +355,7 @@ sub getPlotHTML {
       for my $d ( @{$currmodel->{$m}->{data}} ) {
         push @data, $d->{value};  
         my $hlbl = ( $d->{filetag} ) ? "$d->{filetag}: $d->{deviationFlag}" : $d->{deviationFlag};  
-        $hlbl = " Value: $d->{datum}<br> $hlbl" if $d->{datum} ne $d->{value};
+        $hlbl = " Value: $d->{datum}<br> $hlbl" if ( defined($d->{value}) && $d->{datum} ne $d->{value} );
 
         push @flag, $hlbl;
         push @color, ( $d->{deviationFlag} eq 'normal' ) ? $n :
