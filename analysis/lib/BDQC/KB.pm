@@ -2007,6 +2007,10 @@ sub setBuiltinSignatureAttributeDescriptions {
   $info->{"extrinsic.mtime"}->{sideName}->{upper} = "later";
   $info->{"extrinsic.mtime"}->{sideName}->{lower} = "earlier";
 
+  $info->{"extrinsic.mode"}->{friendlyName} = "file permissions";
+  $info->{"extrinsic.mode"}->{sideName}->{upper} = "different";
+  $info->{"extrinsic.mode"}->{sideName}->{lower} = "different";
+
   $info->{"extrinsic.filename"}->{friendlyName} = "file name itself";
   $info->{"extrinsic.filename"}->{sideName}->{upper} = "longer or has different characters";
   $info->{"extrinsic.filename"}->{sideName}->{lower} = "shorter or has different characters";
@@ -2015,7 +2019,7 @@ sub setBuiltinSignatureAttributeDescriptions {
   $info->{"extrinsic.basename"}->{sideName}->{upper} = "longer or has different characters";
   $info->{"extrinsic.basename"}->{sideName}->{lower} = "shorter or has different characters";
 
-  $info->{"extrinsic.isReadable"}->{friendlyName} = "read permissions";
+  $info->{"extrinsic.isReadable"}->{friendlyName} = "ability to read the file";
   $info->{"extrinsic.isReadable"}->{sideName}->{upper} = "different";
   $info->{"extrinsic.isReadable"}->{sideName}->{lower} = "different";
 
