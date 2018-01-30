@@ -467,7 +467,7 @@ sub create {
       if ( $gapStats{lower} ) {
 
 	#### For the upper part of the distribution
-	if ( defined($value) && $value >= $gapStats{median} ) {
+	if ( defined($value) && defined($gapStats{median}) && $value >= $gapStats{median} ) {
 	  if ( $value <= $gapStats{upper}->{normalBound} ) {
 	    my $factor = ( $gapStats{upper}->{normalBound} - $gapStats{median} ) || 1;
 	    my $delta = $value - $gapStats{median};
