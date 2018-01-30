@@ -218,7 +218,7 @@ sub calcSignature {
 
   #### If text, what subtype
   if ( $bytesRead && $stats{fileType} eq 'text' ) {
-    my $lineNumbers = $charHistogram->{10};
+    my $lineNumbers = ($charHistogram->{10}||0);
     $lineNumbers = ($charHistogram->{13}||0) if ( ($charHistogram->{13}||0) > $lineNumbers );
     my $gtltSum = ($charHistogram->{60}||0) + ($charHistogram->{62}||0);
     my $gtltDelta = ($charHistogram->{60}||0) - ($charHistogram->{62}||0);

@@ -223,7 +223,7 @@ sub calcSignature {
   $signature->{nCommentLines} = $firstDataRow;
 
   #### If the first row has fewer numerals than the next data row, assume it is a header line. Crude. FIXME
-  if ( $nNumerals[$firstDataRow] < $nNumerals[$firstDataRow+1] ) {
+  if ( ($nNumerals[$firstDataRow]||0) < ($nNumerals[$firstDataRow+1]||0) ) {
     $columnHeaderRow = $firstDataRow;
     $firstDataRow++;
     $signature->{hasColumnNames} = 1;
