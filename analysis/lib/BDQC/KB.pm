@@ -352,6 +352,9 @@ sub calcSignatures {
 #    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
 #    "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
 #    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
+    "html" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
+    "htm" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
+    "php" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
     "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "mzML" => { specificTypeName=>'mzML', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "mzXML" => { specificTypeName=>'mzXML', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
@@ -404,39 +407,39 @@ sub calcSignatures {
     next if ( $signatures->{tracking}->{hasSignatures} );
     $nNewFiles++;
 
-    #### No need to proceed if this is a zero-length file
-    next if ( $signatures->{extrinsic}->{size} == 0 );
-    #print "$signatures->{extrinsic}->{size}\t$filePath\n";
-
     #### Always run the FileSignature::Generic to help figure out what else to run on it
-    my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
-    my $signatureName = "FileSignature::Generic";
-    my $genericResult = $genericSignature->calcSignature();
-    $genericSignature->setSignatureAttributeDescriptions($qckb);
-    if ( $genericResult->{status} eq 'OK' ) {
-      $signatures->{$signatureName} = $genericResult->{signature};
-    } else {
-      $response->mergeResponse( sourceResponse=>$genericResult );
-      return $response;
-    }
-
-    #### Based on the results of FileSignature::Generic, decide what signatures to run
     my @signatureList;
-    if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
-      @signatureList = ( 'FileSignature::Binary' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
-      #@signatureList = ( 'FileSignature::XML' );  # Too fragile. FIXME
-      @signatureList = ( 'FileSignature::Text' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'tsv' ) {
-      @signatureList = ( 'FileSignature::Tabular' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'json' ) {
-      @signatureList = ( 'FileSignature::Text' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'code' ) {
-      @signatureList = ( 'FileSignature::Text' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'plain' ) {
-      @signatureList = ( 'FileSignature::Text' );
-    } else {
-      @signatureList = ( 'FileSignature::Text' );
+    if ( $signatures->{extrinsic}->{size} > 0 && $signatures->{extrinsic}->{isReadable} ) {
+      my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
+      my $signatureName = "FileSignature::Generic";
+      my $genericResult = $genericSignature->calcSignature();
+      $genericSignature->setSignatureAttributeDescriptions($qckb);
+      if ( $genericResult->{status} eq 'OK' ) {
+        $signatures->{$signatureName} = $genericResult->{signature};
+      } else {
+        $response->mergeResponse( sourceResponse=>$genericResult );
+	print "ERROR: Generic NOT okay!\n";
+        return $response;
+      }
+
+     #### Based on the results of FileSignature::Generic, decide what signatures to run
+     if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
+       @signatureList = ( 'FileSignature::Binary' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
+       #@signatureList = ( 'FileSignature::XML' );  # Too fragile. FIXME
+       @signatureList = ( 'FileSignature::Text' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'tsv' ) {
+       @signatureList = ( 'FileSignature::Tabular' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'json' ) {
+       @signatureList = ( 'FileSignature::Text' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'code' ) {
+       @signatureList = ( 'FileSignature::Text' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'plain' ) {
+       @signatureList = ( 'FileSignature::Text' );
+     } else {
+       @signatureList = ( 'FileSignature::Text' );
+     }
+
     }
 
     #### If this is a known extension that should override what would be automatic, set it
@@ -459,6 +462,15 @@ sub calcSignatures {
         }
       }
     }
+
+
+    #### Record that this one has signatures calculated
+    $signatures->{tracking}->{hasSignatures} = 1;
+
+    #### No need to proceed if this is a zero-length or unreadable file
+    next if ( $signatures->{extrinsic}->{size} == 0 || !($signatures->{extrinsic}->{isReadable}) );
+    #print "$signatures->{extrinsic}->{size}\t$filePath\n";
+
 
     #### Loop over each signature to process and add the results
     foreach my $signatureName ( @signatureList ) {
@@ -493,9 +505,6 @@ sub calcSignatures {
         return $response;
       }
     }
-
-    #### Record that this one has signatures calculated
-    $signatures->{tracking}->{hasSignatures} = 1;
 
     #### Print some progress information
     unless ( $quiet ) {
@@ -1044,7 +1053,7 @@ sub importSignatures {
         $tmp->{extrinsic}->{isCompressed} = $components->{isCompressed};
         $tmp->{extrinsic}->{filename} = $components->{filename};
         $tmp->{extrinsic}->{basename} = $components->{basename};
-        $tmp->{extrinsic}->{readable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
+        $tmp->{extrinsic}->{isReadable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
         $tmp->{fileType}->{typeName} = $components->{uncompressedExtension};
 
         #### Loop over all the other signatures and import them
@@ -1670,6 +1679,13 @@ sub scanDataPath {
       $mode = 0 if ( ! defined($mode) );
       $stats{totalSize} += $size;
 
+      #### Test the file to make sure it can be opened
+      my $isReadable = 0;
+      if ( open(TESTFILE,$filePath) ) {
+	$isReadable = 1;
+	close(TESTFILE);
+      }
+
       if ( exists($qckb->{files}->{$fileTag}) ) {
 
 	#### If this file has already been previously processed, then remove the isNew flag
@@ -1686,15 +1702,22 @@ sub scanDataPath {
         $tracking->{isNew} = 1;
         $stats{newFiles}++;
         $qckb->{files}->{$fileTag} ->{signatures}->{tracking} = $tracking;
-        my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename };
+        my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename, isReadable=>$isReadable };
         $qckb->{files}->{$fileTag}->{signatures}->{extrinsic} = $extrinsic;
       }
 
     }
   }
 
+  #### Convert totalSize to friendlier units
+  my $totalSizeStr = "$stats{totalSize} bytes";
+  $totalSizeStr = int($stats{totalSize}/1024+0.5)." KiB" if ( $stats{totalSize}/1024 > 5 );
+  $totalSizeStr = int($stats{totalSize}/1024/1024+0.5)." MiB" if ( $stats{totalSize}/1024/1024 > 3 );
+  $totalSizeStr = int($stats{totalSize}/1024/1024/1024+0.5)." GiB" if ( $stats{totalSize}/1024/1024/1024 > 3 );
+
+
   $response->{stats} = \%stats;
-  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"$stats{totalFiles} files ($stats{totalSize} bytes) scanned. $stats{newFiles} files are new to this scan.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"$stats{totalFiles} files ($totalSizeStr) scanned. $stats{newFiles} files are new to this scan.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### Create an entry in the updates log about what this did
   my $comment;
@@ -1992,9 +2015,9 @@ sub setBuiltinSignatureAttributeDescriptions {
   $info->{"extrinsic.basename"}->{sideName}->{upper} = "longer or has different characters";
   $info->{"extrinsic.basename"}->{sideName}->{lower} = "shorter or has different characters";
 
-  $info->{"extrinsic.readable"}->{friendlyName} = "read permissions";
-  $info->{"extrinsic.readable"}->{sideName}->{upper} = "different";
-  $info->{"extrinsic.readable"}->{sideName}->{lower} = "different";
+  $info->{"extrinsic.isReadable"}->{friendlyName} = "read permissions";
+  $info->{"extrinsic.isReadable"}->{sideName}->{upper} = "different";
+  $info->{"extrinsic.isReadable"}->{sideName}->{lower} = "different";
 
   return;
 }
