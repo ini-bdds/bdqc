@@ -855,17 +855,17 @@ sub getOutliers {
 
   #### Set the sensitivity for detection of outliers
   if ( $sensitivity ) {
-    $sensitivity = 3 if ( $sensitivity =~ /high/i );
-    $sensitivity = 5 if ( $sensitivity =~ /med(ium)*/i );
-    $sensitivity = 10 if ( $sensitivity =~ /low/i );
+    $sensitivity = 5 if ( $sensitivity =~ /high/i );
+    $sensitivity = 10 if ( $sensitivity =~ /med(ium)*/i );
+    $sensitivity = 15 if ( $sensitivity =~ /low/i );
     if ( $sensitivity !~ /\s*[\d\.]+\s*/ ) {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"InvalidSensitivity", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Specified sensitivity '$sensitivity' is not valid");
       return($response);
     }
-  #### Else set the default sensitivity to 5 deviations
+  #### Else set the default sensitivity to 10 deviations
   } else {
-    $sensitivity = 5;
+    $sensitivity = 10;
   }
 
   #### For each fileType, signature, and attribute, record if any deviations are outliers

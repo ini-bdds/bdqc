@@ -543,22 +543,22 @@ sub create {
         if ( $observedValues{$datumOrNull} == 1 ) {
 	  if ( $nElements > 2 ) {
 	    $flag = 'extremity';
-	    $deviations[$iValue]->{deviation} = 3;
+	    $deviations[$iValue]->{deviation} = 6;
 	  }
 	  if ( $nElements > 4 ) {
 	    $flag = 'outlier';
-	    $deviations[$iValue]->{deviation} = 11;
+	    $deviations[$iValue]->{deviation} = 16;
 	  }
 
 	#### Else if there are two items in a two-valued distribution
         } elsif ( $observedValues{$datumOrNull} == 2 ) {
 	  if ( $nElements > 5 ) {
 	    $flag = 'extremity';
-	    $deviations[$iValue]->{deviation} = 3;
+	    $deviations[$iValue]->{deviation} = 6;
 	  }
 	  if ( $nElements > 9 ) {
 	    $flag = 'outlier';
-	    $deviations[$iValue]->{deviation} = 11;
+	    $deviations[$iValue]->{deviation} = 16;
 	  }
         }
 
