@@ -180,8 +180,8 @@ sub create {
 
     #### For a datatype of string, convert the string to a number for calculation of distributions
     my $value = $datum;
-    if ( $dataType eq 'string' ) {
-      my $asciiAverage;
+    if ( $dataType eq 'string' || $dataType eq 'empty' ) {
+      my $asciiAverage = 0;
       for (my $i=0; $i<length($datum); $i++) {
         $asciiAverage += ord(substr($datum,$i,1));
       }
@@ -192,7 +192,7 @@ sub create {
     #print "** datum=$datum, value=$value, dataType=$dataType\n";
 
     #### Keep some stats to calculate a mean and standard deviation
-    if ( $dataType eq 'integer' || $dataType eq 'float' || $dataType eq 'string' ) {
+    if ( $dataType eq 'integer' || $dataType eq 'float' || $dataType eq 'string' || $dataType eq 'empty' ) {
       $stats->{sum} += $value;
       $stats->{nonNullElements}++;
       if ( ! defined($stats->{minimum}) ) {
@@ -266,7 +266,7 @@ sub create {
 
   #### If all the values are the same, then there's no point calculating stuff
   if ( $distributionFlags->{allIdentical} ) {
-    if ( $dataType eq 'string' or $dataType eq 'boolean' ) {
+    if ( $dataType eq 'string' || $dataType eq 'boolean' || $dataType eq 'empty' ) {
       $stats->{median} = 0;
     } else {
       $stats->{median} = $vector->[0];
@@ -451,7 +451,7 @@ sub create {
     my $siqr = $stats->{siqr} || $stats->{stdev} || $stats->{mean}/10 || 1;
     foreach my $datum ( @{$vector} ) {
       my $value = $datum;
-      if ( $dataType eq 'string' ) {
+      if ( $deviations[$iValue]->{dataType} eq 'string' || $deviations[$iValue]->{dataType} eq 'empty' ) {
         $value = $deviations[$iValue]->{value};
       }
 
@@ -467,7 +467,7 @@ sub create {
       if ( $gapStats{lower} ) {
 
 	#### For the upper part of the distribution
-	if ( defined($value) && $value >= $gapStats{median} ) {
+	if ( defined($value) && defined($gapStats{median}) && $value >= $gapStats{median} ) {
 	  if ( $value <= $gapStats{upper}->{normalBound} ) {
 	    my $factor = ( $gapStats{upper}->{normalBound} - $gapStats{median} ) || 1;
 	    my $delta = $value - $gapStats{median};
@@ -494,12 +494,19 @@ sub create {
 
         #### Now try calculating the deviation based on a mean and stdev after some crude extreme value removal if available
         if ( defined($stats->{adjustedMean}) && $stats->{adjustedStdev} ) {
-          $deviation = ($stats->{adjustedMean}||0) - ($value||0) / $stats->{adjustedStdev};
+          $deviation = ( ($value||0) - ($stats->{adjustedMean}||0) ) / $stats->{adjustedStdev};
+	  #print "==adjustedMean=$stats->{adjustedMean}, adjustedStdev=$stats->{adjustedStdev}, value=$value, deviation=$deviation\n";
 
         #### Else fall back to the original crude mechanism
         } elsif ( defined($stats->{median}) && $siqr ) {
           #### First attempt based simply on the median and the SIQR. Crude.
-          $deviation = ($stats->{median}||0) - ($value||0) / $siqr;
+          $deviation = ( ($value||0) - ($stats->{median}||0) ) / $siqr;
+	  #print "++median=$stats->{median}, siqr=$siqr, value=$value, deviation=$deviation\n";
+
+        #### This is probably a two-values or weird distribution, just give up
+        } else {
+	  $deviation = 0.11111;
+	  #print "--adjustedMean=$stats->{adjustedMean}, adjustedStdev=$stats->{adjustedStdev}, value=$value, deviation=$deviation\n";
         }
       }
 
@@ -536,25 +543,26 @@ sub create {
         if ( $observedValues{$datumOrNull} == 1 ) {
 	  if ( $nElements > 2 ) {
 	    $flag = 'extremity';
-	    $deviations[$iValue]->{deviation} = 3;
+	    $deviations[$iValue]->{deviation} = 6;
 	  }
 	  if ( $nElements > 4 ) {
 	    $flag = 'outlier';
-	    $deviations[$iValue]->{deviation} = 11;
+	    $deviations[$iValue]->{deviation} = 16;
 	  }
 
 	#### Else if there are two items in a two-valued distribution
         } elsif ( $observedValues{$datumOrNull} == 2 ) {
 	  if ( $nElements > 5 ) {
 	    $flag = 'extremity';
-	    $deviations[$iValue]->{deviation} = 3;
+	    $deviations[$iValue]->{deviation} = 6;
 	  }
 	  if ( $nElements > 9 ) {
 	    $flag = 'outlier';
-	    $deviations[$iValue]->{deviation} = 11;
+	    $deviations[$iValue]->{deviation} = 16;
 	  }
         }
 
+	#print "twoValued: adjustedMean=$stats->{adjustedMean}, datumOrNull=$datumOrNull, obs=$observedValues{$datumOrNull}, deviation=$deviations[$iValue]->{deviation}\n";
       }
         
       $deviations[$iValue]->{deviationFlag} = $flag;

@@ -352,6 +352,9 @@ sub calcSignatures {
 #    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
 #    "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
 #    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
+    "html" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
+    "htm" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
+    "php" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
     "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "mzML" => { specificTypeName=>'mzML', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "mzXML" => { specificTypeName=>'mzXML', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
@@ -404,39 +407,39 @@ sub calcSignatures {
     next if ( $signatures->{tracking}->{hasSignatures} );
     $nNewFiles++;
 
-    #### No need to proceed if this is a zero-length file
-    next if ( $signatures->{extrinsic}->{size} == 0 );
-    #print "$signatures->{extrinsic}->{size}\t$filePath\n";
-
     #### Always run the FileSignature::Generic to help figure out what else to run on it
-    my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
-    my $signatureName = "FileSignature::Generic";
-    my $genericResult = $genericSignature->calcSignature();
-    $genericSignature->setSignatureAttributeDescriptions($qckb);
-    if ( $genericResult->{status} eq 'OK' ) {
-      $signatures->{$signatureName} = $genericResult->{signature};
-    } else {
-      $response->mergeResponse( sourceResponse=>$genericResult );
-      return $response;
-    }
-
-    #### Based on the results of FileSignature::Generic, decide what signatures to run
     my @signatureList;
-    if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
-      @signatureList = ( 'FileSignature::Binary' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
-      #@signatureList = ( 'FileSignature::XML' );  # Too fragile. FIXME
-      @signatureList = ( 'FileSignature::Text' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'tsv' ) {
-      @signatureList = ( 'FileSignature::Tabular' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'json' ) {
-      @signatureList = ( 'FileSignature::Text' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'code' ) {
-      @signatureList = ( 'FileSignature::Text' );
-    } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'plain' ) {
-      @signatureList = ( 'FileSignature::Text' );
-    } else {
-      @signatureList = ( 'FileSignature::Text' );
+    if ( $signatures->{extrinsic}->{size} > 0 && $signatures->{extrinsic}->{isReadable} ) {
+      my $genericSignature = BDQC::FileSignature::Generic->new( filePath=>$filePath );
+      my $signatureName = "FileSignature::Generic";
+      my $genericResult = $genericSignature->calcSignature();
+      $genericSignature->setSignatureAttributeDescriptions($qckb);
+      if ( $genericResult->{status} eq 'OK' ) {
+        $signatures->{$signatureName} = $genericResult->{signature};
+      } else {
+        $response->mergeResponse( sourceResponse=>$genericResult );
+	print "ERROR: Generic NOT okay!\n";
+        return $response;
+      }
+
+     #### Based on the results of FileSignature::Generic, decide what signatures to run
+     if ( $signatures->{"FileSignature::Generic"}->{fileType} eq 'binary' ) {
+       @signatureList = ( 'FileSignature::Binary' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'xml' ) {
+       #@signatureList = ( 'FileSignature::XML' );  # Too fragile. FIXME
+       @signatureList = ( 'FileSignature::Text' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'tsv' ) {
+       @signatureList = ( 'FileSignature::Tabular' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'json' ) {
+       @signatureList = ( 'FileSignature::Text' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'code' ) {
+       @signatureList = ( 'FileSignature::Text' );
+     } elsif ( $signatures->{"FileSignature::Generic"}->{subFileType} eq 'plain' ) {
+       @signatureList = ( 'FileSignature::Text' );
+     } else {
+       @signatureList = ( 'FileSignature::Text' );
+     }
+
     }
 
     #### If this is a known extension that should override what would be automatic, set it
@@ -459,6 +462,15 @@ sub calcSignatures {
         }
       }
     }
+
+
+    #### Record that this one has signatures calculated
+    $signatures->{tracking}->{hasSignatures} = 1;
+
+    #### No need to proceed if this is a zero-length or unreadable file
+    next if ( $signatures->{extrinsic}->{size} == 0 || !($signatures->{extrinsic}->{isReadable}) );
+    #print "$signatures->{extrinsic}->{size}\t$filePath\n";
+
 
     #### Loop over each signature to process and add the results
     foreach my $signatureName ( @signatureList ) {
@@ -493,9 +505,6 @@ sub calcSignatures {
         return $response;
       }
     }
-
-    #### Record that this one has signatures calculated
-    $signatures->{tracking}->{hasSignatures} = 1;
 
     #### Print some progress information
     unless ( $quiet ) {
@@ -846,17 +855,17 @@ sub getOutliers {
 
   #### Set the sensitivity for detection of outliers
   if ( $sensitivity ) {
-    $sensitivity = 3 if ( $sensitivity =~ /high/i );
-    $sensitivity = 5 if ( $sensitivity =~ /med(ium)*/i );
-    $sensitivity = 10 if ( $sensitivity =~ /low/i );
+    $sensitivity = 5 if ( $sensitivity =~ /high/i );
+    $sensitivity = 10 if ( $sensitivity =~ /med(ium)*/i );
+    $sensitivity = 15 if ( $sensitivity =~ /low/i );
     if ( $sensitivity !~ /\s*[\d\.]+\s*/ ) {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"InvalidSensitivity", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Specified sensitivity '$sensitivity' is not valid");
       return($response);
     }
-  #### Else set the default sensitivity to 5 deviations
+  #### Else set the default sensitivity to 10 deviations
   } else {
-    $sensitivity = 5;
+    $sensitivity = 10;
   }
 
   #### For each fileType, signature, and attribute, record if any deviations are outliers
@@ -907,7 +916,7 @@ sub getOutliers {
 
   #### Render the outlier information in various forms and return
   my %friendly = ( TextBuffer => '', 
-                   HeadTemplate => "The file FILETAG is an outlier with NOUTLIERFLAGS flags:",
+                   HeadTemplate => "The file FILETAG is an outlier with NOUTLIERFLAGS:",
                    ItemTemplate => " - The NOUN is VERB than normal",
                    NoOutliers => "No outliers found",
                  );
@@ -933,9 +942,11 @@ sub getOutliers {
       my $nOutlierFlags = scalar(@{$outlierFileTagList});
       $nOutlierFiles++;
 
+      my $outlierText = ( $nOutlierFlags > 1 ) ? $nOutlierFlags . ' flags' : $nOutlierFlags . ' flag';
+
       $friendlyTextBuffer .= "$friendly{HeadTemplate}\n";
       $friendlyTextBuffer =~ s/FILETAG/$outlierFileTagName/gm;
-      $friendlyTextBuffer =~ s/NOUTLIERFLAGS/$nOutlierFlags/gm;
+      $friendlyTextBuffer =~ s/NOUTLIERFLAGS/$outlierText/gm;
         
       $nerdyTextBuffer .= $nerdy{HeadTemplate};
       $nerdyTextBuffer =~ s/FILETAG/$outlierFileTagList/gm;
@@ -1072,7 +1083,7 @@ sub importSignatures {
         $tmp->{extrinsic}->{isCompressed} = $components->{isCompressed};
         $tmp->{extrinsic}->{filename} = $components->{filename};
         $tmp->{extrinsic}->{basename} = $components->{basename};
-        $tmp->{extrinsic}->{readable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
+        $tmp->{extrinsic}->{isReadable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
         $tmp->{fileType}->{typeName} = $components->{uncompressedExtension};
 
         #### Loop over all the other signatures and import them
@@ -1088,14 +1099,39 @@ sub importSignatures {
             if ( ref($attributeValue) eq '' ) {
               $tmp->{$signatureName}->{$attributeName} = $attributeValue;
               #print "Storing at base $signatureName.$attributeName = $attributeValue\n";
+
             #### Else if it complex, flatten it recursively into keys and values that are scalar, hash, or array
             } else {
-              #print "Going complex!\n";
-              my $flattenedAttributes = flattenAttributes($attributeName,$attributeValue);
-              foreach my $flattenendAttributeName ( keys(%{$flattenedAttributes}) ) {
-                #print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
-                $tmp->{$signatureName}->{$flattenendAttributeName} = $flattenedAttributes->{$flattenendAttributeName};
-              }
+
+	      #### A special hack for the transition_histogram element
+	      if ( $attributeName =~ /transition_histogram/ ) {
+		$tmp->{$signatureName}->{$attributeName} = recastTransitionHistogram($attributeValue);
+ 
+	      #### A special hack for the stats element
+	      } elsif ( $attributeName eq 'stats' ) {
+		foreach my $key ( %{$attributeValue} ) {
+		  $tmp->{$signatureName}->{"$attributeName.$key"} = $attributeValue->{$key};
+	        }
+
+	      #### Everything else
+	      } else {
+                my $flattenedAttributes = flattenAttributes($attributeName,$attributeValue);
+                foreach my $flattenendAttributeName ( keys(%{$flattenedAttributes}) ) {
+                  #print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
+
+		  #### A special hack for the stats element
+		  if ( $flattenendAttributeName =~ /^tabledata\.columns\.\d+\.stats$/ ) {
+		    foreach my $key ( keys(%{$flattenedAttributes->{$flattenendAttributeName}}) ) {
+		      $tmp->{$signatureName}->{"$flattenendAttributeName.$key"} = $flattenedAttributes->{$flattenendAttributeName}->{$key};
+		      #print "       $key = $flattenedAttributes->{$flattenendAttributeName}->{$key}\n";
+		    }
+
+		  #### Everything else
+		  } else {
+                    $tmp->{$signatureName}->{$flattenendAttributeName} = $flattenedAttributes->{$flattenendAttributeName};
+		  }
+                }
+	      }
             }
               
           } # end foreach attributeName
@@ -1640,8 +1676,10 @@ sub scanDataPath {
           push(@additionalDirectories,"$directory/$entry");
 	  next;
         } else {
-          print "Do not know what to do with $directory/$entry\n";
-	  next;
+          #print "This is probably a sym link? $directory/$entry\n";
+	  $fileTag = "$dataDirectoryId:$directory/$entry";
+          $filePath = "$directory/$entry";
+	  #next;
         }
       
       #### Otherwise if we're in inputFiles mode, process files and push directories
@@ -1698,6 +1736,13 @@ sub scanDataPath {
       $mode = 0 if ( ! defined($mode) );
       $stats{totalSize} += $size;
 
+      #### Test the file to make sure it can be opened
+      my $isReadable = 0;
+      if ( open(TESTFILE,$filePath) ) {
+	$isReadable = 1;
+	close(TESTFILE);
+      }
+
       if ( exists($qckb->{files}->{$fileTag}) ) {
 
 	#### If this file has already been previously processed, then remove the isNew flag
@@ -1714,15 +1759,22 @@ sub scanDataPath {
         $tracking->{isNew} = 1;
         $stats{newFiles}++;
         $qckb->{files}->{$fileTag} ->{signatures}->{tracking} = $tracking;
-        my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename };
+        my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename, isReadable=>$isReadable };
         $qckb->{files}->{$fileTag}->{signatures}->{extrinsic} = $extrinsic;
       }
 
     }
   }
 
+  #### Convert totalSize to friendlier units
+  my $totalSizeStr = "$stats{totalSize} bytes";
+  $totalSizeStr = int($stats{totalSize}/1024+0.5)." KiB" if ( $stats{totalSize}/1024 > 5 );
+  $totalSizeStr = int($stats{totalSize}/1024/1024+0.5)." MiB" if ( $stats{totalSize}/1024/1024 > 3 );
+  $totalSizeStr = int($stats{totalSize}/1024/1024/1024+0.5)." GiB" if ( $stats{totalSize}/1024/1024/1024 > 3 );
+
+
   $response->{stats} = \%stats;
-  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"$stats{totalFiles} files ($stats{totalSize} bytes) scanned. $stats{newFiles} files are new to this scan.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"$stats{totalFiles} files ($totalSizeStr) scanned. $stats{newFiles} files are new to this scan.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### Create an entry in the updates log about what this did
   my $comment;
@@ -1859,6 +1911,40 @@ sub flattenAttributes {
   
   return $result;
 }
+
+
+sub recastTransitionHistogram {
+###############################################################################
+# recastTransitionHistogram
+# Transform the special transition_histogram tag from a 3x3 matrix into a
+# real histogram
+###############################################################################
+  my ($matrix) = @_;
+  my $result;
+
+  #### New format
+  if ( ref($matrix) eq 'HASH' ) {
+    my @states = ( "lf", "cr", "oc" );
+    foreach my $i ( @states ) {
+      foreach my $j ( @states ) {
+	$result->{"$i-$j"} = $matrix->{$i}->{$j};
+      }
+    }
+    return $result;
+  }
+
+  #### Old format
+  my @states = ( "LF", "CR", "CHAR" );
+  foreach my $i ( 0..$#states ) {
+    foreach my $j ( 0..$#states ) {
+      $result->{"$states[$i]-$states[$j]"} = $matrix->[$i]->[$j];
+    }
+  }
+
+  return $result;
+}
+
+
 ###############################################################################
 # parseModels
 sub parseModels {
@@ -2012,6 +2098,10 @@ sub setBuiltinSignatureAttributeDescriptions {
   $info->{"extrinsic.mtime"}->{sideName}->{upper} = "later";
   $info->{"extrinsic.mtime"}->{sideName}->{lower} = "earlier";
 
+  $info->{"extrinsic.mode"}->{friendlyName} = "file permissions";
+  $info->{"extrinsic.mode"}->{sideName}->{upper} = "different";
+  $info->{"extrinsic.mode"}->{sideName}->{lower} = "different";
+
   $info->{"extrinsic.filename"}->{friendlyName} = "file name itself";
   $info->{"extrinsic.filename"}->{sideName}->{upper} = "longer or has different characters";
   $info->{"extrinsic.filename"}->{sideName}->{lower} = "shorter or has different characters";
@@ -2020,9 +2110,9 @@ sub setBuiltinSignatureAttributeDescriptions {
   $info->{"extrinsic.basename"}->{sideName}->{upper} = "longer or has different characters";
   $info->{"extrinsic.basename"}->{sideName}->{lower} = "shorter or has different characters";
 
-  $info->{"extrinsic.readable"}->{friendlyName} = "read permissions";
-  $info->{"extrinsic.readable"}->{sideName}->{upper} = "different";
-  $info->{"extrinsic.readable"}->{sideName}->{lower} = "different";
+  $info->{"extrinsic.isReadable"}->{friendlyName} = "ability to read the file";
+  $info->{"extrinsic.isReadable"}->{sideName}->{upper} = "different";
+  $info->{"extrinsic.isReadable"}->{sideName}->{lower} = "different";
 
   return;
 }

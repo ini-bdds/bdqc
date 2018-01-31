@@ -141,7 +141,8 @@ sub calcSignature {
 
 
   $isImplemented = 1;
-  my $signature = {};
+  my %stats = ( fractionAbove127=>0, meanAsciiValue=>0, nDifferentCharacters=>0 );
+  $response->{signature} = \%stats;
 
   if ( $filePath =~ /\.gz$/ ) {
     use IO::Zlib;
@@ -150,6 +151,10 @@ sub calcSignature {
     if ( $error ) {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFileZlib", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Unable to open '$filePath': $@");
+      untie(*INFILE);
+      $stats{fileType} = 'unreadable';
+      $stats{subFileType} = 'unreadable';
+      #$response->setState( status=>'OK', message=>"Method $METHOD could not read file, but that's okay");
       return $response;
     }
   } else {
@@ -157,10 +162,12 @@ sub calcSignature {
     unless ( open(INFILE,'<:raw',$filePath) ) {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Unable to open file path '$filePath': $@");
+      $stats{fileType} = 'unreadable';
+      $stats{subFileType} = 'unreadable';
+      #$response->setState( status=>'OK', message=>"Method $METHOD could not read file, but that's okay");
       return $response;
     }
   }
-
 
   my $charHistogram = {};
   my @charList = ();
@@ -174,7 +181,6 @@ sub calcSignature {
   my ( @nonZeroAsciiValues, @nonZeroCharacterCounts );
 
   #### Transform from an array to a hash and collect some stats along the way
-  my %stats = ( fractionAbove127=>0, meanAsciiValue=>0, nDifferentCharacters=>0 );
   for (my $i=0; $i<256; $i++) {
     if ( $charList[$i] ) {
       $charHistogram->{$i} = $charList[$i];
@@ -212,7 +218,7 @@ sub calcSignature {
 
   #### If text, what subtype
   if ( $bytesRead && $stats{fileType} eq 'text' ) {
-    my $lineNumbers = $charHistogram->{10};
+    my $lineNumbers = ($charHistogram->{10}||0);
     $lineNumbers = ($charHistogram->{13}||0) if ( ($charHistogram->{13}||0) > $lineNumbers );
     my $gtltSum = ($charHistogram->{60}||0) + ($charHistogram->{62}||0);
     my $gtltDelta = ($charHistogram->{60}||0) - ($charHistogram->{62}||0);
@@ -241,9 +247,6 @@ sub calcSignature {
 
 
   #### Store the results in the response object
-  #$signature->{charHistogram} = $charHistogram;
-  #$signature->{stats} = \%stats;
-  #$response->{signature} = $signature;
   $response->{signature} = \%stats;
   untie(*INFILE);
 

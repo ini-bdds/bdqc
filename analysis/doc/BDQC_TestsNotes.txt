@@ -48,9 +48,6 @@ rm BDQC.qckb.storable BDQC.html
 ../bin/bdqc.pl --dataDirectory $test
 /bin/cp -p BDQC.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 
-rm BDQC.qckb.storable BDQC.html
-../bin/bdqc.pl --data $test
-
 
 
 ##################################################################################################
@@ -59,8 +56,8 @@ set test=test3_pmlib
 rm $test.qckb.storable $test.html
 ../bin/bdqc.pl --kbRootPath $test --step --dataDirectory ../lib
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 View http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -80,18 +77,16 @@ find /net/db/projects/PSI/pepXML/genDoc -name "*.pm" >> $test.inputFiles
 ## Add one more file and run all analyis yet again
 find /net/db/projects/PSI/analysisXML/genDoc -name "*.pm" >> $test.inputFiles
 ../bin/bdqc.pl --kbRootPath $test --inputFiles $test.inputFiles
-../bin/bdqc.pl --kbRootPath $test --calcSig
-../bin/bdqc.pl --kbRootPath $test --collate
-../bin/bdqc.pl --kbRootPath $test --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 
 
 #### Same again with with a glob
 rm $test.qckb.storable $test.html
 ../bin/bdqc.pl --kbRootPath $test --step --inputFiles "../lib/BDQC/*"
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 
 
 ##################################################################################################
@@ -106,8 +101,8 @@ cd $BDQC/testdata
 rm $test.qckb.storable $test.html
 ../bin/bdqc.pl --kbRootPath $test --step --dataDirectory $test
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -127,8 +122,8 @@ cd $BDQC/testdata
 rm $test.qckb.storable $test.html
 ../bin/bdqc.pl --kbRootPath $test --step --dataDirectory $test
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -149,8 +144,8 @@ rm $test/Ibad.tsv.gz
 ../bin/bdqc.pl --kbRootPath $test --calcSig
 ../bin/bdqc.pl --kbRootPath $test --collate
 ../bin/bdqc.pl --kbRootPath $test --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -165,8 +160,8 @@ rm $test.html
 ../bin/bdqc.pl --kbRootPath $test --calcSig
 ../bin/bdqc.pl --kbRootPath $test --collate
 ../bin/bdqc.pl --kbRootPath $test --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -188,9 +183,9 @@ cd $BDQC/testdata
 rm $test.qckb.storable
 ../bin/bdqc.pl --kbRootPath $test --step --dataDirectory $test
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
-cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
 cd $test
@@ -209,6 +204,22 @@ http://www.peptideatlas.org/tmp/bdqc.html
 
 ====================
 
+##################################################################################################
+#### A seventh test of ChEBI files
+set test=test7_PubChem
+cd $BDQC/testdata
+mkdir $test
+cd $test
+wget -r 'ftp://ftp.ncbi.nlm.nih.gov/pubchem/Compound_3D/ReferenceShapes/'
+
+cd $BDQC/testdata
+rm $test.qckb.storable
+../bin/bdqc.pl --kbRootPath $test --dataDirectory $test
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+http://www.peptideatlas.org/tmp/bdqc.html
+
+1 outlier by filename. boooring.
+
 
 
 
@@ -225,16 +236,21 @@ cp -p /net/db/projects/BDDS/BDQC/gustavo1/Complete.filteredCNVs1000.gz .
 gunzip Complete.filteredCNVs1000.gz
 head -10000 Complete.filteredCNVs1000 > Complete.filteredCNVs1000.smalltest
 
-set test=test10_Complete1
-
+set test=test10_Complete1_smalltest
 rm  $test.qckb.storable $test.html
-../bin/bdqc.pl --kbRootPath $test --step --importSig Complete.filteredCNVs1000.smalltest.tamperChrJ
-../bin/bdqc.pl --kbRootPath $test --collate --calcModel
+../bin/bdqc.pl --kbRootPath $test --importSig Complete.filteredCNVs1000.smalltest.tamperChrJ
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+http://www.peptideatlas.org/tmp/bdqc.html
+
+set test=test10_Complete1
+rm  $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --sens low --importSig Complete.filteredCNVs1000 --step
+../bin/bdqc.pl --kbRootPath $test --collate
+../bin/bdqc.pl --kbRootPath $test --calcModel
 ../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
 ../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
-
 
 ===================================================
 
@@ -242,10 +258,7 @@ Tests with ncRNA files
 
 set test=test11_ncRNA
 rm $test.qckb.storable $test.html
-../bin/bdqc.pl --kbRootPath $test --step --importSig /net/gestalt/bdqc/BDQC1000g/ncRNA.bdqcs
-../bin/bdqc.pl --kbRootPath $test --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --importSig /net/gestalt/bdqc/BDQC1000g/ncRNA.bdqcs
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -266,8 +279,8 @@ rm $test.qckb.storable $test.html
 ../bin/bdqc.pl --kbRootPath $test --step --dataDirectory /net/gestalt/bdqc/syn11346063/Tau_and_APP
 ../bin/bdqc.pl --kbRootPath $test --step --dataDirectory /net/gestalt/bdqc/syn11346063/updown
 ../bin/bdqc.pl --kbRootPath $test --calcSig --collate --calcModel
-../bin/bdqc.pl --kbRootPath $test --showOutliers --sens low
-../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html --sens low 
+../bin/bdqc.pl --kbRootPath $test --showOutliers --out nerdy
+../bin/bdqc.pl --kbRootPath $test --writeHTML $test.html
 /bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
 http://www.peptideatlas.org/tmp/bdqc.html
 
@@ -334,4 +347,81 @@ other fiddling;
 more /net/gestalt/bdqc/qckb.models.json
 
 
+
+#### Same dataset, but trying automatic mode
+set test=test20_randomFiles1
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory /net/dblocal/data/wwwlogs/thehpp
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory /net/dblocal/data/wwwlogs/swathatlas
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory /net/dblocal/data/wwwlogs/proteomecentral
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+#### Try some proteomics datasets
+set test=test21_proteomicsSearches1
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --dataDirectory /regis/sbeams8/archive/apandey/Human_Proteome_Map/Adult_Adrenalgland_bRP_Velos/comet_2016
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+#### Examine 2200 qlog files for the Pandey search. Finds 6 of them where the result was "no spectra searched"! Nice!
+set test=test21_proteomicsSearches2
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --inputFiles "/regis/sbeams8/archive/apandey/Human_Proteome_Map/*/comet_2016/*.qlog"
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+#### Throw it at a web site
+set test=test22_webSite1
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --sens low --dataDirectory /net/dblocal/wwwspecial/cascadiaproteomics
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+set test=test22_webSite2
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --sens low --dataDirectory /net/dblocal/wwwspecial/cascadiaproteomics/images
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+set test=test22_webSite3
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --sens low --dataDirectory /net/dblocal/wwwspecial/spctools/course/videos
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+set test=test22_webSite4
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --sens low --dataDirectory /net/dblocal/wwwspecial/kojak-ms
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+
+set test=test22_webSite5
+rm $test.qckb.storable $test.html
+../bin/bdqc.pl --kbRootPath $test --sens low --dataDirectory /net/dblocal/wwwspecial/proteomecentral
+/bin/cp -p $test.html /net/dblocal/wwwspecial/peptideatlas/tmp/bdqc.html
+## This took about 15 minutes for 2.5 GiB of data, 50,000 files, about 7 GB of RAM. Seemed quite inefficient with RAM at the end
+## perhaps in JSON writing and such. Could be streamlined
+-rw-rw-r--. 1 edeutsch moritz  96M Jan 30 12:56 test22_webSite5.html
+-rw-rw-r--. 1 edeutsch moritz  10M Jan 30 12:55 test22_webSite5.models.json
+-rw-rw-r--. 1 edeutsch moritz 619M Jan 30 12:55 test22_webSite5.qckb.json
+-rw-rw-r--. 1 edeutsch moritz 219M Jan 30 12:51 test22_webSite5.qckb.storable
+../bin/bdqc.pl --kbRootPath $test --sens low --writeHTML
+## This doesn't quite work
+
+
+#### Let's try to go full Minid BDBag on this!
+cd /net/db/projects/BDDS/BDQC/bdqc/analysis/cannedTests
+setenv PYTHONPATH /net/db/projects/BDDS/python3/lib64/python3.4/site-packages:/net/db/projects/BDDS/python3/lib/python3.4/site-packages
+setenv PATH /net/db/projects/BDDS/python3/bin:$PATH
+rehash
+rm -r test1
+mkdir test1
+
+cd /net/db/projects/BDDS/BDQC/bdqc/analysis/cannedTests/test1
+minid ark:/57799/b9cq13
+wget ftp://ftp.peptideatlas.org/pub/PeptideAtlas/PADR/PAe005705/BDBags/PAe005705.search_20170411.abridged.bdbag.zip
+bdbag PAe005705.search_20170411.abridged.bdbag.zip
+bdbag --resolve-fetch missing PAe005705.search_20170411.abridged.bdbag/search_20170411
+bdbag --validate full PAe005705.search_20170411.abridged.bdbag/search_20170411
+../../bin/bdqc.pl --dataDir PAe005705.search_20170411.abridged.bdbag/search_20170411
 

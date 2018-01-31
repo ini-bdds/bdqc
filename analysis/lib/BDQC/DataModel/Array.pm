@@ -141,23 +141,41 @@ sub create {
 
   $isImplemented = 1;
 
-  #### For now, let's make this super easy by transforming into a histogram and calling that model
-  #### Something better is probably called for.
-  #### This trick treats the same items in a different order as exactly the same. FIXME
+  #### Compile a list of all the values we see and how frequently
+  my %allValues;
+  foreach my $array ( @{$vector} ) {
+    foreach my $element ( @{$array} ) {
+      $allValues{$element}++;
+    }
+  }
+
+  #### Determine the max value
+  my $maxOccurs = 0;
+  foreach my $key ( keys(%allValues) ) {
+    if ( $allValues{$key} > $maxOccurs ) {
+      $maxOccurs = $allValues{$key};
+    }
+  }
+
+  #### Compile the rarity of values that each file contains
   my @newVector;
   foreach my $array ( @{$vector} ) {
-    my %tmp;
+    my $sum = 0;
     foreach my $element ( @{$array} ) {
-      $tmp{$element}++;
+      my $b = ( $allValues{$element} - 1 ) / $maxOccurs * 10 + 1;
+      $sum += exp( -1 * $b );
     }
-    push(@newVector,\%tmp);
+    push(@newVector,$sum);
   }
   
-  my $model = BDQC::DataModel::Histogram->new( vector=>\@newVector );
+  #### The model the rarity of things contained
+  my $model = BDQC::DataModel::Scalar->new( vector=>\@newVector );
   my $result = $model->create();
   $response->mergeResponse( sourceResponse=>$result );
 
   $response->{model} = $result->{model};
+  $response->{model}->{allValues} = \%allValues;
+
 
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.

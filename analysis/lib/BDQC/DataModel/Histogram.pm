@@ -189,7 +189,7 @@ sub create {
   my $result = $model->create();
   $response->{model} = $result->{model};
 
-
+  $response->{model}->{masterHistogram} = $masterHistogram;
 
 
 
