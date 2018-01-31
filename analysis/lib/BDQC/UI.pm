@@ -444,13 +444,14 @@ sub getPlotHTML {
       my $outlierFileTagList = $outliers->{fileTypes}->{$fileType}->{fileTags}->{$outlierFileTagName};
       my $nOutlierFlags = scalar(@{$outlierFileTagList});
       my $nOutlierFiles = 0;
+      $nOutlierFiles++;
+      $nOutliers += $nOutlierFiles;
+      my $nOutlierText = ( $nOutlierFlags > 1 ) ? $nOutlierFlags . ' flags' : $nOutlierFlags . ' flag' ;
 
 #      $outlierHTML .= "  $outlierFileTagName is an outlier because:<br>\n";
       $outlierHTML .= $tmpl->{HeadTemplate} . "<br>\n"; 
       $outlierHTML =~ s/FILETAG/$outlierFileTagName/gm;
-      $outlierHTML =~ s/NOUTLIERFLAGS/$nOutlierFlags/gm;
-      $nOutlierFiles++;
-      $nOutliers += $nOutlierFiles;
+      $outlierHTML =~ s/NOUTLIERFLAGS/$nOutlierText/gm;
 
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
