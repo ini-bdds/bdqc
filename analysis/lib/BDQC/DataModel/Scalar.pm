@@ -180,8 +180,8 @@ sub create {
 
     #### For a datatype of string, convert the string to a number for calculation of distributions
     my $value = $datum;
-    if ( $dataType eq 'string' ) {
-      my $asciiAverage;
+    if ( $dataType eq 'string' || $dataType eq 'empty' ) {
+      my $asciiAverage = 0;
       for (my $i=0; $i<length($datum); $i++) {
         $asciiAverage += ord(substr($datum,$i,1));
       }
@@ -192,7 +192,7 @@ sub create {
     #print "** datum=$datum, value=$value, dataType=$dataType\n";
 
     #### Keep some stats to calculate a mean and standard deviation
-    if ( $dataType eq 'integer' || $dataType eq 'float' || $dataType eq 'string' ) {
+    if ( $dataType eq 'integer' || $dataType eq 'float' || $dataType eq 'string' || $dataType eq 'empty' ) {
       $stats->{sum} += $value;
       $stats->{nonNullElements}++;
       if ( ! defined($stats->{minimum}) ) {
@@ -266,7 +266,7 @@ sub create {
 
   #### If all the values are the same, then there's no point calculating stuff
   if ( $distributionFlags->{allIdentical} ) {
-    if ( $dataType eq 'string' or $dataType eq 'boolean' ) {
+    if ( $dataType eq 'string' || $dataType eq 'boolean' || $dataType eq 'empty' ) {
       $stats->{median} = 0;
     } else {
       $stats->{median} = $vector->[0];
@@ -451,7 +451,7 @@ sub create {
     my $siqr = $stats->{siqr} || $stats->{stdev} || $stats->{mean}/10 || 1;
     foreach my $datum ( @{$vector} ) {
       my $value = $datum;
-      if ( $dataType eq 'string' ) {
+      if ( $deviations[$iValue]->{dataType} eq 'string' || $deviations[$iValue]->{dataType} eq 'empty' ) {
         $value = $deviations[$iValue]->{value};
       }
 
