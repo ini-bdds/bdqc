@@ -162,7 +162,8 @@ sub create {
   foreach my $array ( @{$vector} ) {
     my $sum = 0;
     foreach my $element ( @{$array} ) {
-      $sum += exp( -1 * $allValues{$element} );
+      my $b = ( $allValues{$element} - 1 ) / $maxOccurs * 10 + 1;
+      $sum += exp( -1 * $b );
     }
     push(@newVector,$sum);
   }
