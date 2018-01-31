@@ -231,6 +231,9 @@ sub writeHTML {
   if ( ! scalar( keys( %{$kb->{_qckb}->{files}} ) ) ) {
     $htmlBuffer .= "<H1>Missing or invalid KB path</H1>\n";
     $htmlBuffer .= $ui->endPage();
+    if ( $OPTIONS{cgimode} || $filename =~ /STDOUT/i ) {
+      print $htmlBuffer;
+    }
     return; 
   }
 
@@ -264,6 +267,7 @@ sub writeHTML {
 
   my $plotHTML = $ui->getPlotHTML( models => $models,
                                     ftsel => $ftsel,
+                                      kb => $kb,
                                     title => $title,
                                   msel_fx => $msel_fx,
                                      msel => $msel,
@@ -273,7 +277,7 @@ sub writeHTML {
   $htmlBuffer .= $plotHTML;
   $htmlBuffer .=  $ui->endPage();
 
-  if ( $filename =~ /STDOUT/i ) {
+  if ( $OPTIONS{cgimode} || $filename =~ /STDOUT/i ) {
     print $htmlBuffer;
   } else {
     open(OUTFILE,">$filename") || die;

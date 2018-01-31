@@ -292,6 +292,7 @@ sub getFiletypeSelect {
 sub getPlotHTML {
   my $self = shift;
   my %args = @_;
+  my $kb = $args{kb} || die;
   use Data::Dumper;
   return '' unless $args{params} && $args{models};
   $args{msel} ||= $self->getModelSelect( $args{models} );
@@ -431,43 +432,54 @@ sub getPlotHTML {
   <h3 style=text-decoration:underline> File types with outliers</ul> </h3>
   ~;
   my $outliers = $args{outliers};
-
+  my $tmpl = $outliers->{templates}->{friendly};
   my $fcnt;
   
   my $sp = "&nbsp;&nbsp;";
   foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
-    my $nOutlierFiles = 0;
+    my $nOutliers = 0;
     my $outlierHTML = '';
+
     foreach my $outlierFileTagName ( sort keys(%{$outliers->{fileTypes}->{$fileType}->{fileTags}}) ) {
-      $outlierHTML .= "  $outlierFileTagName is an outlier because:<br>\n";
-      $nOutlierFiles++;
       my $outlierFileTagList = $outliers->{fileTypes}->{$fileType}->{fileTags}->{$outlierFileTagName};
+      my $nOutlierFlags = scalar(@{$outlierFileTagList});
+      my $nOutlierFiles = 0;
+
+#      $outlierHTML .= "  $outlierFileTagName is an outlier because:<br>\n";
+      $outlierHTML .= $tmpl->{HeadTemplate} . "<br>\n"; 
+      $outlierHTML =~ s/FILETAG/$outlierFileTagName/gm;
+      $outlierHTML =~ s/NOUTLIERFLAGS/$nOutlierFlags/gm;
+      $nOutlierFiles++;
+      $nOutliers += $nOutlierFiles;
+
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
         my $attribute = $outlier->{attribute};
+        my $fsig = $kb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
         my $value = $outlier->{value};
         my $deviation = $outlier->{deviation}->{deviation};
         $deviation = sprintf( "%0.1f", $deviation);
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
-        my $signature_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$signature.$attribute</a>~;
 
-#        $signature_link =~ s/:://g;
-        #$signature_link =~ s/\./__/;
-#        $signature_link =~ s/FileSignature/FS/g;
+        my $noun_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$fsig</a>~;
+        my $side = ( $deviation < 0 ) ? 'upper' : 'lower';
+        my $verb = $kb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
 
-#        $outlierHTML .= "$sp$sp$sp- $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
-        $outlierHTML .= "$sp$sp$sp- $signature_link: Value '$value' is an outlier at $deviation times typical deviation<br>\n";
+        my $itemHTML = $tmpl->{ItemTemplate} . "<br>\n";
+        $itemHTML =~ s/NOUN/$noun_link/gm;
+        $itemHTML =~ s/VERB/$verb/gm;
+        $outlierHTML .= $itemHTML;
       }
     }
-    if ( $nOutlierFiles ) {
-      $HTML .= qq~$sp<b>File Type: $fileType</b>, <a href="javascript:void(0);" onclick="toggleView('${fileType}_div')"> $nOutlierFiles outliers</a> out of $fcnt{$fileType} files<br>\n~;
+
+    if ( $nOutliers ) {
+      $HTML .= qq~$sp<b>File Type: $fileType</b>, <a href="javascript:void(0);" onclick="toggleView('${fileType}_div')"> $nOutliers outliers</a> out of $fcnt{$fileType} files<br>\n~;
       $HTML .= qq~$sp$sp$sp<div id="${fileType}_div" style='display:none;border-style:dashed;border-color:gray;border-width:2px'>$outlierHTML</div><br>\n~;
     } else {
-      $HTML .= qq~$sp<b>File Type: $fileType</b>, $nOutlierFiles outliers out of $fcnt{$fileType} files <br>\n~;
+      $HTML .= qq~$sp<b>File Type: $fileType</b>, $nOutliers outliers out of $fcnt{$fileType} files <br>\n~;
       $HTML .= qq~<div width=800 id="no_div" style='display: inline'>$outlierHTML</div><br>\n~;
     }
-#    $HTML .= "<br>\n";
   }
   return $HTML;
 }

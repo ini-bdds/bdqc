@@ -905,9 +905,23 @@ sub getOutliers {
 
   } # end foreach fileType
 
-  return $outliers if $astext;
-
   #### Render the outlier information in various forms and return
+  my %friendly = ( TextBuffer => '', 
+                   HeadTemplate => "The file FILETAG is an outlier with NOUTLIERFLAGS flags:",
+                   ItemTemplate => " - The NOUN is VERB than normal",
+                   NoOutliers => "No outliers found",
+                 );
+  my %nerdy = (    TextBuffer => '', 
+                   HeadTemplate => "FILETAG is an outlier with NOUTLIERFLAGS flags:",
+                   ItemTemplate => " - ATTRIBUTE: Value 'VALUE' is an outlier at DEVIATION times typical deviation\n",
+                   NoOutliers => "No outliers were found",
+              );
+
+  if ( $astext ) {
+    $outliers->{templates} = { nerdy => \%nerdy, friendly => \%friendly };
+    return $outliers;
+  }
+
   my $friendlyTextBuffer = '';
   my $nerdyTextBuffer = '';
 
@@ -919,8 +933,13 @@ sub getOutliers {
       my $nOutlierFlags = scalar(@{$outlierFileTagList});
       $nOutlierFiles++;
 
-      $friendlyTextBuffer .= "The file $outlierFileTagName is an outlier with $nOutlierFlags flags:\n";
-      $nerdyTextBuffer .= "$outlierFileTagName is an outlier with $nOutlierFlags flags:\n";
+      $friendlyTextBuffer .= "$friendly{HeadTemplate}\n";
+      $friendlyTextBuffer =~ s/FILETAG/$outlierFileTagName/gm;
+      $friendlyTextBuffer =~ s/NOUTLIERFLAGS/$nOutlierFlags/gm;
+        
+      $nerdyTextBuffer .= $nerdy{HeadTemplate};
+      $nerdyTextBuffer =~ s/FILETAG/$outlierFileTagList/gm;
+      $nerdyTextBuffer =~ s/NOUTLIERFLAGS/$nOutlierFlags/gm;
 
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
@@ -929,23 +948,32 @@ sub getOutliers {
         my $deviation = $outlier->{deviation}->{deviation};
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
-	$deviation = sprintf("%.1f",$deviation);
+        $deviation = sprintf("%.1f",$deviation);
 
-        $nerdyTextBuffer .= " - $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
+#        $nerdyTextBuffer .= " - $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
+        $nerdyTextBuffer .= $nerdy{ItemTemplate};
+        $nerdyTextBuffer =~ s/ATTRIBUTE/$signature.$attribute/gm;
+        $nerdyTextBuffer =~ s/VALUE/$value/gm;
+        $nerdyTextBuffer =~ s/DEVIATION/$deviation/gm;
 
-	my $side = "upper";
-	$side = "lower" if ( $deviation < 0 );
-	my $noun = $qckb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
-	my $verb = "is " . ($qckb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different");
-	$friendlyTextBuffer .= " - The $noun $verb than normal\n";
+        my $side = "upper";
+        $side = "lower" if ( $deviation < 0 );
+        my $noun = $qckb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
+        my $verb = $qckb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
+
+#          " - The $noun $verb than normal\n";
+        my $itemTextBuffer .= $friendly{ItemTemplate};
+        $itemTextBuffer =~ s/NOUN/$noun/gm;
+        $itemTextBuffer =~ s/VERB/$verb/gm;
+        $friendlyTextBuffer .= "$itemTextBuffer\n";
       }
     }
   }
 
   #### If there were none, say that
   unless ( $nOutlierFiles ) {
-    $friendlyTextBuffer .= "No outliers were found\n";
-    $nerdyTextBuffer .= "No outliers found\n";
+    $friendlyTextBuffer .= "$friendly{NoOutliers}\n";
+    $nerdyTextBuffer .= " $nerdy{NoOutliers}\n";
   }
 
   $response->{friendlyTextBuffer} = $friendlyTextBuffer;
