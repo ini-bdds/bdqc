@@ -928,8 +928,11 @@ sub getOutliers {
       my $nOutlierFlags = scalar(@{$outlierFileTagList});
       $nOutlierFiles++;
 
-      $friendlyTextBuffer .= "The file $outlierFileTagName is an outlier with $nOutlierFlags flags:\n";
-      $nerdyTextBuffer .= "$outlierFileTagName is an outlier with $nOutlierFlags flags:\n";
+      my $outlierFlagPlural = '';
+      $outlierFlagPlural = 's' if ( $nOutlierFlags > 1 );
+
+      $friendlyTextBuffer .= "The file $outlierFileTagName is an outlier with $nOutlierFlags flag$outlierFlagPlural:\n";
+      $nerdyTextBuffer .= "$outlierFileTagName is an outlier with $nOutlierFlags flag$outlierFlagPlural:\n";
 
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
@@ -1069,14 +1072,39 @@ sub importSignatures {
             if ( ref($attributeValue) eq '' ) {
               $tmp->{$signatureName}->{$attributeName} = $attributeValue;
               #print "Storing at base $signatureName.$attributeName = $attributeValue\n";
+
             #### Else if it complex, flatten it recursively into keys and values that are scalar, hash, or array
             } else {
-              #print "Going complex!\n";
-              my $flattenedAttributes = flattenAttributes($attributeName,$attributeValue);
-              foreach my $flattenendAttributeName ( keys(%{$flattenedAttributes}) ) {
-                #print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
-                $tmp->{$signatureName}->{$flattenendAttributeName} = $flattenedAttributes->{$flattenendAttributeName};
-              }
+
+	      #### A special hack for the transition_histogram element
+	      if ( $attributeName =~ /transition_histogram/ ) {
+		$tmp->{$signatureName}->{$attributeName} = recastTransitionHistogram($attributeValue);
+ 
+	      #### A special hack for the stats element
+	      } elsif ( $attributeName eq 'stats' ) {
+		foreach my $key ( %{$attributeValue} ) {
+		  $tmp->{$signatureName}->{"$attributeName.$key"} = $attributeValue->{$key};
+	        }
+
+	      #### Everything else
+	      } else {
+                my $flattenedAttributes = flattenAttributes($attributeName,$attributeValue);
+                foreach my $flattenendAttributeName ( keys(%{$flattenedAttributes}) ) {
+                  #print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
+
+		  #### A special hack for the stats element
+		  if ( $flattenendAttributeName =~ /^tabledata\.columns\.\d+\.stats$/ ) {
+		    foreach my $key ( keys(%{$flattenedAttributes->{$flattenendAttributeName}}) ) {
+		      $tmp->{$signatureName}->{"$flattenendAttributeName.$key"} = $flattenedAttributes->{$flattenendAttributeName}->{$key};
+		      #print "       $key = $flattenedAttributes->{$flattenendAttributeName}->{$key}\n";
+		    }
+
+		  #### Everything else
+		  } else {
+                    $tmp->{$signatureName}->{$flattenendAttributeName} = $flattenedAttributes->{$flattenendAttributeName};
+		  }
+                }
+	      }
             }
               
           } # end foreach attributeName
@@ -1856,6 +1884,40 @@ sub flattenAttributes {
   
   return $result;
 }
+
+
+sub recastTransitionHistogram {
+###############################################################################
+# recastTransitionHistogram
+# Transform the special transition_histogram tag from a 3x3 matrix into a
+# real histogram
+###############################################################################
+  my ($matrix) = @_;
+  my $result;
+
+  #### New format
+  if ( ref($matrix) eq 'HASH' ) {
+    my @states = ( "lf", "cr", "oc" );
+    foreach my $i ( @states ) {
+      foreach my $j ( @states ) {
+	$result->{"$i-$j"} = $matrix->{$i}->{$j};
+      }
+    }
+    return $result;
+  }
+
+  #### Old format
+  my @states = ( "LF", "CR", "CHAR" );
+  foreach my $i ( 0..$#states ) {
+    foreach my $j ( 0..$#states ) {
+      $result->{"$states[$i]-$states[$j]"} = $matrix->[$i]->[$j];
+    }
+  }
+
+  return $result;
+}
+
+
 ###############################################################################
 # parseModels
 sub parseModels {
