@@ -1650,10 +1650,13 @@ sub scanDataPath {
 
       #### Otherwise read the directory and process the contents
       } else {
-        opendir(DIR,$directory) || die("ERROR: Unable to open directory '$directory'");
-        @entries = grep(!/^\.{1,2}$/, readdir(DIR));
-        closedir(DIR);
-        @entries = sort(@entries);
+	if ( opendir(DIR,$directory) ) {
+          @entries = grep(!/^\.{1,2}$/, readdir(DIR));
+          closedir(DIR);
+          @entries = sort(@entries);
+        } else {
+          print STDERR "WARNING: Unable to open directory '$directory'. skip.\n";
+        }
       }
 
     #### Or if the directory is actually a file, then just process it
