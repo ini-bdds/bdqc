@@ -293,7 +293,6 @@ sub getPlotHTML {
   my $self = shift;
   my %args = @_;
   my $kb = $args{kb} || die;
-  use Data::Dumper;
   return '' unless $args{params} && $args{models};
   $args{msel} ||= $self->getModelSelect( $args{models} );
 
@@ -328,7 +327,6 @@ sub getPlotHTML {
   ~;
 
   my @mkeys = sort(keys( %{$args{models}} ) );
-  use Data::Dumper;
   my %fcnt;
   for my $ft ( @mkeys ) {
     my $currmodel = $args{models}->{$ft};
@@ -352,7 +350,6 @@ sub getPlotHTML {
       my $e = 'rgb(255,255,0)';
       my $o = 'rgb(219,64,82)';
   
-      use Data::Dumper;
       for my $d ( @{$currmodel->{$m}->{data}} ) {
         push @data, $d->{value};  
         my $hlbl = ( $d->{filetag} ) ? "$d->{filetag}: $d->{deviationFlag}" : $d->{deviationFlag};  
@@ -456,7 +453,7 @@ sub getPlotHTML {
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
         my $attribute = $outlier->{attribute};
-        my $fsig = $kb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
+        my $fsig = $kb->{_qckb}->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
         my $value = $outlier->{value};
         my $deviation = $outlier->{deviation}->{deviation};
         $deviation = sprintf( "%0.1f", $deviation);
