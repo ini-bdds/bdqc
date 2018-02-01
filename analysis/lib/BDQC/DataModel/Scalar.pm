@@ -169,7 +169,7 @@ sub create {
     elsif ( $datum =~ /^\s*[\+\-]*\.[\d]+\s*$/ ) { $dataType = 'float'; }
     elsif ( $datum =~ /^\s*[\+\-]*\d+\.[\d]*[ed][\+\-]*\d+\s*$/ ) { $dataType = 'float'; }
     elsif ( $datum =~ /^\s*[\+\-]*\.[\d]+[ed][\+\-]*\d+\s*$/ ) { $dataType = 'float'; }
-    elsif ( $datum =~ /^\s*true\s*$/i || $datum =~ /^\s*false\s*$/i || $datum =~ /^\s*t\s*$/i || $datum =~ /^\s*f\s*$/i ) { $dataType = 'boolean'; }
+    #elsif ( $datum =~ /^\s*true\s*$/i || $datum =~ /^\s*false\s*$/i || $datum =~ /^\s*t\s*$/i || $datum =~ /^\s*f\s*$/i ) { $dataType = 'boolean'; }
     else { $dataType = 'string'; }
     $typeCounts{$dataType}++;
 
@@ -480,7 +480,7 @@ sub create {
 	  }
 
 	#### For the lower part of the distribution
-        } elsif ( defined($value) ) {
+        } elsif ( defined($value) && defined($gapStats{median}) && $value < $gapStats{median} ) {
 	  if ( $value >= $gapStats{lower}->{normalBound} ) {
 	    my $factor = ( $gapStats{median} - $gapStats{lower}->{normalBound} ) || 1;
 	    my $delta = $gapStats{median} - $value;
