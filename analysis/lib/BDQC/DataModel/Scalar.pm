@@ -344,6 +344,7 @@ sub create {
 
       my @roundedDeltas;
       for ( my $i=0; $i<10; $i++) {
+	next if ( !defined($sortedDeltas[$i]) );
 	push(@roundedDeltas,sprintf("%.3f",$sortedDeltas[$i]));
       }
       print join(",",@roundedDeltas)."\n" if ( $newCodeDebug );
@@ -412,6 +413,7 @@ sub create {
 
       @roundedDeltas = ();
       for ( my $i=0; $i<10; $i++) {
+	next if ( !defined($sortedDeltas[$i]) );
 	push(@roundedDeltas,sprintf("%.3f",$sortedDeltas[$i]));
       }
       print join(",",@roundedDeltas)."\n" if ( $newCodeDebug );
