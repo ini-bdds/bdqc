@@ -163,6 +163,7 @@ sub calcSignature {
   my %columnCounts;
   my @columnCounts;
   my $separator = "\t";
+  #$separator = ",";
   my @lines;
   my @nNumerals;
   my $columnHeaderRow = -1;
@@ -477,6 +478,10 @@ sub setSignatureAttributeDescriptions {
     $info->{"FileSignature::Tabular.columns.$i.siqr"}->{friendlyName} = "spread (SIQR) of numerical values for column $i";
     $info->{"FileSignature::Tabular.columns.$i.siqr"}->{sideName}->{upper} = "larger";
     $info->{"FileSignature::Tabular.columns.$i.siqr"}->{sideName}->{lower} = "smaller";
+
+    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{friendlyName} = "column title for column $i";
+    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{sideName}->{upper} = "different";
+    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{sideName}->{lower} = "different";
   }
 
   return;
