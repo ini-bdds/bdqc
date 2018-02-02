@@ -918,22 +918,21 @@ sub getOutliers {
   #### Render the outlier information in various forms and return
   my %friendly = ( TextBuffer => '', 
                    HeadTemplate => "The file FILETAG is an outlier with NOUTLIERFLAGS:",
-                   ItemTemplate => " - The NOUN is VERB than normal",
-                   NoOutliers => "No outliers found",
+                   ItemTemplate => " - The NOUN is VERB normal",
+                   NoOutliers => "No outliers were found",
                  );
   my %nerdy = (    TextBuffer => '', 
                    HeadTemplate => "FILETAG is an outlier with NOUTLIERFLAGS flags:",
-                   ItemTemplate => " - ATTRIBUTE: Value 'VALUE' is an outlier at DEVIATION times typical deviation\n",
-                   NoOutliers => "No outliers were found",
+                   ItemTemplate => " - ATTRIBUTE: Value 'VALUE' is an outlier at DEVIATION times typical deviation",
+                   NoOutliers => "No outliers found",
               );
 
-  if ( $astext ) {
-    $outliers->{templates} = { nerdy => \%nerdy, friendly => \%friendly };
-    return $outliers;
-  }
+  $outliers->{templates} = { nerdy => \%nerdy, friendly => \%friendly };
+
 
   my $friendlyTextBuffer = '';
   my $nerdyTextBuffer = '';
+
 
   #### Loop over each fileType and filename
   foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
@@ -949,8 +948,8 @@ sub getOutliers {
       $friendlyTextBuffer =~ s/FILETAG/$outlierFileTagName/gm;
       $friendlyTextBuffer =~ s/NOUTLIERFLAGS/$outlierText/gm;
         
-      $nerdyTextBuffer .= $nerdy{HeadTemplate};
-      $nerdyTextBuffer =~ s/FILETAG/$outlierFileTagList/gm;
+      $nerdyTextBuffer .= "$nerdy{HeadTemplate}\n";
+      $nerdyTextBuffer =~ s/FILETAG/$outlierFileTagName/gm;
       $nerdyTextBuffer =~ s/NOUTLIERFLAGS/$nOutlierFlags/gm;
 
       foreach my $outlier ( @{$outlierFileTagList} ) {
@@ -962,19 +961,19 @@ sub getOutliers {
         $value = substr($value,0,70)."...." if ( length($value)>74 );
         $deviation = sprintf("%.1f",$deviation);
 
-#        $nerdyTextBuffer .= " - $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
-        $nerdyTextBuffer .= $nerdy{ItemTemplate};
-        $nerdyTextBuffer =~ s/ATTRIBUTE/$signature.$attribute/gm;
-        $nerdyTextBuffer =~ s/VALUE/$value/gm;
-        $nerdyTextBuffer =~ s/DEVIATION/$deviation/gm;
+        my $itemTextBuffer = $nerdy{ItemTemplate};
+        $itemTextBuffer =~ s/ATTRIBUTE/$signature.$attribute/gm;
+        $itemTextBuffer =~ s/VALUE/$value/gm;
+        $itemTextBuffer =~ s/DEVIATION/$deviation/gm;
+        $nerdyTextBuffer .= "$itemTextBuffer\n";
 
         my $side = "upper";
         $side = "lower" if ( $deviation < 0 );
         my $noun = $qckb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
-        my $verb = $qckb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
+        my $verb = $qckb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different from";
 
 #          " - The $noun $verb than normal\n";
-        my $itemTextBuffer .= $friendly{ItemTemplate};
+        $itemTextBuffer = $friendly{ItemTemplate};
         $itemTextBuffer =~ s/NOUN/$noun/gm;
         $itemTextBuffer =~ s/VERB/$verb/gm;
         $friendlyTextBuffer .= "$itemTextBuffer\n";
@@ -2095,28 +2094,91 @@ sub setBuiltinSignatureAttributeDescriptions {
   my $info = $qckb->{signatureInfo};
 
   $info->{"extrinsic.size"}->{friendlyName} = "file size";
-  $info->{"extrinsic.size"}->{sideName}->{upper} = "larger";
-  $info->{"extrinsic.size"}->{sideName}->{lower} = "smaller";
+  $info->{"extrinsic.size"}->{sideName}->{upper} = "greater than";
+  $info->{"extrinsic.size"}->{sideName}->{lower} = "less than";
 
   $info->{"extrinsic.mtime"}->{friendlyName} = "modification timestamp";
-  $info->{"extrinsic.mtime"}->{sideName}->{upper} = "later";
-  $info->{"extrinsic.mtime"}->{sideName}->{lower} = "earlier";
+  $info->{"extrinsic.mtime"}->{sideName}->{upper} = "later than";
+  $info->{"extrinsic.mtime"}->{sideName}->{lower} = "earlier than";
 
   $info->{"extrinsic.mode"}->{friendlyName} = "file permissions";
-  $info->{"extrinsic.mode"}->{sideName}->{upper} = "different";
-  $info->{"extrinsic.mode"}->{sideName}->{lower} = "different";
+  $info->{"extrinsic.mode"}->{sideName}->{upper} = "different from";
+  $info->{"extrinsic.mode"}->{sideName}->{lower} = "different from";
 
   $info->{"extrinsic.filename"}->{friendlyName} = "file name itself";
-  $info->{"extrinsic.filename"}->{sideName}->{upper} = "longer or has different characters";
-  $info->{"extrinsic.filename"}->{sideName}->{lower} = "shorter or has different characters";
+  $info->{"extrinsic.filename"}->{sideName}->{upper} = "longer or has different characters than";
+  $info->{"extrinsic.filename"}->{sideName}->{lower} = "shorter or has different characters than";
 
   $info->{"extrinsic.basename"}->{friendlyName} = "file folder name";
-  $info->{"extrinsic.basename"}->{sideName}->{upper} = "longer or has different characters";
-  $info->{"extrinsic.basename"}->{sideName}->{lower} = "shorter or has different characters";
+  $info->{"extrinsic.basename"}->{sideName}->{upper} = "longer or has different characters than";
+  $info->{"extrinsic.basename"}->{sideName}->{lower} = "shorter or has different characters than";
 
   $info->{"extrinsic.isReadable"}->{friendlyName} = "ability to read the file";
-  $info->{"extrinsic.isReadable"}->{sideName}->{upper} = "different";
-  $info->{"extrinsic.isReadable"}->{sideName}->{lower} = "different";
+  $info->{"extrinsic.isReadable"}->{sideName}->{upper} = "different from";
+  $info->{"extrinsic.isReadable"}->{sideName}->{lower} = "different from";
+
+  $info->{"bdqc.builtin.tabular.character_histogram"}->{friendlyName} = "histogram of character types";
+  $info->{"bdqc.builtin.tabular.character_histogram"}->{sideName}->{upper} = "different from";
+  $info->{"bdqc.builtin.tabular.character_histogram"}->{sideName}->{lower} = "different from";
+
+  $info->{"bdqc.builtin.tabular.tabledata.aberrant_lines"}->{friendlyName} = "number of aberrant lines";
+  $info->{"bdqc.builtin.tabular.tabledata.aberrant_lines"}->{sideName}->{upper} = "greater than";
+  $info->{"bdqc.builtin.tabular.tabledata.aberrant_lines"}->{sideName}->{lower} = "less than";
+
+  $info->{"bdqc.builtin.tabular.tabledata.column_count"}->{friendlyName} = "number of data columns";
+  $info->{"bdqc.builtin.tabular.tabledata.column_count"}->{sideName}->{upper} = "greater than";
+  $info->{"bdqc.builtin.tabular.tabledata.column_count"}->{sideName}->{lower} = "less than";
+
+  $info->{"bdqc.builtin.tabular.tabledata.column_separator"}->{friendlyName} = "data column separator";
+  $info->{"bdqc.builtin.tabular.tabledata.column_separator"}->{sideName}->{upper} = "different from";
+  $info->{"bdqc.builtin.tabular.tabledata.column_separator"}->{sideName}->{lower} = "different from";
+
+  $info->{"bdqc.builtin.tabular.tabledata.data_lines"}->{friendlyName} = "number of data lines";
+  $info->{"bdqc.builtin.tabular.tabledata.data_lines"}->{sideName}->{upper} = "greater than";
+  $info->{"bdqc.builtin.tabular.tabledata.data_lines"}->{sideName}->{lower} = "less than";
+
+  $info->{"bdqc.builtin.tabular.tabledata.empty_lines"}->{friendlyName} = "number of blank lines";
+  $info->{"bdqc.builtin.tabular.tabledata.empty_lines"}->{sideName}->{upper} = "greater than";
+  $info->{"bdqc.builtin.tabular.tabledata.empty_lines"}->{sideName}->{lower} = "less than";
+
+  $info->{"bdqc.builtin.tabular.tabledata.meta_lines"}->{friendlyName} = "number of comment lines";
+  $info->{"bdqc.builtin.tabular.tabledata.meta_lines"}->{sideName}->{upper} = "greater than";
+  $info->{"bdqc.builtin.tabular.tabledata.meta_lines"}->{sideName}->{lower} = "less than";
+
+  $info->{"bdqc.builtin.tabular.tabledata.metadata_prefix"}->{friendlyName} = "comment character";
+  $info->{"bdqc.builtin.tabular.tabledata.metadata_prefix"}->{sideName}->{upper} = "different from";
+  $info->{"bdqc.builtin.tabular.tabledata.metadata_prefix"}->{sideName}->{lower} = "different from";
+
+  $info->{"bdqc.builtin.tabular.tabledata.separator_is_regex"}->{friendlyName} = "column separator is a regular expression";
+  $info->{"bdqc.builtin.tabular.tabledata.separator_is_regex"}->{sideName}->{upper} = "different from";
+  $info->{"bdqc.builtin.tabular.tabledata.separator_is_regex"}->{sideName}->{lower} = "different from";
+
+  $info->{"bdqc.builtin.tabular.transition_histogram"}->{friendlyName} = "histogram of the character type transitions";
+  $info->{"bdqc.builtin.tabular.transition_histogram"}->{sideName}->{upper} = "different from";
+  $info->{"bdqc.builtin.tabular.transition_histogram"}->{sideName}->{lower} = "different from";
+
+  for ( my $i=0; $i < 50; $i++ ) {
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.labels"}->{friendlyName} = "items in the list of discrete values in column $i";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.labels"}->{sideName}->{upper} = "different from";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.labels"}->{sideName}->{lower} = "different from";
+
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.max_labels_exceeded"}->{friendlyName} = "flag for exceeding the maximum number of discrete values in column $i";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.max_labels_exceeded"}->{sideName}->{upper} = "different from";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.max_labels_exceeded"}->{sideName}->{lower} = "different from";
+
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.stats.mean"}->{friendlyName} = "numerical average of the values in column $i";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.stats.mean"}->{sideName}->{upper} = "greater than";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.stats.mean"}->{sideName}->{lower} = "less than";
+
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.stats.variance"}->{friendlyName} = "numerical variance of the values in column $i";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.stats.variance"}->{sideName}->{upper} = "greater than";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.stats.variance"}->{sideName}->{lower} = "less than";
+
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.votes"}->{friendlyName} = "histogram of data types in column $i";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.votes"}->{sideName}->{upper} = "different from";
+    $info->{"bdqc.builtin.tabular.tabledata.columns.$i.votes"}->{sideName}->{lower} = "different from";
+
+  }
 
   return;
 }

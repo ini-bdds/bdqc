@@ -430,6 +430,7 @@ sub getPlotHTML {
   ~;
   my $outliers = $args{outliers};
   my $tmpl = $outliers->{templates}->{friendly};
+
   my $fcnt;
   
   my $sp = "&nbsp;&nbsp;";
@@ -445,7 +446,6 @@ sub getPlotHTML {
       $nOutliers += $nOutlierFiles;
       my $nOutlierText = ( $nOutlierFlags > 1 ) ? $nOutlierFlags . ' flags' : $nOutlierFlags . ' flag' ;
 
-#      $outlierHTML .= "  $outlierFileTagName is an outlier because:<br>\n";
       $outlierHTML .= $tmpl->{HeadTemplate} . "<br>\n"; 
       $outlierHTML =~ s/FILETAG/$outlierFileTagName/gm;
       $outlierHTML =~ s/NOUTLIERFLAGS/$nOutlierText/gm;
@@ -462,7 +462,7 @@ sub getPlotHTML {
 
         my $noun_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$fsig</a>~;
         my $side = ( $deviation < 0 ) ? 'upper' : 'lower';
-        my $verb = $kb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
+        my $verb = $kb->{_qckb}->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
 
         my $itemHTML = $tmpl->{ItemTemplate} . "<br>\n";
         $itemHTML =~ s/NOUN/$noun_link/gm;
