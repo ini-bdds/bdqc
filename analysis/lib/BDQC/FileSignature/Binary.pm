@@ -228,8 +228,8 @@ sub setSignatureAttributeDescriptions {
   my $info = $qckb->{signatureInfo};
 
   $info->{"FileSignature::Text.lineEndings"}->{friendlyName} = "pattern of byte counts";
-  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{lower} = "different from";
 
   return;
 }

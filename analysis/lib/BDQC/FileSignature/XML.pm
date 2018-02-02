@@ -262,20 +262,20 @@ sub setSignatureAttributeDescriptions {
   my $info = $qckb->{signatureInfo};
 
   $info->{"FileSignature::XML.tags"}->{friendlyName} = "pattern of XML tag counts";
-  $info->{"FileSignature::XML.tags"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::XML.tags"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::XML.tags"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::XML.tags"}->{sideName}->{lower} = "different from";
 
   $info->{"FileSignature::XML.parserMessage"}->{friendlyName} = "error message from the XML parser";
-  $info->{"FileSignature::XML.parserMessage"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::XML.parserMessage"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::XML.parserMessage"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::XML.parserMessage"}->{sideName}->{lower} = "different from";
 
   $info->{"FileSignature::XML.ntags"}->{friendlyName} = "number of distinct XML tags";
-  $info->{"FileSignature::XML.ntags"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::XML.ntags"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::XML.ntags"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::XML.ntags"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::XML.dsize"}->{friendlyName} = "total number of XML data characters";
-  $info->{"FileSignature::XML.dsize"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::XML.dsize"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::XML.dsize"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::XML.dsize"}->{sideName}->{lower} = "less than";
 
   return;
 }

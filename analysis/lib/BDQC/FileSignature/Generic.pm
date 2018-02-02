@@ -315,36 +315,32 @@ sub setSignatureAttributeDescriptions {
   my $info = $qckb->{signatureInfo};
 
   $info->{"FileSignature::Generic.fractionAbove127"}->{friendlyName} = "fraction of bytes above ASCII 127";
-  $info->{"FileSignature::Generic.fractionAbove127"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Generic.fractionAbove127"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Generic.fractionAbove127"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Generic.fractionAbove127"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Generic.meanAsciiValue"}->{friendlyName} = "average ASCII value";
-  $info->{"FileSignature::Generic.meanAsciiValue"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Generic.meanAsciiValue"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Generic.meanAsciiValue"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Generic.meanAsciiValue"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Generic.meanCharacterCount"}->{friendlyName} = "average instances of each ASCII value";
-  $info->{"FileSignature::Generic.meanCharacterCount"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Generic.meanCharacterCount"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Generic.meanCharacterCount"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Generic.meanCharacterCount"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Generic.medianCharacterCount"}->{friendlyName} = "median number of instances of each ASCII value";
-  $info->{"FileSignature::Generic.medianCharacterCount"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Generic.medianCharacterCount"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Generic.medianCharacterCount"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Generic.medianCharacterCount"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Generic.nDifferentCharacters"}->{friendlyName} = "number of different ASCII values";
-  $info->{"FileSignature::Generic.nDifferentCharacters"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Generic.nDifferentCharacters"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Generic.nDifferentCharacters"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Generic.nDifferentCharacters"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Generic.fileType"}->{friendlyName} = "broad file type";
-  $info->{"FileSignature::Generic.fileType"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Generic.fileType"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::Generic.fileType"}->{sideName}->{upper} = "different than";
+  $info->{"FileSignature::Generic.fileType"}->{sideName}->{lower} = "different than";
 
   $info->{"FileSignature::Generic.subFileType"}->{friendlyName} = "subcategory of file type";
-  $info->{"FileSignature::Generic.subFileType"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Generic.subFileType"}->{sideName}->{lower} = "different";
-
-  $info->{"FileSignature::Generic."}->{friendlyName} = "";
-  $info->{"FileSignature::Generic."}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Generic."}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Generic.subFileType"}->{sideName}->{upper} = "different than";
+  $info->{"FileSignature::Generic.subFileType"}->{sideName}->{lower} = "different than";
 
   return;
 }

@@ -234,20 +234,20 @@ sub setSignatureAttributeDescriptions {
   my $info = $qckb->{signatureInfo};
 
   $info->{"FileSignature::Text.nLines"}->{friendlyName} = "number of lines";
-  $info->{"FileSignature::Text.nLines"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Text.nLines"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Text.nLines"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Text.nLines"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Text.lineEndings"}->{friendlyName} = "pattern of line endings";
-  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::Text.lineEndings"}->{sideName}->{lower} = "different from";
 
   $info->{"FileSignature::Text.averageLineLength"}->{friendlyName} = "average length of each line";
-  $info->{"FileSignature::Text.averageLineLength"}->{sideName}->{upper} = "longer";
-  $info->{"FileSignature::Text.averageLineLength"}->{sideName}->{lower} = "shorter";
+  $info->{"FileSignature::Text.averageLineLength"}->{sideName}->{upper} = "longer than";
+  $info->{"FileSignature::Text.averageLineLength"}->{sideName}->{lower} = "shorter than";
 
   $info->{"FileSignature::Text.averageWordsPerLine"}->{friendlyName} = "average number of words per line";
-  $info->{"FileSignature::Text.averageWordsPerLine"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Text.averageWordsPerLine"}->{sideName}->{lower} = "shorter";
+  $info->{"FileSignature::Text.averageWordsPerLine"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Text.averageWordsPerLine"}->{sideName}->{lower} = "shorter than";
 
   return;
 }

@@ -427,61 +427,61 @@ sub setSignatureAttributeDescriptions {
   my $info = $qckb->{signatureInfo};
 
   $info->{"FileSignature::Tabular.nRows"}->{friendlyName} = "number of data rows";
-  $info->{"FileSignature::Tabular.nRows"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Tabular.nRows"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Tabular.nRows"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Tabular.nRows"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Tabular.commentCharacter"}->{friendlyName} = "comment character";
-  $info->{"FileSignature::Tabular.commentCharacter"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Tabular.commentCharacter"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::Tabular.commentCharacter"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::Tabular.commentCharacter"}->{sideName}->{lower} = "different from";
 
   $info->{"FileSignature::Tabular.nCommentLines"}->{friendlyName} = "number of comment lines";
-  $info->{"FileSignature::Tabular.nCommentLines"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Tabular.nCommentLines"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Tabular.nCommentLines"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Tabular.nCommentLines"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Tabular.hasColumnNames"}->{friendlyName} = "presence of column names";
-  $info->{"FileSignature::Tabular.hasColumnNames"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Tabular.hasColumnNames"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::Tabular.hasColumnNames"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::Tabular.hasColumnNames"}->{sideName}->{lower} = "different from";
 
   $info->{"FileSignature::Tabular.nColumns"}->{friendlyName} = "number of columns";
-  $info->{"FileSignature::Tabular.nColumns"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Tabular.nColumns"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Tabular.nColumns"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Tabular.nColumns"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Tabular.blankLines"}->{friendlyName} = "number of blank lines";
-  $info->{"FileSignature::Tabular.blankLines"}->{sideName}->{upper} = "larger";
-  $info->{"FileSignature::Tabular.blankLines"}->{sideName}->{lower} = "smaller";
+  $info->{"FileSignature::Tabular.blankLines"}->{sideName}->{upper} = "greater than";
+  $info->{"FileSignature::Tabular.blankLines"}->{sideName}->{lower} = "less than";
 
   $info->{"FileSignature::Tabular.columnsPerRow"}->{friendlyName} = "histogram of number of columns per row";
-  $info->{"FileSignature::Tabular.columnsPerRow"}->{sideName}->{upper} = "different";
-  $info->{"FileSignature::Tabular.columnsPerRow"}->{sideName}->{lower} = "different";
+  $info->{"FileSignature::Tabular.columnsPerRow"}->{sideName}->{upper} = "different from";
+  $info->{"FileSignature::Tabular.columnsPerRow"}->{sideName}->{lower} = "different from";
 
-  for ( my $i=1; $i < 50; $i++ ) {
+  for ( my $i=0; $i < 50; $i++ ) {
     $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{friendlyName} = "histogram of discrete values in column $i";
-    $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{sideName}->{upper} = "different";
-    $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{sideName}->{lower} = "different";
+    $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{sideName}->{upper} = "different from";
+    $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{sideName}->{lower} = "different from";
 
     $info->{"FileSignature::Tabular.columns.$i.nDiscreteValues"}->{friendlyName} = "number of discrete values in column $i";
-    $info->{"FileSignature::Tabular.columns.$i.nDiscreteValues"}->{sideName}->{upper} = "larger";
-    $info->{"FileSignature::Tabular.columns.$i.nDiscreteValues"}->{sideName}->{lower} = "smaller";
+    $info->{"FileSignature::Tabular.columns.$i.nDiscreteValues"}->{sideName}->{upper} = "greater than";
+    $info->{"FileSignature::Tabular.columns.$i.nDiscreteValues"}->{sideName}->{lower} = "less than";
 
     $info->{"FileSignature::Tabular.columns.$i.discreteValueCountExceedsLimit"}->{friendlyName} = "flag for exceeding the maximum number of discrete values in column $i";
-    $info->{"FileSignature::Tabular.columns.$i.discreteValueCountExceedsLimit"}->{sideName}->{upper} = "different";
-    $info->{"FileSignature::Tabular.columns.$i.discreteValueCountExceedsLimit"}->{sideName}->{lower} = "different";
+    $info->{"FileSignature::Tabular.columns.$i.discreteValueCountExceedsLimit"}->{sideName}->{upper} = "different from";
+    $info->{"FileSignature::Tabular.columns.$i.discreteValueCountExceedsLimit"}->{sideName}->{lower} = "different from";
 
     $info->{"FileSignature::Tabular.columns.$i.dataType"}->{friendlyName} = "histogram of data types for column $i";
-    $info->{"FileSignature::Tabular.columns.$i.dataType"}->{sideName}->{upper} = "different";
-    $info->{"FileSignature::Tabular.columns.$i.dataType"}->{sideName}->{lower} = "different";
+    $info->{"FileSignature::Tabular.columns.$i.dataType"}->{sideName}->{upper} = "different from";
+    $info->{"FileSignature::Tabular.columns.$i.dataType"}->{sideName}->{lower} = "different from";
 
     $info->{"FileSignature::Tabular.columns.$i.median"}->{friendlyName} = "median numerical value for column $i";
-    $info->{"FileSignature::Tabular.columns.$i.median"}->{sideName}->{upper} = "larger";
-    $info->{"FileSignature::Tabular.columns.$i.median"}->{sideName}->{lower} = "smaller";
+    $info->{"FileSignature::Tabular.columns.$i.median"}->{sideName}->{upper} = "greater than";
+    $info->{"FileSignature::Tabular.columns.$i.median"}->{sideName}->{lower} = "less than";
 
     $info->{"FileSignature::Tabular.columns.$i.siqr"}->{friendlyName} = "spread (SIQR) of numerical values for column $i";
-    $info->{"FileSignature::Tabular.columns.$i.siqr"}->{sideName}->{upper} = "larger";
-    $info->{"FileSignature::Tabular.columns.$i.siqr"}->{sideName}->{lower} = "smaller";
+    $info->{"FileSignature::Tabular.columns.$i.siqr"}->{sideName}->{upper} = "greater than";
+    $info->{"FileSignature::Tabular.columns.$i.siqr"}->{sideName}->{lower} = "less than";
 
     $info->{"FileSignature::Tabular.columns.$i.columnName"}->{friendlyName} = "column title for column $i";
-    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{sideName}->{upper} = "different";
-    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{sideName}->{lower} = "different";
+    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{sideName}->{upper} = "different from";
+    $info->{"FileSignature::Tabular.columns.$i.columnName"}->{sideName}->{lower} = "different from";
   }
 
   return;
