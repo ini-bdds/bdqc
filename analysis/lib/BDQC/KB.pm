@@ -350,6 +350,7 @@ sub calcSignatures {
 
   my %knownExtensions = (
 #    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
+#    "csv" => { specificTypeName=>'csv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
 #    "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
 #    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
     "html" => { specificTypeName=>'html', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
