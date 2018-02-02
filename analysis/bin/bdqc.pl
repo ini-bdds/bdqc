@@ -253,9 +253,11 @@ sub writeHTML {
 
   my $outliers;
   if ( $OPTIONS{skipbad} ) {
-    $outliers = $kb->getOutliers( astext => 1, skipAttributes=>"FileSignature::Generic.subFileType" );
+    my $response = $kb->getOutliers( skipAttributes=>"FileSignature::Generic.subFileType", skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity} );
+    $outliers = $response->{outliers};
   } else {
-    $outliers = $kb->getOutliers( astext => 1, skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity} );
+    my $response = $kb->getOutliers( skipAttributes=>$OPTIONS{skipAttributes}, sensitivity=>$OPTIONS{sensitivity} );
+    $outliers = $response->{outliers};
   }
 
   my $ftsel = $ui->getFiletypeSelect( $models );
