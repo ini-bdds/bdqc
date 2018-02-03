@@ -303,6 +303,8 @@ sub getPlotHTML {
   $args{params}->{style} ||= 1;
 
 #  <tr><td><b>Models to consider:</b></td><td>$args{msensitivity}</td></tr>
+#  <div id=heatmap_div style="width:600px;height:400px;border-style:solid;border-color:gray;border-width:2px"></div>
+#  <div id=heatmap_div style="border-style:solid;border-color:gray;border-width:2px"></div>
 
   my $HTML = qq~
   <div id=top_div></div>
@@ -310,6 +312,9 @@ sub getPlotHTML {
 
   <script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   $args{msel_fx}
+  <br><br>
+  <div id=heatmap_div style="width:600px;height:400px;border-style:solid;border-color:gray;border-width:2px"></div>
+
   <br><br>
   <form name=plot id=plot>
   <table>
@@ -326,6 +331,14 @@ sub getPlotHTML {
     var color = [];
   ~;
 
+  my $outliers = $args{outliers};
+  my $tmpl = $outliers->{templates}->{friendly};
+  
+  my @heater;
+  my @hfiles;
+  my @hmodels;
+  my $hmin = 100;
+  my $hmax = 0;
   my @mkeys = sort(keys( %{$args{models}} ) );
   my %fcnt;
   for my $ft ( @mkeys ) {
@@ -337,8 +350,14 @@ sub getPlotHTML {
     color['$ft'] = [];
     ~;
     $fcnt{$ft} = scalar( @{$args{models}->{$ft}->{files}} );
+    for my $file ( @{$args{models}->{$ft}->{files}} ) {
+      push @hfiles, $ft . '_' . $file;
+    }
     for my $m ( sort { lc($a) cmp lc($b) } ( keys( %{$currmodel} ) ) ) {
       next if $m eq 'files';
+      my $fsig = $kb->{_qckb}->{signatureInfo}->{$m}->{friendlyName} || $m; 
+
+      push @hmodels, $ft . '_' . $fsig;
 
       my @data;
       my @flag;
@@ -350,7 +369,13 @@ sub getPlotHTML {
       my $e = 'rgb(255,255,0)';
       my $o = 'rgb(219,64,82)';
   
+      my @heatrow;
       for my $d ( @{$currmodel->{$m}->{data}} ) {
+        
+        my $devn = abs($d->{deviation});
+        push @heatrow, $devn;
+        $hmax = $devn if $devn > $hmax;
+        $hmin = $devn if $devn < $hmin;
         push @data, $d->{value};  
         my $hlbl = ( $d->{filetag} ) ? "$d->{filetag}: $d->{deviationFlag}" : $d->{deviationFlag};  
         $hlbl = " Value: $d->{datum}<br> $hlbl" if ( defined($d->{value}) && $d->{datum} ne $d->{value} );
@@ -361,6 +386,7 @@ sub getPlotHTML {
         push @jitter, $sign*rand(0.2)/10;
         $sign = ( $sign == 1 ) ? -1 : 1;
       }
+      push @heater, \@heatrow;
       my @cdata;
       for my $d ( @data ) {
         $d = '' if !defined $d;
@@ -378,6 +404,19 @@ sub getPlotHTML {
   
     }
   }
+
+
+  my $hfilestr = "['" . join( "','", @hfiles ) . "']";
+  my $hmodelstr = "['" . join( "','", @hmodels ) . "']";
+
+  my $hdatastr = '[';
+  my $sep = '';
+  for my $hrow ( @heater ) {
+    $hdatastr .= $sep . '[' . join( ',', @{$hrow} ) . ']';
+    $sep = ',';
+  }
+  $hdatastr .= ']';
+
   $HTML .= qq~
 
     var ft = document.getElementById("ftselect").value;
@@ -415,7 +454,53 @@ sub getPlotHTML {
     }
     ]
 
-    Plotly.newPlot('plot_div', plotdata, { showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false } } );
+    Plotly.newPlot('plot_div', plotdata, { showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false }, margin: { l: 40, r: 30, t: 50, b: 30 }
+        
+        } );
+
+    var xValues = $hfilestr;
+
+    var yValues = $hmodelstr;
+
+var zValues = $hdatastr; 
+
+var colorscaleValue = [
+  [$hmin, '#3D9970'],
+  [$hmax, '#001f3f']
+];
+
+var hdata = [{
+  x: xValues,
+  y: yValues,
+  z: zValues,
+  type: 'heatmap',
+  colorscale: colorscaleValue,
+  showscale: true
+}];
+
+var hlayout = {
+  title: 'Deviation Heatmap',
+  annotations: [],
+  xaxis: {
+    showticklabels: false,
+    ticks: '',
+  },
+  yaxis: {
+    ticks: '',
+    showticklabels: false,
+    ticksuffix: ' ',
+  },
+  margin: {
+  l: 30,
+  r: 30,
+  t: 50,
+  b: 30
+  }
+};
+
+Plotly.newPlot('heatmap_div', hdata, hlayout);
+
+
   }
 
   function toggleView ( type ) {
@@ -428,8 +513,6 @@ sub getPlotHTML {
   </script>
   <h3 style=text-decoration:underline> File types with outliers</ul> </h3>
   ~;
-  my $outliers = $args{outliers};
-  my $tmpl = $outliers->{templates}->{friendly};
 
   my $fcnt;
   
