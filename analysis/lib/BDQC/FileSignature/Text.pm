@@ -142,7 +142,12 @@ sub calcSignature {
   my $signature = { nLines=>0, lineEndings=>$lineEndings, averageLineLength=>0, averageWordsPerLine=>0 };
 
   if ( $filePath =~ /\.gz$/ ) {
-    use IO::Zlib;
+    eval { require IO::Zlib; };
+    if ( $@ ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"IO::ZlibNotInstalled", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"IO::Zlib is not install. Need this to read compressed files: $@");
+      return $response;
+    }
     my $error;
     tie(*INFILE, 'IO::Zlib', $filePath, 'r') or $error = 1;
     if ( $error ) {
