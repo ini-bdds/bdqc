@@ -36,6 +36,8 @@ Options:
   --debug n           Set debug flag
   --testonly          If set, nothing is actually altered
   --debug n           Set debug level. The default is 0
+
+  --selftest          Perform a self-test to make sure the needed modules are available
   --kbRootPath x      Full or relative root path QC KB results files (file extension will be added)
 
   --dataDirectory x   Full or relative directory path of the data to be scanned
@@ -82,7 +84,7 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
                    "sensitivity:s","writeHTML:s", "inputFiles:s","outputFormat:s",
-                   "step",
+                   "step","selftest",
   )) {
   print "$USAGE";
   exit 2;
@@ -115,6 +117,12 @@ sub main {
 
   my $response = BDQC::Response->new();
   $response->setState( status=>'OK', message=>"Starting BDQC");
+
+  #### If the check option is set, perform a self-check and exit
+  if ( $OPTIONS{selftest} ) {
+    selfTest();
+    return $response;
+  }
 
   #### Create the Quality Control Knowledge Base object
   my $qckb = BDQC::KB->new();
@@ -218,6 +226,61 @@ sub main {
     print "bdqc.pl terminated with errors:\n";
     print $response->show();
     exit 12;
+  }
+
+  return;
+}
+
+
+###############################################################################
+sub selfTest {
+  my @internalModules = ( 'BDQC::KB','BDQC::Response','BDQC::FileSignature::Generic','BDQC::DataModel' );
+  my @requiredModules = ( 'Time::HiRes','File::Basename','File::Spec','JSON','IO::Zlib' );
+  my @optionalModules = ( 'XML::Parser' );
+
+  print STDERR "INFO: Checking internal modules:\n";
+  foreach my $module ( @internalModules ) {
+    eval {
+      my $modulePath = $module;
+      $modulePath =~ s/::/\//g;
+      $modulePath .= ".pm";
+      require $modulePath;
+    };
+    if ( $@ ) {
+      print STDERR "  Module $module not found. This must be fixed to use BDQC: $@\n";
+    } else {
+      print STDERR "  OK: $module\n";
+    }
+  }
+
+  print STDERR "INFO: Checking required external modules:\n";
+  foreach my $module ( @requiredModules ) {
+    eval {
+      my $modulePath = $module;
+      $modulePath =~ s/::/\//g;
+      $modulePath .= ".pm";
+      require $modulePath;
+    };
+    if ( $@ ) {
+      print STDERR "  Module $module not found. This must be fixed to use BDQC: $@\n";
+    } else {
+      print STDERR "  OK: $module\n";
+    }
+  }
+
+  print STDERR "INFO: Checking optional external modules:\n";
+  foreach my $module ( @optionalModules ) {
+    eval {
+      my $modulePath = $module;
+      $modulePath =~ s/::/\//g;
+      $modulePath .= ".pm";
+      require $modulePath;
+    };
+    if ( $@ ) {
+      print STDERR "  Module $module not found. This is okay, but BDQC will run better if you install it\n";
+    } else {
+      print STDERR "  OK: $module\n";
+    }
   }
 
   return;
