@@ -1971,7 +1971,7 @@ sub parseModels {
   die unless $opts{kb};
 
   my $qckb = $opts{kb}->{_qckb};
-  my $sens = $opts{sens} || 'all';
+  my $limitModels = $opts{limitModels} || 'anyVariation';
   my %models;
 
   # Loop over data structure.  File type
@@ -2005,6 +2005,11 @@ sub parseModels {
 
         next unless $sig_obj->{$sigelem}->{model}->{deviations};
 
+        my $single_valued = 1;
+        if ( $sig_obj->{$sigelem}->{model}->{distributionFlags} ) {
+          $single_valued = 0 if !$sig_obj->{$sigelem}->{model}->{distributionFlags}->{allIdentical};
+        }
+
         my $fidx = 0;
         for my $dev ( @{$sig_obj->{$sigelem}->{model}->{deviations}} ) {
 #        use Data::Dumper;
@@ -2027,10 +2032,12 @@ sub parseModels {
 #        $mkey =~ s/FileSignature::/FS/;
 
         # desired sensitivity
-        if ( $sens eq 'outliers' ) {
+        if ( $limitModels eq 'outliers' ) {
           next unless $has_outliers;
-        } elsif ( $sens eq 'deviations' ) {
+        } elsif ( $limitModels eq 'extrema' ) {
           next unless $has_deviations;
+        } elsif ( $limitModels eq 'anyVariation' ) {
+          next if $single_valued;
         }
 
 
