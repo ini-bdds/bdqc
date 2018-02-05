@@ -191,6 +191,13 @@ sub main {
     $response->mergeResponse( sourceResponse=>$result );
     if ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} eq "nerdy" ) {
       print $result->{nerdyTextBuffer};
+    } elsif ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} =~ /tsv/i ) {
+      print $result->{tsvBuffer};
+    } elsif ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} =~ /json/i ) {
+      use JSON;
+      my $json = JSON->new->allow_nonref;
+      $json->canonical();
+      print $json->pretty->encode($result->{structuredOutput});
     } else {
       print $result->{friendlyTextBuffer};
     }

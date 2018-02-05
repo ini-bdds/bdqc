@@ -843,7 +843,7 @@ sub getOutliers {
 
   my $qckb = $self->getQckb();
   my $outliers;
-  my $nOutlierFiles;
+  my $nOutlierFiles = 0;
 
   #### If the user specified some attributes to skip, create a hash of them
   my %attributesToSkip = ();
@@ -932,6 +932,8 @@ sub getOutliers {
 
   my $friendlyTextBuffer = '';
   my $nerdyTextBuffer = '';
+  my $tsvBuffer = "fileType\toutlierFileTagName\tsignature.attribute\tvalue\tdeviation\n";
+  my $structuredOutput = { nOutlierFiles => 0, sensitivity => $sensitivity };
 
 
   #### Loop over each fileType and filename
@@ -961,25 +963,36 @@ sub getOutliers {
         $value = substr($value,0,70)."...." if ( length($value)>74 );
         $deviation = sprintf("%.1f",$deviation);
 
+        #### Update nerdy template: - ATTRIBUTE: Value 'VALUE' is an outlier at DEVIATION times typical deviation
         my $itemTextBuffer = $nerdy{ItemTemplate};
         $itemTextBuffer =~ s/ATTRIBUTE/$signature.$attribute/gm;
         $itemTextBuffer =~ s/VALUE/$value/gm;
         $itemTextBuffer =~ s/DEVIATION/$deviation/gm;
         $nerdyTextBuffer .= "$itemTextBuffer\n";
 
+	#### Determine which friendly words we will use
         my $side = "upper";
         $side = "lower" if ( $deviation < 0 );
         my $noun = $qckb->{signatureInfo}->{"$signature.$attribute"}->{friendlyName} || "$signature.$attribute";
         my $verb = $qckb->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different from";
 
-#          " - The $noun $verb than normal\n";
+        #### Update friendly template: - The NOUN VERB normal
         $itemTextBuffer = $friendly{ItemTemplate};
         $itemTextBuffer =~ s/NOUN/$noun/gm;
         $itemTextBuffer =~ s/VERB/$verb/gm;
         $friendlyTextBuffer .= "$itemTextBuffer\n";
+
+	#### Create TSV output
+	$tsvBuffer .= "$fileType\t$outlierFileTagName\t$signature.$attribute\t$value\t$deviation\n";
+
+	#### Add to the structured (JSON) output
+	$structuredOutput->{outliers}->{$fileType}->{$outlierFileTagName}->{$signature}->{$attribute}->{value} = $value;
+	$structuredOutput->{outliers}->{$fileType}->{$outlierFileTagName}->{$signature}->{$attribute}->{deviation} = $deviation;
       }
     }
   }
+
+  $structuredOutput->{nOutlierFiles} = $nOutlierFiles;
 
   #### If there were none, say that
   unless ( $nOutlierFiles ) {
@@ -989,6 +1002,8 @@ sub getOutliers {
 
   $response->{friendlyTextBuffer} = $friendlyTextBuffer;
   $response->{nerdyTextBuffer} = $nerdyTextBuffer;
+  $response->{tsvBuffer} = $tsvBuffer;
+  $response->{structuredOutput} = $structuredOutput;
   $response->{outliers} = $outliers;
 
 
