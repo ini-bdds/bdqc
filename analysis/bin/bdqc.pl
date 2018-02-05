@@ -70,6 +70,7 @@ Options:
                       low=10, medium=5 (default), and high=3 deviations
   --writeHTML x       Summarize results as HTML to the specified filename. If the filename is STDOUT, the the HTML is written to STDOUT.
                       This option is automatically invoked to STDOUT if called as a cgi (ENV{query_string} set).
+  --limitModels x     Limit models to subset of interest: anyVariation (default), extrema, outliers, all
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
 
@@ -82,7 +83,7 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
                    "sensitivity:s","writeHTML:s", "inputFiles:s","outputFormat:s",
-                   "step",
+                   "step","limitModels=s",
   )) {
   print "$USAGE";
   exit 2;
@@ -245,18 +246,18 @@ sub writeHTML {
   }
 
   # Sensitivity desired
-  my $sens = 'all';
-  if ( $OPTIONS{sens} ) {
-    $sens = $OPTIONS{sens};
+  my $limitModels = 'anyVariation';
+  if ( $OPTIONS{limitModels} ) {
+    $limitModels = $OPTIONS{limitModels};
   }
   my $sensitivity = '';
   for my $opt ( qw( all deviations outliers ) ) {
-    my $checked = ( $opt eq $sens ) ? 'checked' : '';
-    $sensitivity .= "$opt <input type=radio name=sens $checked value=$opt>&nbsp;";
+    my $checked = ( $opt eq $limitModels ) ? 'checked' : '';
+    $sensitivity .= "$opt <input type=radio name=limitModels $checked value=$opt>&nbsp;";
   }
   my $nidx = $OPTIONS{name_idx} || 1;
 
-  my $models = $kb->parseModels( kb => $kb, sens => $sens, nidx => $nidx );
+  my $models = $kb->parseModels( kb => $kb, limitModels => $limitModels, nidx => $nidx );
 
   my $outliers;
   if ( $OPTIONS{skipbad} ) {
