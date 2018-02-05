@@ -373,6 +373,11 @@ sub getPlotHTML {
       for my $d ( @{$currmodel->{$m}->{data}} ) {
         
         my $devn = abs($d->{deviation});
+
+	#### limit the deviations for the heat map to max of 19, null to 20
+	$devn = 19 if ( $devn > 19 );
+	$devn = 20 if ( !defined($d->{datum}) || $d->{datum} eq '(null)' );
+
         push @heatrow, $devn;
         $hmax = $devn if $devn > $hmax;
         $hmin = $devn if $devn < $hmin;
@@ -405,6 +410,32 @@ sub getPlotHTML {
     }
   }
 
+  #### Cluster the models
+  my $clusterResult = cluster( matrix => \@heater );
+  @heater = @{$clusterResult->{clusteredArray}};
+  my @newOrder = @{$clusterResult->{clusteredOrder}};
+  my @reorderedModels;
+  foreach my $index ( @newOrder ) {
+    push(@reorderedModels,$hmodels[$index]);
+  }
+  @hmodels = @reorderedModels;
+
+
+  #### Cluster the files if there are fewer than 500. doing this for a large number of files
+  #### takes too long with this slow code. make it faster and allow more.
+  if (scalar(@hfiles) <= 500 ) {
+    my $pivotResult = pivot( matrix => \@heater , direction=>1 );
+    $clusterResult = cluster( matrix => $pivotResult->{matrix} );
+    my $dePivotResult = pivot( matrix => $clusterResult->{clusteredArray} , direction=>-1 );
+    @heater = @{$dePivotResult->{matrix}};
+    @newOrder = @{$clusterResult->{clusteredOrder}};
+    my @reorderedFiles;
+    foreach my $index ( @newOrder ) {
+      push(@reorderedFiles,$hfiles[$index]);
+    }
+    @hfiles = @reorderedFiles;
+  }
+
 
   my $hfilestr = "['" . join( "','", @hfiles ) . "']";
   my $hmodelstr = "['" . join( "','", @hmodels ) . "']";
@@ -412,6 +443,7 @@ sub getPlotHTML {
   my $hdatastr = '[';
   my $sep = '';
   for my $hrow ( @heater ) {
+    no warnings 'uninitialized';
     $hdatastr .= $sep . '[' . join( ',', @{$hrow} ) . ']';
     $sep = ',';
   }
@@ -465,8 +497,14 @@ sub getPlotHTML {
 var zValues = $hdatastr; 
 
 var colorscaleValue = [
-  [$hmin, '#3D9970'],
-  [$hmax, '#001f3f']
+  [.0, '#FFFFFF'],
+  [.1, '#DDDDDD'],
+  [.2, '#BBBBBB'],
+  [.3, '#999999'],
+  [.4, '#777777'],
+  [.5, '#555555'],
+  [.96, '#FF0000'],
+  [1., '#DDDDFF']
 ];
 
 var hdata = [{
@@ -571,6 +609,130 @@ sub endPage {
   </html>
   ~;
   return $end;
+}
+
+
+sub pivot {
+##################################################################################################
+  my %args = @_;
+  my $matrix = $args{matrix} || die ("ERROR: matrix not passed");
+
+  my $nRows = scalar(@{$matrix});
+  my $nCols = scalar(@{$matrix->[0]});
+
+  my @pivot;
+  foreach my $iCol ( 0..($nCols-1) ) {
+    my @newRow;
+    foreach my $iRow ( 0..($nRows-1) ) {
+      push(@newRow,$matrix->[$iRow]->[$iCol]);
+    }
+    push(@pivot,\@newRow);
+  }
+
+  my $response;
+  $response->{matrix} = \@pivot;
+
+  return $response;
+}
+
+
+sub cluster {
+##################################################################################################
+  my %args = @_;
+  my $matrix = $args{matrix} || die ("ERROR: matrix not passed");
+
+  my @pairwiseComparisons;
+  my $nRows = scalar(@{$matrix});
+
+  #### Calculate a variance for all pairs
+  foreach my $iRow ( 0..(scalar(@{$matrix})-2) ) {
+    foreach my $jRow ( ($iRow+1)..(scalar(@{$matrix}-1) ) ) {
+      my $nElements = scalar(@{$matrix->[$iRow]});
+      my $varianceSum = 0;
+      foreach my $i ( 0..($nElements-1) ) {
+	my $iValue = $matrix->[$iRow]->[$i];
+	$iValue = -0.0002 if ( !defined($iValue) );
+	my $jValue = $matrix->[$jRow]->[$i];
+	$jValue = -0.0001 if ( !defined($jValue) );
+	$varianceSum += abs( $iValue - $jValue );
+      }
+      push( @pairwiseComparisons, { variance=>$varianceSum, iRow=>$iRow, jRow=>$jRow } );
+    }
+  }
+
+  #### Sort all the variances from smallest to largest
+  my @sortedPairwiseComparisons = sort byVariance @pairwiseComparisons;
+
+  my @clusteredArray;
+  my @clusteredOrder;
+
+  my $nRowsPlaced = 0;
+  my %placedRows;
+  my $lastRow;
+
+  #### Loop through and determine a good ordered for all rows
+  while ( $nRowsPlaced < $nRows ) {
+
+    #### For the very first row, use the two closest together
+    if ( !defined($lastRow ) ) {
+      my $iRow = $sortedPairwiseComparisons[0]->{iRow};
+      my $jRow = $sortedPairwiseComparisons[0]->{jRow};
+      #print " ** $iRow\t$jRow\t$sortedPairwiseComparisons[0]->{variance}\n";
+      push(@clusteredArray,$matrix->[$iRow],$matrix->[$jRow]);
+      push(@clusteredOrder,$iRow,$jRow);
+      $lastRow = $jRow;
+      $placedRows{$iRow} = 1;
+      $placedRows{$jRow} = 1;
+      $nRowsPlaced += 2;
+
+    #### For all the rest, find the next closest to what was placed
+    } else {
+
+      #### First shrink the array by removing things from the front that have been placed
+      while ( $placedRows{$sortedPairwiseComparisons[0]->{iRow}} && $placedRows{$sortedPairwiseComparisons[0]->{jRow}} ) {
+	#print "   - shift off $sortedPairwiseComparisons[0]->{iRow},$sortedPairwiseComparisons[0]->{jRow}\n";
+	shift(@sortedPairwiseComparisons);
+      }
+
+      #### Then loop over the remaining to find the first best next thing to place
+      foreach my $comparison ( @sortedPairwiseComparisons ) {
+	my $iRow = $comparison->{iRow};
+	my $jRow = $comparison->{jRow};
+	next if ( $placedRows{$iRow} && $placedRows{$jRow});
+
+	#### If the first of the pair matches the last row placed
+	if ( $iRow == $lastRow ) {
+	  push(@clusteredArray,$matrix->[$jRow]);
+	  push(@clusteredOrder,$jRow);
+	  $placedRows{$jRow} = 1;
+	  $lastRow = $jRow;
+	  #print " ** $iRow\t$jRow\t$comparison->{variance}\n";
+	  $nRowsPlaced++;
+	  last;
+
+	#### Or if the second of the pair matches the last row placed
+	} elsif ( $jRow == $lastRow ) {
+	  push(@clusteredArray,$matrix->[$iRow]);
+	  push(@clusteredOrder,$iRow);
+	  $placedRows{$iRow} = 1;
+	  $lastRow = $iRow;
+	  #print " ** $iRow\t$jRow\t$comparison->{variance}\n";
+	  $nRowsPlaced++;
+	  last;
+	}
+      }
+    }
+  }
+
+  my $result;
+  $result->{clusteredArray} = \@clusteredArray;
+  $result->{clusteredOrder} = \@clusteredOrder;
+  return $result;
+}
+
+sub byVariance {
+##################################################################################################
+  return $a->{variance} <=> $b->{variance};
 }
 
 1;
