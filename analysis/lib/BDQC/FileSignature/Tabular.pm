@@ -285,7 +285,7 @@ sub calcSignature {
 
     #### If the row is the column name row, then store that
     if ( $iLine == $columnHeaderRow ) {
-      my $iColumn = 0;
+      my $iColumn = 1;
       foreach my $value ( @columns ) {
         $signature->{"columns.$iColumn.columnName"} = $value;
         $iColumn++;
@@ -296,7 +296,7 @@ sub calcSignature {
     if ( $iLine >= $firstDataRow ) {
       $signature->{nRows}++;
       $signature->{columnsPerRow}->{$nColumns}++;
-      my $iColumn = 0;
+      my $iColumn = 1;
       foreach my $value ( @columns ) {
         if ( exists($signature->{"columns.$iColumn.discreteValues"}->{$value}) ) {
           $signature->{"columns.$iColumn.discreteValues"}->{$value}++;
@@ -351,7 +351,7 @@ sub calcSignature {
   untie(*INFILE);
 
   #### For each column, calculate a median and SIQR
-  my $iColumn = 0;
+  my $iColumn = 1;
   foreach my $column ( @{$columnNumericalArrays} ) {
     if ( $column ) {
       my @sortedNumbers = sort numerically @{$column->{array}};
@@ -459,7 +459,7 @@ sub setSignatureAttributeDescriptions {
   $info->{"FileSignature::Tabular.columnsPerRow"}->{sideName}->{upper} = "different from";
   $info->{"FileSignature::Tabular.columnsPerRow"}->{sideName}->{lower} = "different from";
 
-  for ( my $i=0; $i < 50; $i++ ) {
+  for ( my $i=1; $i < 50; $i++ ) {
     $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{friendlyName} = "histogram of discrete values in column $i";
     $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{sideName}->{upper} = "different from";
     $info->{"FileSignature::Tabular.columns.$i.discreteValues"}->{sideName}->{lower} = "different from";
