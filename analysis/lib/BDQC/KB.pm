@@ -1911,7 +1911,7 @@ sub flattenAttributes {
 
     #### But if at least one is complex, then record the scalars as attributes and recurse into the complex ones
     } else {
-      my $i = 0;
+      my $i = 1;
       foreach my $value ( @{$attributeValue} ) {
         if ( ref($value) eq '' || ref($value) eq 'JSON::PP::Boolean' ) {
           $result->{"$attributeName.$i"} = $value;
@@ -2179,7 +2179,7 @@ sub setBuiltinSignatureAttributeDescriptions {
   $info->{"bdqc.builtin.tabular.transition_histogram"}->{sideName}->{upper} = "different from";
   $info->{"bdqc.builtin.tabular.transition_histogram"}->{sideName}->{lower} = "different from";
 
-  for ( my $i=0; $i < 50; $i++ ) {
+  for ( my $i=1; $i < 50; $i++ ) {
     $info->{"bdqc.builtin.tabular.tabledata.columns.$i.labels"}->{friendlyName} = "items in the list of discrete values in column $i";
     $info->{"bdqc.builtin.tabular.tabledata.columns.$i.labels"}->{sideName}->{upper} = "different from";
     $info->{"bdqc.builtin.tabular.tabledata.columns.$i.labels"}->{sideName}->{lower} = "different from";
