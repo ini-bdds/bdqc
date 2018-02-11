@@ -237,7 +237,7 @@ sub main {
 sub selfTest {
   my @internalModules = ( 'BDQC::KB','BDQC::Response','BDQC::FileSignature::Generic','BDQC::DataModel' );
   my @requiredModules = ( 'Time::HiRes','File::Basename','File::Spec','JSON','IO::Zlib' );
-  my @optionalModules = ( 'XML::Parser','IO::Uncompress::AnyUncompress','Image::Exiftool' );
+  my @optionalModules = ( 'XML::Parser','IO::Uncompress::AnyUncompress','Image::ExifTool' );
 
   print STDERR "INFO: Checking internal modules:\n";
   foreach my $module ( @internalModules ) {
