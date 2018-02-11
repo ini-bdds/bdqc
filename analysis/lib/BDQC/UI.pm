@@ -329,14 +329,17 @@ sub getPlotHTML {
     var hover = [];
     var jitter = [];
     var color = [];
+    var heatX = [];
+    var heatY = [];
+    var heatZ = [];
   ~;
 
   my $outliers = $args{outliers};
   my $tmpl = $outliers->{templates}->{friendly};
   
-  my @heater;
-  my @hfiles;
-  my @hmodels;
+  my %heater;
+  my %hfiles;
+  my %hmodels;
   my $hmin = 100;
   my $hmax = 0;
   my @mkeys = sort(keys( %{$args{models}} ) );
@@ -350,14 +353,19 @@ sub getPlotHTML {
     color['$ft'] = [];
     ~;
     $fcnt{$ft} = scalar( @{$args{models}->{$ft}->{files}} );
+    $heater{$ft} = [];
+    $hmodels{$ft} = [];
+    $hfiles{$ft} = [];
+
+
     for my $file ( @{$args{models}->{$ft}->{files}} ) {
-      push @hfiles, $ft . '_' . $file;
+      push @{$hfiles{$ft}}, $file;
     }
     for my $m ( sort { lc($a) cmp lc($b) } ( keys( %{$currmodel} ) ) ) {
       next if $m eq 'files';
       my $fsig = $kb->{_qckb}->{signatureInfo}->{$m}->{friendlyName} || $m; 
 
-      push @hmodels, $ft . '_' . $fsig;
+      push @{$hmodels{$ft}}, $fsig;
 
       my @data;
       my @flag;
@@ -374,9 +382,9 @@ sub getPlotHTML {
         
         my $devn = abs($d->{deviation});
 
-	#### limit the deviations for the heat map to max of 19, null to 20
-	$devn = 19 if ( $devn > 19 );
-	$devn = 20 if ( !defined($d->{datum}) || $d->{datum} eq '(null)' );
+        #### limit the deviations for the heat map to max of 19, null to 20
+        $devn = 19 if ( $devn > 19 );
+        $devn = 20 if ( !defined($d->{datum}) || $d->{datum} eq '(null)' );
 
         push @heatrow, $devn;
         $hmax = $devn if $devn > $hmax;
@@ -391,7 +399,7 @@ sub getPlotHTML {
         push @jitter, $sign*rand(0.2)/10;
         $sign = ( $sign == 1 ) ? -1 : 1;
       }
-      push @heater, \@heatrow;
+      push @{$heater{$ft}}, \@heatrow;
       my @cdata;
       for my $d ( @data ) {
         $d = '' if !defined $d;
@@ -411,45 +419,52 @@ sub getPlotHTML {
   }
 
   #### Cluster the models
-  my $clusterResult = cluster( matrix => \@heater );
-  @heater = @{$clusterResult->{clusteredArray}};
-  my @newOrder = @{$clusterResult->{clusteredOrder}};
-  my @reorderedModels;
-  foreach my $index ( @newOrder ) {
-    push(@reorderedModels,$hmodels[$index]);
-  }
-  @hmodels = @reorderedModels;
-
-
-  #### Cluster the files if there are fewer than 500. doing this for a large number of files
-  #### takes too long with this slow code. make it faster and allow more.
-  if (scalar(@hfiles) <= 500 ) {
-    my $pivotResult = pivot( matrix => \@heater , direction=>1 );
-    $clusterResult = cluster( matrix => $pivotResult->{matrix} );
-    my $dePivotResult = pivot( matrix => $clusterResult->{clusteredArray} , direction=>-1 );
-    @heater = @{$dePivotResult->{matrix}};
-    @newOrder = @{$clusterResult->{clusteredOrder}};
-    my @reorderedFiles;
+  my $heatmapHTML = '';
+  for my $ft ( keys( %heater ) ) {
+    my $clusterResult = cluster( matrix => $heater{$ft} );
+    @{$heater{$ft}} = @{$clusterResult->{clusteredArray}};
+    my @newOrder = @{$clusterResult->{clusteredOrder}};
+    my @reorderedModels;
     foreach my $index ( @newOrder ) {
-      push(@reorderedFiles,$hfiles[$index]);
+      push(@reorderedModels,$hmodels{$ft}->[$index]);
     }
-    @hfiles = @reorderedFiles;
+    @{$hmodels{$ft}} = @reorderedModels;
+
+
+    #### Cluster the files if there are fewer than 500. doing this for a large number of files
+    #### takes too long with this slow code. make it faster and allow more.
+    if (scalar(@{$hfiles{$ft}}) <= 500 ) {
+      my $pivotResult = pivot( matrix => $heater{$ft} , direction=>1 );
+      $clusterResult = cluster( matrix => $pivotResult->{matrix} );
+      my $dePivotResult = pivot( matrix => $clusterResult->{clusteredArray} , direction=>-1 );
+      @{$heater{$ft}} = @{$dePivotResult->{matrix}};
+      @newOrder = @{$clusterResult->{clusteredOrder}};
+      my @reorderedFiles;
+      foreach my $index ( @newOrder ) {
+        push(@reorderedFiles,$hfiles{$ft}->[$index]);
+      }
+      @{$hfiles{$ft}} = @reorderedFiles;
+    }
+
+    my $hfilestr = "['" . join( "','", @{$hfiles{$ft}} ) . "']";
+    my $hmodelstr = "['" . join( "','", @{$hmodels{$ft}} ) . "']";
+    my $hdatastr = '[';
+    my $sep = '';
+    for my $hrow ( @{$heater{$ft}} ) {
+      no warnings 'uninitialized';
+      $hdatastr .= $sep . '[' . join( ',', @{$hrow} ) . ']';
+      $sep = ',';
+    }
+    $hdatastr .= ']';
+    $heatmapHTML .= qq~
+    heatX['$ft'] = $hfilestr;
+    heatY['$ft'] = $hmodelstr;
+    heatZ['$ft'] = $hdatastr;
+    ~;
   }
-
-
-  my $hfilestr = "['" . join( "','", @hfiles ) . "']";
-  my $hmodelstr = "['" . join( "','", @hmodels ) . "']";
-
-  my $hdatastr = '[';
-  my $sep = '';
-  for my $hrow ( @heater ) {
-    no warnings 'uninitialized';
-    $hdatastr .= $sep . '[' . join( ',', @{$hrow} ) . ']';
-    $sep = ',';
-  }
-  $hdatastr .= ']';
 
   $HTML .= qq~
+    $heatmapHTML
 
     var ft = document.getElementById("ftselect").value;
     var model = document.getElementById("plotselect").value;
@@ -490,12 +505,6 @@ sub getPlotHTML {
         
         } );
 
-    var xValues = $hfilestr;
-
-    var yValues = $hmodelstr;
-
-var zValues = $hdatastr; 
-
 var colorscaleValue = [
   [.0, '#FFFFFF'],
   [.1, '#DDDDDD'],
@@ -508,9 +517,9 @@ var colorscaleValue = [
 ];
 
 var hdata = [{
-  x: xValues,
-  y: yValues,
-  z: zValues,
+  x: heatX[ft],
+  y: heatY[ft],
+  z: heatZ[ft],
   type: 'heatmap',
   colorscale: colorscaleValue,
   showscale: true
