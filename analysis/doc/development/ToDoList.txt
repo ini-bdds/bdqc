@@ -1,11 +1,10 @@
 
-- upodate the github site readmes
+- update the github site readmes
 
-- Retest test6 and report fail in the HTML to DC
+- switch usage of io;;zlib to io;;uncompress;;anyuncompress
+
 - Change the variable name in main executable to not be $qckb because it's different
 
-- I should contribute an example dataset vignette to the mix
-- finish the friendly name thing for tabular columnname and also for python
 - BDBag input
 - Think about splitting equivalence classes especially for tsv files of different nature
 - Put in some intelligence for max_labels_exceeded or Perl equivalent
