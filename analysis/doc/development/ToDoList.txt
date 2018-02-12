@@ -1,11 +1,42 @@
 
+- upodate the github site readmes
+
+- Retest test6 and report fail in the HTML to DC
+- Change the variable name in main executable to not be $qckb because it's different
+
+- I should contribute an example dataset vignette to the mix
+- finish the friendly name thing for tabular columnname and also for python
+- BDBag input
+- Think about splitting equivalence classes especially for tsv files of different nature
+- Put in some intelligence for max_labels_exceeded or Perl equivalent
+- Think about letting a model return 2 or more results. For example, the Array model could return a
+  rare-value sensitive result and a missing-value sensitive result. Or maybe in that specific case, maybe do
+  the current rare scheme, add 1.0, do again for missing-value, invert and add 1, so that top end means rare
+  value and bottom end means missing value. Too contrived? hmm.. better generic way of splitting models
+
+- Add another section to the HTML that has a summary about each model
+- add something in the deviations array that has an indication of what the problem is "unusual value 'chrJ'"
+
+- sort flags by significance in the outlier list?
+
+- For custom user-defined signatures, have users define what directory it goes in by env variable or something
+  only look in that directory
+
+- For arrays, calculate how many files have each value and look for outliers that way
+
+- Create more examples of TSV files and headers and comments and crazy things people could do and test
+
+- Test sym links to files, broken sym links, and sym link to directories
+- Make the writing of JSON QCKB optional because for big ones it's slow
+
+
+
 Prioritized to do list:
 
 - The XML plugin is fragile to imperfect XML. Needs to be made robust in the face of bad input. Maybe custom
 - Make sure that .html files don't choke the xml plugin
 - Try to fix the file extension handling section better. Better to use extensions where possible rather than empirical
 - Check out the tsvs in the Papers directory and see if the tsv detector needs improvement
-- Think about how to adjust models so that long tails don't trigger outliers so easily
 
 - Expand the documentation
 
