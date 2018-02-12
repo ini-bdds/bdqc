@@ -308,27 +308,39 @@ sub getPlotHTML {
 
   my $HTML = qq~
   <div id=top_div></div>
-  <h3> $args{title}</h3>
+  $args{title}
 
   <script type="text/javascript" src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   $args{msel_fx}
   <br><br>
-  <div id=heatmap_div style="width:600px;height:400px;border-style:solid;border-color:gray;border-width:2px"></div>
 
   <br><br>
   <form name=plot id=plot>
   <table>
-  <tr><td align=right><b>Choose FileType:</b></td><td>$args{ftsel}</td></tr>
-  <tr><td><b>Select Model to View:</b></td><td>$args{msel}</td></tr>
+  <tr><td align=right>Choose FileType:</td><td>$args{ftsel}</td></tr>
+  <tr><td>Select Model to View:</td><td>$args{msel}</td></tr>
   </table>
   </form>
-  <div id="plot_div" style="width:600px;height:400px;border-style:solid;border-color:gray;border-width:2px"></div>
+  <style>
+  .container {
+    display: inline-block;
+  }
+  .emphasis {
+    font-family: arial;
+    font-size: 20px;
+  }
+  </style>
+  <div class="container">
+  <div id=heatmap_div style="width:450;height:300px;border-style:solid;border-color:gray;border-width:2px;float:left"></div>
+  <div id="plot_div" style="width:450;height:300px;border-style:solid;border-color:gray;border-width:2px;float:left"></div>
+  </div>
   <script type="text/javascript" charset="utf-8">
   function drawplot () {
     var models = [];
     var hover = [];
     var jitter = [];
     var color = [];
+    var friendly = [];
     var heatX = [];
     var heatY = [];
     var heatZ = [];
@@ -351,6 +363,7 @@ sub getPlotHTML {
     hover['$ft'] = [];
     jitter['$ft'] = [];
     color['$ft'] = [];
+    friendly['$ft'] = [];
     ~;
     $fcnt{$ft} = scalar( @{$args{models}->{$ft}->{files}} );
     $heater{$ft} = [];
@@ -364,6 +377,7 @@ sub getPlotHTML {
     for my $m ( sort { lc($a) cmp lc($b) } ( keys( %{$currmodel} ) ) ) {
       next if $m eq 'files';
       my $fsig = $kb->{_qckb}->{signatureInfo}->{$m}->{friendlyName} || $m; 
+      $HTML .= "friendly['$fsig'] = '$m'\n";
 
       push @{$hmodels{$ft}}, $fsig;
 
@@ -501,7 +515,7 @@ sub getPlotHTML {
     }
     ]
 
-    Plotly.newPlot('plot_div', plotdata, { showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false }, margin: { l: 40, r: 30, t: 50, b: 30 }
+    Plotly.newPlot('plot_div', plotdata, { title: model, showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false }, margin: { l: 40, r: 30, t: 50, b: 30 }
         
         } );
 
@@ -526,7 +540,7 @@ var hdata = [{
 }];
 
 var hlayout = {
-  title: 'Deviation Heatmap',
+  title: ft + ' outlier heatmap (files vs models)',
   annotations: [],
   xaxis: {
     showticklabels: false,
@@ -547,6 +561,30 @@ var hlayout = {
 
 Plotly.newPlot('heatmap_div', hdata, hlayout);
 
+  var heater = document.getElementById( 'heatmap_div' );
+  heater.on( 'plotly_click', function(data) {
+      var pn = '';
+      var tn = '';
+      for ( var i=0; i<data.points.length; i++ ) {
+        pn = data.points[i].pointNumber;
+        tn = data.points[i].curveNumber;
+      }
+      var type = document.getElementById("ftselect").value;
+//    alert( document.getElementById("ftselect").selectedIndex );
+//      alert(pn[0]);
+//      alert(pn[1]);
+//      alert( heatY[type][pn[0]] );
+//      alert( friendly[heatY[type][pn[0]]] );
+      var psel = document.getElementById("plotselect");
+      var i;
+      for ( i = 0; i < psel.length; i++ ) {
+        if ( psel.options[i].value ==  friendly[heatY[type][pn[0]]] ) {
+          psel.selectedIndex = i;
+          break;
+        }
+      }
+      showSignaturePlot(type,psel.options[psel.selectedIndex].value);
+  });
 
   }
 
