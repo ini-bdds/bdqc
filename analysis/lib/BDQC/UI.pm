@@ -527,13 +527,15 @@ var colorscaleValue = [
   [.4, '#777777'],
   [.5, '#555555'],
   [.96, '#FF0000'],
-  [1., '#DDDDFF']
+  [1., '#FFFF99']
 ];
 
 var hdata = [{
   x: heatX[ft],
   y: heatY[ft],
   z: heatZ[ft],
+  zmin: 0,
+  zmax: 20,
   type: 'heatmap',
   colorscale: colorscaleValue,
   showscale: true
