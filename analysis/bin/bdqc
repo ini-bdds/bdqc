@@ -91,6 +91,12 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
   exit 2;
 }
 
+eval { require JSON };
+if ( $@ ) {
+  print STDERR "bdqc requires that the module JSON.pm is installed, please see documentation\n";
+  exit;
+}
+
 my $cgiopts = $ui->parseParameters();
 for my $copt ( keys( %{$cgiopts} )  ) {
   $OPTIONS{$copt} = $cgiopts->{$copt};
@@ -203,7 +209,7 @@ sub main {
     } elsif ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} =~ /tsv/i ) {
       print $result->{tsvBuffer};
     } elsif ( $OPTIONS{outputFormat} && $OPTIONS{outputFormat} =~ /json/i ) {
-      use JSON;
+      require JSON;
       my $json = JSON->new->allow_nonref;
       $json->canonical();
       print $json->pretty->encode($result->{structuredOutput});

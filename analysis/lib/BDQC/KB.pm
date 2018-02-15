@@ -9,6 +9,7 @@ package BDQC::KB;
 
 use strict;
 use warnings;
+require JSON;
 
 use BDQC::Response qw(processParameters);
 
@@ -1462,7 +1463,6 @@ sub saveKb {
   $self->setIsChanged(0);
 
   #### Then also save the whole thing as a JSON file for developer inspection
-  use JSON;
   my $json = JSON->new->allow_nonref;
   $json->canonical();
   my $buffer = $json->pretty->encode($qckb);

@@ -45,6 +45,7 @@ use Exporter;
 
 use strict;
 use warnings;
+require JSON;
 
 use vars qw( $CLASS $DEBUG $VERBOSE $TESTONLY );
 
@@ -496,7 +497,6 @@ sub serialize {
     push( @objectArray, \%respondingObject );
   }
 
-  use JSON;
   my $buffer = '';
   $buffer = encode_json(\@objectArray);
 
@@ -599,7 +599,6 @@ sub serializeold {
     push( @objectArray, \%respondingObject );
   }
 
-  use JSON;
   my $buffer = '';
   $buffer = encode_json(\@objectArray);
 
