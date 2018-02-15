@@ -45,7 +45,7 @@ use Exporter;
 
 use strict;
 use warnings;
-require JSON;
+eval { require JSON };
 
 use vars qw( $CLASS $DEBUG $VERBOSE $TESTONLY );
 
