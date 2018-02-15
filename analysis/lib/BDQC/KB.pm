@@ -1969,6 +1969,7 @@ sub parseModels {
   my $self = shift || die ("Must be called as an object method");
   my %opts = @_;
   die unless $opts{kb};
+  $opts{friendly} ||= 0;
 
   my $qckb = $opts{kb}->{_qckb};
   my $limitModels = $opts{limitModels} || 'anyVariation';
@@ -2029,6 +2030,9 @@ sub parseModels {
         }
 
         my $mkey = $sig . '.' . $sigelem;
+        if ( $opts{friendly} && $qckb->{signatureInfo}->{$mkey} ) {
+          $mkey = $qckb->{signatureInfo}->{$mkey}->{friendlyName} || $mkey;
+        }
 #        $mkey =~ s/FileSignature::/FS/;
 
         # desired sensitivity

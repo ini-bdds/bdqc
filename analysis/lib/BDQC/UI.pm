@@ -197,6 +197,33 @@ sub startPage {
 <html>
  <head></head>
   <body onload="drawplot()">
+    <style>
+     .banner {
+       position:fixed;
+       display:inline-block;
+       white-space:nowrap;
+       width:100%;
+       min-height:70px;
+       z-index:95;
+       font-size:20px;
+       color:#ffffff;
+       background-color:#003F72;
+       box-shadow: 0 6px 8px 0 rgba(0,0,0,0.3);
+     }
+     .banner::after {
+       font-size:50px;
+       right:10px;top:0px;
+       position:absolute;
+       color:rgba(255,255,255,0.3);
+       font-weight:bold;
+       letter-spacing:15px;
+       content:attr(banner-bg-text);
+       pointer-events:none;
+     }
+  </style>
+  <div class='banner' banner-bg-text='BDQC'>
+  <span title="Banner designed for TPP by L. Mendoza">&nbsp;<span>
+  </div>
   ~;
   return $start;
 }
@@ -580,7 +607,8 @@ Plotly.newPlot('heatmap_div', hdata, hlayout);
       var psel = document.getElementById("plotselect");
       var i;
       for ( i = 0; i < psel.length; i++ ) {
-        if ( psel.options[i].value ==  friendly[heatY[type][pn[0]]] ) {
+//        if ( psel.options[i].value ==  friendly[heatY[type][pn[0]]] ) {
+        if ( psel.options[i].value ==  heatY[type][pn[0]] ) {
           psel.selectedIndex = i;
           break;
         }

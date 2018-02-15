@@ -320,7 +320,10 @@ sub writeHTML {
   }
   my $nidx = $OPTIONS{name_idx} || 1;
 
-  my $models = $kb->parseModels( kb => $kb, limitModels => $limitModels, nidx => $nidx );
+  my $models = $kb->parseModels( kb => $kb, 
+                        limitModels => $limitModels, 
+                               nidx => $nidx,
+                           friendly => 1 );
 
   my $outliers;
   if ( $OPTIONS{skipbad} ) {
