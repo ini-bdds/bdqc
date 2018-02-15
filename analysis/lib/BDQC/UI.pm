@@ -658,7 +658,7 @@ Plotly.newPlot('heatmap_div', hdata, hlayout);
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
 
-        my $noun_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$signature.$attribute')">$fsig</a>~;
+        my $noun_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$fsig')">$fsig</a>~;
         my $side = ( $deviation < 0 ) ? 'upper' : 'lower';
         my $verb = $kb->{_qckb}->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
 
