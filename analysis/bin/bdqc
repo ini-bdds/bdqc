@@ -346,6 +346,7 @@ sub writeHTML {
   my $msel = '<div id=mseldiv>' . $ui->getModelSelect($models->{$mkeys[0]}) . '</div>';
 
   my $title = "View data from the analysis file $root_path";
+  $title = '';
 
   my $plotHTML = $ui->getPlotHTML( models => $models,
                                     ftsel => $ftsel,
