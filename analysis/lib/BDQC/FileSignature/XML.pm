@@ -147,6 +147,8 @@ sub calcSignature {
   $isImplemented++;
 
   use Data::Dumper;
+  use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
+  my $fh = new  IO::Uncompress::AnyUncompress $filePath;
   %tags = ();
   $ctag = '';
 
@@ -159,7 +161,7 @@ sub calcSignature {
 
   #### Wrap the parsing in an eval because any malformed XML will cause a die
   eval {
-    $xparser->parsefile( $filePath, ErrorContext => 3);
+    $xparser->parse( $fh, ErrorContext => 3);
   };
 
   #### If there's an error, report it in the message
