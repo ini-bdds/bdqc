@@ -21,8 +21,8 @@ my $VERSION = '0.0.1';
 
 #### BEGIN CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
-
-
+use BDQC::FileSignature::FileSignature;
+our @ISA = qw( BDQC::FileSignature::FileSignature );
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -141,30 +141,10 @@ sub calcSignature {
   my $lineEndings = { CR=>0, LF=>0, CRLF=>0, LFCR=>0 };
   my $signature = { nLines=>0, lineEndings=>$lineEndings, averageLineLength=>0, averageWordsPerLine=>0 };
 
-  if ( $filePath =~ /\.gz$/ ) {
-    eval { require IO::Zlib; };
-    if ( $@ ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"IO::ZlibNotInstalled", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"IO::Zlib is not install. Need this to read compressed files: $@");
-      return $response;
-    }
-    my $error;
-    tie(*INFILE, 'IO::Zlib', $filePath, 'r') or $error = 1;
-    if ( $error ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open '$filePath': $@");
-      return $response;
-    }
-  } else {
-    unless ( open(INFILE,$filePath) ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open file '$filePath': $@");
-      return $response;
-    }
-  }
+  my $fh = $self->getFileHandle( filePath => $filePath );
 
   my $line;
-  while ( $line = <INFILE> ) {
+  while ( $line = <$fh> ) {
     $signature->{nLines}++;
 
     #### Record the line endings
@@ -180,9 +160,6 @@ sub calcSignature {
     my @words = split(/\s+/,$line);
     $signature->{averageWordsPerLine} += scalar(@words);
   }
-
-  close(INFILE);
-  untie(*INFILE);
 
   if ( $signature->{nLines} ) {
     $signature->{averageLineLength} /= $signature->{nLines};

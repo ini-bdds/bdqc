@@ -21,8 +21,8 @@ my $VERSION = '0.0.1';
 
 #### BEGIN CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
-
-
+use BDQC::FileSignature::FileSignature;
+our @ISA = qw( BDQC::FileSignature::FileSignature );
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -142,28 +142,8 @@ sub calcSignature {
   #### Set up an empty signature}
   my $signature = { nRows=>0, commentCharacter=>'', nCommentLines=>0, hasColumnNames=>0, nColumns=>0, blankLines=>0 };
 
-  if ( $filePath =~ /\.gz$/ ) {
-    eval { require IO::Zlib; };
-    if ( $@ ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"IO::ZlibNotInstalled", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"IO::Zlib is not install. Need this to read compressed files: $@");
-      return $response;
-    }
-    my $error;
-    tie(*INFILE, 'IO::Zlib', $filePath, 'rb') or $error = 1;
-    if ( $error ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open '$filePath': $@");
-      return $response;
-    }
-  } else {
-    unless ( open(INFILE,$filePath) ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open file '$filePath': $@");
-      return $response;
-    }
-  }
-
+  my $fh = $self->getFileHandle( filePath => $filePath );
+  
   my $iLine=0;
   my %columnCounts;
   my @columnCounts;
@@ -174,7 +154,7 @@ sub calcSignature {
   my $columnHeaderRow = -1;
 
   #### Loop through file, trying to interpret it as delimited data
-  while ( my $line = <INFILE> ) {
+  while ( my $line = <$fh> ) {
     $line =~ s/[\r\n]+$//;
     push(@lines,$line);
 
@@ -267,7 +247,7 @@ sub calcSignature {
       $line = $lines[$iLine];
       last unless ( $line );
     } else {
-      $line = <INFILE>;
+      $line = <$fh>;
       last unless ( $line );
       $line =~ s/[\r\n]//g;
     }
@@ -346,9 +326,6 @@ sub calcSignature {
 
     $iLine++;
   }
-
-  close(INFILE);
-  untie(*INFILE);
 
   #### For each column, calculate a median and SIQR
   my $iColumn = 1;

@@ -21,8 +21,8 @@ my $VERSION = '0.0.1';
 
 #### BEGIN CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
-
-
+use BDQC::FileSignature::FileSignature;
+our @ISA = qw( BDQC::FileSignature::FileSignature );
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -139,46 +139,17 @@ sub calcSignature {
 
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
-
   $isImplemented = 1;
   my %stats = ( fractionAbove127=>0, meanAsciiValue=>0, nDifferentCharacters=>0 );
   $response->{signature} = \%stats;
 
-  if ( $filePath =~ /\.gz$/ ) {
-    eval { require IO::Zlib; };
-    if ( $@ ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"IO::ZlibNotInstalled", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"IO::Zlib is not install. Need this to read compressed files: $@");
-      return $response;
-    }
-    my $error;
-    tie(*INFILE, 'IO::Zlib', $filePath, 'rb') or $error = 1;
-    if ( $error ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFileZlib", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open '$filePath': $@");
-      untie(*INFILE);
-      $stats{fileType} = 'unreadable';
-      $stats{subFileType} = 'unreadable';
-      #$response->setState( status=>'OK', message=>"Method $METHOD could not read file, but that's okay");
-      return $response;
-    }
-  } else {
-    untie(*INFILE);
-    unless ( open(INFILE,'<:raw',$filePath) ) {
-      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnableToOpenFile", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-        message=>"Unable to open file path '$filePath': $@");
-      $stats{fileType} = 'unreadable';
-      $stats{subFileType} = 'unreadable';
-      #$response->setState( status=>'OK', message=>"Method $METHOD could not read file, but that's okay");
-      return $response;
-    }
-  }
+  my $fh = $self->getFileHandle( filePath => $filePath );
 
   my $charHistogram = {};
   my @charList = ();
   
   my $chunk;
-  my $bytesRead = read(INFILE,$chunk,1024*50) || 0;
+  my $bytesRead = read($fh,$chunk,1024*50) || 0;
   my @ascii = unpack("C*",$chunk);
   map { $charList[$_]++; } @ascii;
 
@@ -250,11 +221,8 @@ sub calcSignature {
     }
   }
 
-
   #### Store the results in the response object
   $response->{signature} = \%stats;
-  untie(*INFILE);
-
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {

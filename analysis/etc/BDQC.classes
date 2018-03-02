@@ -80,6 +80,10 @@ class BDQC.FileSignature.Tabular
   method calcSignature
     parameter attribute filePath
     returns object Response
+class BDQC.FileSignature.FileSignature
+  attribute string filePath
+  method getFileHandle
+    parameter attribute filePath
 class BDQC.DataModel
   attribute string vector
   method create

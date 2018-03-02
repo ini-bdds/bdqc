@@ -1074,6 +1074,7 @@ sub importSignatures {
     my $qckb =  $self->getQckb();
 
     if ( $inputFile =~ /\.gz$/ ) {
+      die "Error, not implemented!\n";
       $inputFile = "zcat $inputFile |";
     }
 

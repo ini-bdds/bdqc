@@ -25,6 +25,10 @@ my $VERSION = '0.0.1';
 #### Also, dsize does not get initialized? Carries over from one
 #### parse() to the next??
 #### Better to make these object variables and pass directly to the handlers?
+
+use BDQC::FileSignature::FileSignature;
+our @ISA = qw( BDQC::FileSignature::FileSignature );
+
 my %tags;
 my $dsize;
 my $ctag;
@@ -146,9 +150,9 @@ sub calcSignature {
 
   $isImplemented++;
 
-  use Data::Dumper;
-  use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError);
-  my $fh = new  IO::Uncompress::AnyUncompress $filePath;
+  my $fh = $self->getFileHandle( filePath => $filePath );
+
+
   %tags = ();
   $ctag = '';
 
