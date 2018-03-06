@@ -475,6 +475,8 @@ sub getPlotHTML {
     #### Cluster the files if there are fewer than 500. doing this for a large number of files
     #### takes too long with this slow code. make it faster and allow more.
     if (scalar(@{$hfiles{$ft}}) <= 500 ) {
+#      die Dumper( %heater );
+
       my $pivotResult = pivot( matrix => $heater{$ft} , direction=>1 );
       $clusterResult = cluster( matrix => $pivotResult->{matrix} );
       my $dePivotResult = pivot( matrix => $clusterResult->{clusteredArray} , direction=>-1 );
@@ -693,6 +695,12 @@ sub pivot {
 ##################################################################################################
   my %args = @_;
   my $matrix = $args{matrix} || die ("ERROR: matrix not passed");
+
+  # If matrix isn't an array, report error and return unsorted  
+  if ( ref( $matrix  ) ne 'ARRAY' ) {
+    print STDERR "Error: Matrix not arrayref in pivot\n";
+    return { matrix => $matrix };
+  }
 
   my $nRows = scalar(@{$matrix});
   my $nCols = scalar(@{$matrix->[0]});

@@ -10,7 +10,10 @@ package BDQC::KB;
 use strict;
 use warnings;
 
-eval { require JSON; };
+eval { 
+  require JSON; 
+  JSON->import();
+};
 
 use BDQC::Response qw(processParameters);
 
