@@ -474,8 +474,7 @@ sub getPlotHTML {
 
     #### Cluster the files if there are fewer than 500. doing this for a large number of files
     #### takes too long with this slow code. make it faster and allow more.
-    if (scalar(@{$hfiles{$ft}}) <= 500 ) {
-#      die Dumper( %heater );
+    if ( scalar(@{$hfiles{$ft}}) <= 500 ) {
 
       my $pivotResult = pivot( matrix => $heater{$ft} , direction=>1 );
       $clusterResult = cluster( matrix => $pivotResult->{matrix} );
@@ -661,7 +660,7 @@ Plotly.newPlot('heatmap_div', hdata, hlayout);
         $value = substr($value,0,70)."...." if ( length($value)>74 );
 
         my $noun_link = qq~<a href="#top_div" onclick="showSignaturePlot('$fileType','$fsig')">$fsig</a>~;
-        my $side = ( $deviation < 0 ) ? 'upper' : 'lower';
+        my $side = ( $deviation > 0 ) ? 'upper' : 'lower';
         my $verb = $kb->{_qckb}->{signatureInfo}->{"$signature.$attribute"}->{sideName}->{$side} || "different";
 
         my $itemHTML = $tmpl->{ItemTemplate} . "<br>\n";
@@ -699,6 +698,9 @@ sub pivot {
   # If matrix isn't an array, report error and return unsorted  
   if ( ref( $matrix  ) ne 'ARRAY' ) {
     print STDERR "Error: Matrix not arrayref in pivot\n";
+    return { matrix => $matrix };
+  } elsif ( !defined $matrix->[0] || ref( $matrix->[0] ne 'ARRAY' ) ) {
+    print STDERR "Error: Matrix has too few elements in pivot\n";
     return { matrix => $matrix };
   }
 
