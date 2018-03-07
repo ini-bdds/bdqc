@@ -455,7 +455,11 @@ sub getPlotHTML {
       my $dstr = join( ',', @cdata );
       my $nullinfo = ' ';
       if ( $ncnt ) {
-        $nullinfo = "($ncnt null values are not displayed)";
+        if ( $ncnt == 1 ) {
+          $nullinfo = "($ncnt null value is not displayed)";
+        } else { 
+          $nullinfo = "($ncnt null values are not displayed)";
+        }
       }
       $HTML .= "modelAnnot['$m'] = '$nullinfo'\n";
   
