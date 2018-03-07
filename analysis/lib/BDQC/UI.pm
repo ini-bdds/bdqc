@@ -366,11 +366,13 @@ sub getPlotHTML {
     var models = [];
     var hover = [];
     var jitter = [];
+    var modelAnnot = [];
     var color = [];
     var friendly = [];
     var heatX = [];
     var heatY = [];
     var heatZ = [];
+    var heatAnnot = [];
   ~;
 
   my $outliers = $args{outliers};
@@ -442,11 +444,20 @@ sub getPlotHTML {
       }
       push @{$heater{$ft}}, \@heatrow;
       my @cdata;
+      my $ncnt = 0;
       for my $d ( @data ) {
-        $d = '' if !defined $d;
+        if ( !defined $d ) {
+          $ncnt++;
+          $d = '' 
+        }
         push @cdata, $d;
       }
       my $dstr = join( ',', @cdata );
+      my $nullinfo = ' ';
+      if ( $ncnt ) {
+        $nullinfo = "($ncnt null values are not displayed)";
+      }
+      $HTML .= "modelAnnot['$m'] = '$nullinfo'\n";
   
       $HTML .= "models['$ft']['$m'] = [$dstr]\n"; 
       my $lblstr = join( "','", @flag );
@@ -542,8 +553,9 @@ sub getPlotHTML {
 //      }
     }
     ]
+    var title = '<b>' + model + '</b><br>' + modelAnnot[model];
 
-    Plotly.newPlot('plot_div', plotdata, { title: model, showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false }, margin: { l: 40, r: 30, t: 50, b: 30 }
+    Plotly.newPlot('plot_div', plotdata, { title: title, showlegend: false, hovermode: 'closest', xaxis: { showticklabels: false }, margin: { l: 40, r: 30, t: 50, b: 30 }
         
         } );
 
@@ -629,6 +641,7 @@ Plotly.newPlot('heatmap_div', hdata, hlayout);
   </script>
   <h3 style=text-decoration:underline> File types with outliers</ul> </h3>
   ~;
+#        annotations: [{ showarrow: false,xanchor: 'left', yanchor: 'top', text: modelAnnot[model] } ],
 
   my $fcnt;
   
