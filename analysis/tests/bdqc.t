@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 18;
+use Test::More tests => 25;
 use Test::Harness;
 use strict;
 use FindBin qw ( $Bin );
@@ -16,19 +16,10 @@ my $web_path = "/net/dblocal/wwwspecial/peptideatlas/tmp/";
 
 ok( mk_test_dir(), 'Create testing dir' );
 ok( open_log_file(), 'Create log file' );
+ok( open_outlier_file(), 'Create outlier file' );
 use_ok( 'IO::Uncompress::AnyInflate' );
 #use_ok( 'File::Fetch' );
 ok( import_inflate(), "Import inflate" );
-
-sub import_inflate {
-  IO::Uncompress::AnyInflate->import( qw( anyinflate ) );
-  return 1;
-}
-
-sub open_log_file {
-  open LOGFILE, ">$test_dir/run.log";
-  return 1;
-}
 
 # Test 1
 SKIP: {
@@ -36,11 +27,12 @@ SKIP: {
   $data_path = "$Bin/../testdata/$data_file";
   $test_num = 1;
 
-    skip "Data dir does not exist, unzip ../testdata/$data_file.zip to run these tests", 4 if ( ! -e  $data_path );
+    skip "Data dir does not exist, unzip ../testdata/$data_file.zip to run these tests", 5 if ( ! -e  $data_path );
     ok( run_bdqc_step_1(), 'Running bdqc stepwise - create kb' );
     ok( run_bdqc_step_2(), '                      - Calc and collate' );
     ok( run_bdqc_step_3(), '                      - Show Outliers' );
     ok( run_bdqc_step_4(), '                      - Write HTML' );
+    ok( write_outliers(), "Writing outliers to test file" );
 };
 
 # Test 2
@@ -49,11 +41,12 @@ SKIP: {
   $data_path = "$Bin/../testdata/$data_file";
   $test_num = 2;
 
-    skip "Data dir does not exist, unzip ../testdata/$data_file.zip to run these tests", 4 if ( ! -e  $data_path );
+    skip "Data dir does not exist, unzip ../testdata/$data_file.zip to run these tests", 5 if ( ! -e  $data_path );
     ok( run_bdqc_step_1(), 'Running bdqc stepwise - create kb' );
     ok( run_bdqc_step_2(), '                      - Calc and collate' );
     ok( run_bdqc_step_3(), '                      - Show Outliers' );
     ok( run_bdqc_step_4(), '                      - Write HTML' );
+    ok( write_outliers(), "Writing outliers to test file" );
 };
 
 SKIP: {
@@ -61,8 +54,9 @@ SKIP: {
   $data_path = "$Bin/../testdata/$data_file";
   $test_num = '2a';
 
-    skip "Data dir does not exist, unzip ../testdata/$data_file.zip to run these tests", 1 if ( ! -e  $data_path );
+    skip "Data dir does not exist, unzip ../testdata/$data_file.zip to run these tests", 2 if ( ! -e  $data_path );
     ok( run_bdqc_auto(), 'Running bdqc automatic mode ' );
+    ok( write_outliers(), "Writing outliers to test file" );
 };
 
 # Test 3
@@ -76,13 +70,15 @@ ok( run_bdqc_auto_list(), 'Run bdqc on PM files via list' );
 $test_num = 5;
 $test_num = '3b';
 ok( run_bdqc_auto_glob(), 'Run bdqc on PM files via glob' );
+ok( write_outliers( 'nerdy' ), "Writing outliers to test file" );
 
 SKIP: {
   $data_path = "$Bin/../testdata/nextprot";
   $test_num = '4';
 
-    skip "nextprot data not found, exec mkdir nextprot; cd nextprot; wget 'ftp://ftp.nextprot.org/pub/current_release/chr_reports/*' from ../testdata/ to run these tests", 1 if ( ! -e  $data_path );
-    ok( run_bdqc_auto(), 'Running bdqc on nextprot chromosome files ' );
+  skip "nextprot data not found, exec mkdir nextprot; cd nextprot; wget 'ftp://ftp.nextprot.org/pub/current_release/chr_reports/*' from ../testdata/ to run these tests", 1 if ( ! -e  $data_path );
+  ok( run_bdqc_auto(), 'Running bdqc on nextprot chromosome files ' );
+  ok( write_outliers(), "Writing outliers to test file" );
 };
 
 SKIP: {
@@ -92,6 +88,8 @@ SKIP: {
     ok( cp_html_files(), 'Copying HTML files, view at http://www.peptidatlas.org/tmp/TEST[1-5][abc].hml' );
 };
 
+ok( close_files() );
+
 
 ######################
 ## Test subroutines ##
@@ -99,6 +97,27 @@ SKIP: {
 
 sub cp_html_files {
   system( "cp $test_dir/*.html $web_path" );
+  return 1;
+}
+
+sub import_inflate {
+  IO::Uncompress::AnyInflate->import( qw( anyinflate ) );
+  return 1;
+}
+
+sub open_log_file {
+  open LOGFILE, ">$test_dir/run.log";
+  return 1;
+}
+
+sub close_files {
+  close LOGFILE;
+  close OUTFILE;
+  return 1;
+}
+
+sub open_outlier_file {
+  open OUTFILE, ">$test_dir/outlier.txt";
   return 1;
 }
 
@@ -148,6 +167,18 @@ sub run_bdqc_auto {
   return ( -e "$test_dir/TEST$test_num.qckb.json" ) ? 1 : 0;
 }
 
+# show outliers and write to outliers file
+sub write_outliers {
+  my $out = shift || 'friendly';
+  print OUTFILE "Test $test_num $out:\n";
+  my $output = `$Bin/../bin/bdqc --quiet --kbRootPath '$test_dir/TEST$test_num' --showOut --out $out 2>&1`; 
+  print OUTFILE $output;
+  print OUTFILE "\n\n#####################################\n\n";
+  return 1;
+}
+
+
+
 # bdqc auto with list
 sub run_bdqc_auto_list {
   print LOGFILE "Test $test_num - Automatic mode with list\n____________________________\n";
@@ -167,7 +198,7 @@ sub run_bdqc_auto_glob {
   my $output = `$Bin/../bin/bdqc --kbRootPath '$test_dir/TEST$test_num' --inputFiles $test_dir/* 2>&1`; 
   print LOGFILE $output;
   print LOGFILE "\nNerdy outliers:\n";
-  $output = `$Bin/../bin/bdqc --kbRootPath '$test_dir/TEST$test_num' --showOutliers --out nerdy 2>&1`; 
+  $output = `$Bin/../bin/bdqc --kbRootPath '$test_dir/TEST$test_num' --showOutliers --out  2>&1`; 
   print LOGFILE $output;
   print LOGFILE "\n\n#####################################\n\n";
   return ( -e "$test_dir/TEST$test_num.qckb.json" ) ? 1 : 0;
@@ -216,65 +247,3 @@ sub prep_data {
 }
 
 __DATA__
-sub authenticate {
-  return $sbeams->Authenticate();
-}
-
-sub format_number {
-	my $input = 123456789;
-	my $formatted = $sbeams->formatScientific( output_mode => 'text',
-	                                            precision => 1,
-                                              number => $input
-																						);
-	return ( $formatted eq '1.2E8' ) ? 1 : 0;
-}
-
-sub read_fasta {
-  my $file = "/tmp/.util.test.fasta";
-  open ( FAS, ">$file" ) || return 0;
-  my $fasta = qq~
->IPI000001
-ATGATGGAHAKSGJKAGHAKGJOADFJASASDJOFASJDFOASJFDOASFDJOASJDFQWOCM
-AOSJDFOASJDFMOASMDFAOSDFMOASMDFOASMDFOASMFDOASMDFOASMDFOAMSDOFM
-AISDFASJDFASJDF
->IPI000002 This is one kicking protein
-AOSJDFOASJDFMOASMDFAOSDFMOASMDFOASMDFOASMFDOASMDFOASMDFOAMSDOFM
-ATGATGGAHAKSGJKAGHAKGJOADFJASASDJOFASJDFOASJFDOASFDJOASJDFQWOCM
-AOSJDFOASJDFMOASMDFAOSDFMOASMDFOASMDFOASMFDOASMDFOASMDFOAMSDOFM
->IPI000003 This is one kicking protein
-AOSJDFOASJDFMOASMDFAOSDFMOASMDFOASMDFOASMFDOASMDFOASMDFOAMSDOFM
-ATGATGGAHAKSGJKAGHAKGJOADFJASASDJOFASJDFOASJFDOASFDJOASJDFQWOCM
-AOSJDFOASJDFMOASMDFAOSDFMOASMDFOASMDFOASMFDOASMDFOASMDFOAMSDOFM
-~;
-print FAS $fasta;
-close FAS;
-my $fsa = $sbeams->read_fasta_file( filename => $file,
-                                    acc_regex => ['^>(IPI\d+)'],
-                                    verbose => 0 );
-#print STDERR join( "\t", keys( %$fsa ) ) . "\n";
-
-unlink( $file );
-return 1;
-}
-
-sub delete_key {
-  $sbeams->deleteSessionAttribute( key => $key );
-  my $newval = $sbeams->getSessionAttribute( key => $key );
-  return ( !defined $newval );
-}
-#qw(anyinflate $AnyInflateError)' );
-
-#   use IO::Uncompress::AnyInflate qw(anyinflate $AnyInflateError) ;
-#    anyinflate $input_filename_or_reference => $output_filename_or_reference [,OPTS] 
-#        or die "anyinflate failed: $AnyInflateError\n";
-
-#ok( authenticate(), 'Authenticate login' );
-#ok( format_number(), 'Format number test' );
-#ok( read_fasta(), 'read fasta file test' );
-
-sub breakdown {
- # Put clean-up code here
-}
-END {
-  breakdown();
-} # End END
