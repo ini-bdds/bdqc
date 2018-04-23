@@ -37,6 +37,7 @@ use BDQC::FileSignature::Tabular;
 use Time::HiRes qw(gettimeofday tv_interval);
 use File::Basename;
 use File::Spec;
+use Storable qw( store nstore retrieve dclone );
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -283,13 +284,9 @@ sub calcModels {
     }
   }
 
-  #### Create an entry in the updates log about what this did
-  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
-  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
-    operation => $METHOD,
-    comment => "Calculate models of what seems normal for all $nOperations attributes of all signatures"
-  };
-  push(@{$qckb->{updates}},$updateEntry);
+  my $comment = "Calculate models of what seems normal for all $nOperations attributes of all signatures";
+  $self->add_update( operation => $METHOD, comment => $comment );
+
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -531,12 +528,8 @@ sub calcSignatures {
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Calculated signatures for $nNewFiles new files", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### Create an entry in the updates log about what this did
-  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
-  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
-    operation => $METHOD,
-    comment => "Calculate signatures for $nNewFiles new files"
-  };
-  push(@{$qckb->{updates}},$updateEntry);
+  my $comment = "Calculate signatures for $nNewFiles new files";
+  $self->add_update( operation => $METHOD, comment => $comment );
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -704,12 +697,8 @@ sub collateData {
   }
 
   #### Create an entry in the updates log about what this did
-  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
-  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
-    operation => $METHOD,
-    comment => "Collated all the signatures from all files into a matrix for analysis"
-  };
-  push(@{$qckb->{updates}},$updateEntry);
+  my $comment = "Collated all the signatures from all files into a matrix for analysis";
+  $self->add_update( operation => $METHOD, comment => $comment );
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -1263,7 +1252,6 @@ sub loadKb {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
-  use Storable;
 
   $kbRootPath = $self->getKbRootPath();
   my $filename = "$kbRootPath.qckb.storable";
@@ -1448,7 +1436,6 @@ sub saveKb {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
-  use Storable;
 
   my $qckb = $self->getQckb();
   $kbRootPath = $self->getKbRootPath();
@@ -1807,12 +1794,7 @@ sub scanDataPath {
     $comment = "Scanned files contained in '$inputFiles' and added $stats{newFiles} new files";
   }
 
-  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
-  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
-    operation => $METHOD,
-    comment => $comment
-  };
-  push(@{$qckb->{updates}},$updateEntry);
+  $self->add_update( operation => $METHOD, comment => $comment );
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -2214,6 +2196,22 @@ sub setBuiltinSignatureAttributeDescriptions {
   return;
 }
 
+sub add_update {
+  my $self = shift;
+  my $qckb = $self->getQckb();
+  $self->setIsChanged(1);
+  my %opts = ( operation => 'Generic',
+               comment => '',
+               @_ 
+             );
+
+  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
+  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
+    operation => $opts{operation},
+    comment => $opts{comment} 
+  };
+  push(@{$qckb->{updates}},$updateEntry);
+}
 
 ###############################################################################
 1;
