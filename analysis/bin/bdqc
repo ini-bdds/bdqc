@@ -18,6 +18,7 @@ $| = 1;
 use Getopt::Long;
 use FindBin;
 use Data::Dumper;
+use Storable qw( dclone );
 
 use lib "$FindBin::Bin/../lib";
 
@@ -73,6 +74,8 @@ Options:
   --writeHTML x       Summarize results as HTML to the specified filename. If the filename is STDOUT, the the HTML is written to STDOUT.
                       This option is automatically invoked to STDOUT if called as a cgi (ENV{query_string} set).
   --limitModels x     Limit models to subset of interest: anyVariation (default), extrema, outliers, all
+  --mergeKB           colon separated list of KB files to merge. KB argument is used as the name of the
+                      merged file, so execution will halt if this file exists (won't over-write).
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
 
@@ -85,7 +88,7 @@ unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
                    "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
                    "sensitivity:s","writeHTML:s", "inputFiles:s","outputFormat:s",
-                   "step","selftest","limitModels=s",
+                   "step","selftest","limitModels=s",'mergeKB=s',
   )) {
   print "$USAGE";
   exit 2;
@@ -136,13 +139,55 @@ sub main {
   my $result = $qckb->createKb();
   $response->mergeResponse( sourceResponse=>$result );
 
+  #### This is simply a data manipulation step, put it here to avoid default
+  #### processing that might not be appropriate.
+  if ( $OPTIONS{mergeKB} ) {
+    my $first = 1;
+    my @kbs;
+    my $merge;
+    for my $kb ( split( /:/, $OPTIONS{mergeKB} ) ) {
+      if ( $first ) {
+        $first = 0;
+        $qckb->loadKb(kbRootPath=>$kb);
+        $merge = dclone( $qckb->{_qckb} );
+        $merge->{models} = {};
+      } else {
+        my $base = BDQC::KB->new();
+        $base->createKb();
+        $base->loadKb(kbRootPath=>$kb);
+        my $basekb = dclone( $base->{_qckb} );
+        $basekb->{models} = {};
+       
+        # Fix need more conflict logic
+        my $cnt = scalar( @{$merge->{dataDirectories}} );
+        $cnt++;
+        my %dir2dir;
+        for my $dir ( @{$basekb->{dataDirectories}} ) {
+          my $old_id = $dir->{id};
+          $dir->{id} = 'dir' . $cnt++;
+          $dir2dir{$old_id} = $dir->{id};
+          push @{$merge->{dataDirectories}}, $dir;
+        }
+        for my $f ( keys( %{$basekb->{files}} ) ) {
+          my $newkey = $f;
+          $newkey =~ /^(dir(\d+)):/;
+          my $old_dir = $1 || die $f;
+          $newkey =~ s/$old_dir/$dir2dir{$old_dir}/g;
+          $merge->{files}->{$newkey} = dclone( $basekb->{files}->{$f} );
+        }
+      }
+    }
+    $qckb->{_qckb} = dclone( $merge );
+    $qckb->add_update( operation => 'Merger', comment => "merged files $OPTIONS{mergeKB}" ); 
+  }
+
   #### If no kbRootPath is set, use a default name
   unless ( $OPTIONS{kbRootPath} ) {
     $OPTIONS{kbRootPath} = "BDQC";
   }
 
   #### If a KBQC file parameter was provided, try to load and existing one to warm start with
-  if ( $OPTIONS{kbRootPath} ) {
+  if ( $OPTIONS{kbRootPath} && !$OPTIONS{mergeKB} ) {
     $result = $qckb->loadKb( kbRootPath=>$OPTIONS{kbRootPath}, skipIfFileNotFound=>1 );
     $response->mergeResponse( sourceResponse=>$result );
   }
