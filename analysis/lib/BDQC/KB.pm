@@ -267,6 +267,7 @@ sub calcModels {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
         next if ( $attributesToSkip{"$signature.$attribute"} );
         my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
+        use Data::Dumper;
         my $model;
         $model = BDQC::DataModel->new( vector=>$values );
         my $result = $model->create();
@@ -2210,7 +2211,8 @@ sub add_update {
     operation => $opts{operation},
     comment => $opts{comment} 
   };
-  push(@{$qckb->{updates}},$updateEntry);
+  $qckb->{updates} ||= [];
+  push @{$qckb->{updates}},$updateEntry;
 }
 
 ###############################################################################

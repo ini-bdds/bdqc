@@ -151,6 +151,10 @@ sub main {
         $qckb->loadKb(kbRootPath=>$kb);
         $merge = dclone( $qckb->{_qckb} );
         $merge->{models} = {};
+        $merge->{fileTypes} = {};
+#        for my $ft ( keys( %{$merge->{fileTypes}} ) ) {
+#          $merge->{fileTypes}->{$ft} = {};
+#        }
       } else {
         my $base = BDQC::KB->new();
         $base->createKb();
@@ -170,15 +174,31 @@ sub main {
         }
         for my $f ( keys( %{$basekb->{files}} ) ) {
           my $newkey = $f;
+          print STDERR "newkey is $newkey\n";
           $newkey =~ /^(dir(\d+)):/;
           my $old_dir = $1 || die $f;
           $newkey =~ s/$old_dir/$dir2dir{$old_dir}/g;
           $merge->{files}->{$newkey} = dclone( $basekb->{files}->{$f} );
         }
+
+        for my $update ( @{$basekb->{updates}} ) {
+          $update->{comment} .= "[Merged from KB $kb]";
+          push @{$merge->{updates}}, $update;
+        }
       }
     }
     $qckb->{_qckb} = dclone( $merge );
     $qckb->add_update( operation => 'Merger', comment => "merged files $OPTIONS{mergeKB}" ); 
+    $OPTIONS{collateData} = 1;
+    $OPTIONS{calcModels} = 0;
+    $OPTIONS{calcSignatures} = 0;
+    $merge->{fileTypes} = {};
+    for my $f ( keys( %{$merge->{files}} ) ) {
+      if ( $merge->{files}->{$f}->{signatures} && $merge->{files}->{$f}->{signatures}->{tracking} ) {
+        delete $merge->{files}->{$f}->{signatures}->{tracking}->{hasBeenCollated};
+      }
+    }
+    $qckb->{_qckb} = $merge;
   }
 
   #### If no kbRootPath is set, use a default name
@@ -213,7 +233,7 @@ sub main {
   #### Determine if we should be in step-by-step mode or autorun mode
   my $autorun = 1;
   $autorun = 0 if ( $OPTIONS{step} );
-  $autorun = 0 if ( $OPTIONS{calcSignatures} || $OPTIONS{collateData} || $OPTIONS{showOutliers} || $OPTIONS{writeHTML});
+  $autorun = 0 if ( $OPTIONS{calcSignatures} || $OPTIONS{collateData} || $OPTIONS{showOutliers} || $OPTIONS{writeHTML}) || $OPTIONS{mergeKB};
 
   #### Calculate signatures for all files in the KB
   if ( $result->{status} eq 'OK' && ( $OPTIONS{calcSignatures} || $autorun ) ) {
