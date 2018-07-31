@@ -670,7 +670,9 @@ sub collateData {
   foreach my $fileTypeName ( keys(%{$qckb->{fileTypes}}) ) {
     my $signatures = $qckb->{fileTypes}->{$fileTypeName}->{signatures};
     foreach my $fileTag ( @{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}} ) {
-      foreach my $signature ( keys(%{$qckb->{files}->{$fileTag}->{signatures}}) ) {
+
+      #### Loop over the complete list of all signatures for this fileType
+      foreach my $signature ( keys(%{$allAttributes->{fileTypes}->{$fileTypeName}->{signatures}}) ) {
 
         #### Loop over the complete list of all attributes we collected for this signature
         foreach my $attribute ( keys(%{$allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}}) ) {
@@ -686,8 +688,16 @@ sub collateData {
           if ( exists($qckb->{files}->{$fileTag}->{signatures}->{$signature}->{$attribute}) ) {
             $fileAttribute = $qckb->{files}->{$fileTag}->{signatures}->{$signature}->{$attribute};
           }
+
           #### Push whatever we found or didn't find onto the list. This list might have some nulls
           push(@{$signatures->{$signature}->{$attribute}->{values}},$fileAttribute);
+
+          #### debugging a nasty bug
+          #if ( $attribute eq 'columns.1.nDiscreteValues' or $attribute eq 'meanAsciiValue' ) {
+          #  print "  $signature-$attribute = $fileAttribute, fileTag=$fileTag\n";
+	  #  print "  ".join(",",@{$signatures->{$signature}->{$attribute}->{values}})."\n";
+          #}
+
         }
       }
 
