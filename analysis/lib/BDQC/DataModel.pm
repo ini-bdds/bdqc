@@ -157,22 +157,40 @@ sub create {
   #### Determine which subModel the data in $vector should be sent to
   my $subModel;
 
-  #### If the first element is a HASH, then send this to the Histogram model
-  #### There should be better checking on this. Check all elements to make sure they're consistent. FIXME
-  if ( ref($vector->[0]) eq 'HASH' ) {
+  #### Determine what the dataType of this model is, ignoring nulls
+  #### Fail if there are multiple types
+  my $dataType;
+  foreach my $element ( @{$vector} ) {
+    #### Skip nulls
+    next if ( !defined($element) );
+    my $thisType = ref($element);
+    if ( !defined($dataType) ) {
+      $dataType = $thisType;
+    } elsif ( $thisType ne $dataType ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"MultiDataTypeVector", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Vector has mixed datatypes '$dataType' and '$thisType'");
+      return $response;
+    }
+  }
+
+  #### If all nulls, make it a scalar
+  $dataType = '' unless ( defined($dataType) );
+
+  #### Run the appropriate model
+  if ( $dataType eq 'HASH' ) {
     $subModel = BDQC::DataModel::Histogram->new( vector=>$vector );
-  } elsif ( ref($vector->[0]) eq 'ARRAY' ) {
+  } elsif ( $dataType eq 'ARRAY' ) {
     $subModel = BDQC::DataModel::Array->new( vector=>$vector );
-  } elsif ( ref($vector->[0]) eq 'JSON::PP::Boolean' ) {
+  } elsif ( $dataType eq 'JSON::PP::Boolean' ) {
     $subModel = BDQC::DataModel::Scalar->new( vector=>$vector );
-  } elsif ( ref($vector->[0]) eq '' ) {
+  } elsif ( $dataType eq '' ) {
     $subModel = BDQC::DataModel::Scalar->new( vector=>$vector );
   } else {
-    my $strangeDataType = ref($vector->[0]);
     $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"UnrecognizedDataType", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Datatype '$strangeDataType' not recognized");
+      message=>"Datatype '$dataType' not recognized");
     return $response;
   }
+
 
   my $result = $subModel->create();
   $response->mergeResponse( sourceResponse=>$result );
