@@ -5,7 +5,7 @@ Notes testing BDQC with the sample datasets
 
 The following tests can be run using files that are currently in this repo:
 
-On Linux:
+On Linux tcsh:
 set BDQC=/net/db/projects/BDDS/BDQC/bdqc/analysis
 setenv PATH $BDQC/bin:$PATH
 rehash
