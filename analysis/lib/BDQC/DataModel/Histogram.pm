@@ -152,6 +152,7 @@ sub create {
   my @sums = ();
   my $iHistogram = 0;
   foreach my $histogram ( @{$vector} ) {
+    next if ( !defined($histogram) );
     my $sum = 0;
     foreach my $key ( keys(%{$histogram}) ) {
       $sum += $histogram->{$key};
@@ -168,6 +169,10 @@ sub create {
   $iHistogram = 0;
   my @numericalVector = ();
   foreach my $histogram ( @{$vector} ) {
+    if ( !defined($histogram) ) {
+      push(@numericalVector,undef);
+      next;
+    }
     my $sum = $sums[$iHistogram];
     my $summedVariance = 0;
     foreach my $key ( keys(%{$histogram}) ) {
